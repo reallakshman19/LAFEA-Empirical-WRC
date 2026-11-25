@@ -1,0 +1,157 @@
+{
+  "schema": "lafea-benchmark-validation-program/v1",
+  "programId": "LAFEA-BENCHMARK-VALIDATION-PROGRAM",
+  "repository": "reallaksh19/Advanced_Analysis",
+  "definitionBaseSha": "258f567afa350f6f2d6ffa93bd80756596444596",
+  "executionPolicy": {
+    "mode": "SEQUENTIAL_CASE_THEN_METHOD",
+    "advanceOnlyAfterCurrentCasePass": true,
+    "executeAllApplicableMethodsWithinCurrentCase": true,
+    "trackedCleanTreeRequired": true,
+    "exactHeadRecorded": true,
+    "failedMethodsRetained": true,
+    "performanceIsInformational": true
+  },
+  "evidencePolicy": {
+    "productionOutputMayGenerateExpectedValues": false,
+    "independentOraclesRemainAuthoritative": true,
+    "stdoutAndStderrRetainedAndHashed": true,
+    "referencedInputsAndOraclesHashed": true,
+    "recordHashRequired": true,
+    "releaseAuthorityGrantedByProgram": false,
+    "temperatureAuthorityGrantedByProgram": false
+  },
+  "activeCaseId": "B02",
+  "cases": [
+    {
+      "caseId": "B01",
+      "definitionState": "READY",
+      "title": "2D continuum affine patch — cross-method formulation gate",
+      "stageId": "LAFEA.3",
+      "benchmarkClass": "AFFINE_CONSTANT_STRAIN_PATCH",
+      "comparisonPolicy": "CROSS_METHOD_INVARIANTS_NOT_DIRECT_NUMERICAL_PARITY",
+      "purpose": "Exercise every currently implemented LAFEA.3 continuum element route against rigid-body, affine/constant-strain, Jacobian and deterministic qualification expectations before advancing to engineering-response benchmarks.",
+      "methods": [
+        {
+          "methodId": "T3",
+          "authorityClass": "REGISTERED_PRODUCTION_ROUTE_FALLBACK",
+          "command": ["node", "scripts/lafea-bucket-01-t3-patch-check.mjs"],
+          "sourceRefs": [
+            "scripts/lafea-bucket-01-t3-patch-check.mjs",
+            "validation/bucket-01/04-t3-patch-oracle.json"
+          ],
+          "reportEnv": {
+            "name": "LAFEA_BUCKET_01_T3_PATCH_REPORT_PATH",
+            "filename": "B01-T3-evidence.json"
+          },
+          "expectedEvidenceSchema": "lafea-bucket-01-t3-patch-evidence/v1",
+          "oracleAuthority": "FROZEN_CLOSED_FORM_AFFINE_UNIAXIAL_STRESS"
+        },
+        {
+          "methodId": "T6",
+          "authorityClass": "REGISTERED_PRODUCTION_ROUTE",
+          "command": ["node", "scripts/lafea.3-t6-patch-check.mjs"],
+          "sourceRefs": ["scripts/lafea.3-t6-patch-check.mjs"],
+          "expectedEvidenceSchema": null,
+          "oracleAuthority": "ELEMENT_PATCH_INVARIANTS_AND_QUALIFICATION_PROFILE"
+        },
+        {
+          "methodId": "Q8",
+          "authorityClass": "REGISTERED_PRODUCTION_ROUTE",
+          "command": ["node", "scripts/lafea.3-q8-patch-check.mjs"],
+          "sourceRefs": ["scripts/lafea.3-q8-patch-check.mjs"],
+          "expectedEvidenceSchema": null,
+          "oracleAuthority": "ELEMENT_PATCH_INVARIANTS_AND_QUALIFICATION_PROFILE"
+        }
+      ],
+      "passCriteria": [
+        "all three method commands exit zero",
+        "T3 governed evidence is retained when produced",
+        "all referenced benchmark definitions are hash-bound in the audit record",
+        "no expected value is generated from observed production output",
+        "release and temperature authority remain false"
+      ]
+    },
+    {
+      "caseId": "B02",
+      "definitionState": "READY",
+      "title": "2D continuum engineering response — bending, shear, hole and lug progression",
+      "stageId": "LAFEA.3",
+      "benchmarkClass": "STAGED_SOLVER_BENCHMARK",
+      "comparisonPolicy": "STAGE_SPECIFIC_INDEPENDENT_ORACLE_AND_INVARIANTS",
+      "purpose": "Execute the retained S0-S5 LAFEA.3 solver and element numerical ladder through its governed contiguous stage gate without granting production-mesh, temperature, or release authority.",
+      "methods": [
+        {
+          "methodId": "BM-S-S0-S5",
+          "authorityClass": "STAGED_SOLVER_BENCHMARK_PROGRAM",
+          "command": ["node", "scripts/lafea.3-solver-benchmark-run.mjs", "--stage", "S0..S5"],
+          "sourceRefs": [
+            "scripts/lafea.3-solver-benchmark-run.mjs",
+            "validation/lafea-benchmark-data/B02/bucket-manifest.json"
+          ],
+          "expectedEvidenceSchema": "lafea3-bm-s-program-run/v1",
+          "oracleAuthority": "B02_STAGED_S0_S5_INDEPENDENT_ORACLE_AND_INVARIANT_LADDER"
+        }
+      ],
+      "passCriteria": [
+        "the governed staged runner exits zero",
+        "S0 through S5 form one contiguous authorized PASS prefix",
+        "each selected stage retains its own audit record and evidence",
+        "performance observations remain informational only",
+        "production mesh, temperature, and release authority remain false"
+      ]
+    },
+    {
+      "caseId": "BM-MESH",
+      "definitionState": "READY",
+      "title": "Common analysis-mesh benchmark — LAFEA.3 and LAFEA.4 staged producer contract",
+      "stageId": "LAFEA.3+LAFEA.4",
+      "benchmarkClass": "STAGED_ANALYSIS_MESH_BENCHMARK",
+      "comparisonPolicy": "STAGE_SPECIFIC_PRODUCTION_MESH_CONTRACT_AND_INDEPENDENT_ORACLE",
+      "purpose": "Execute frozen M0-M4 production analysis-mesh benchmarks under recorded execution authority and contiguous stage gating; registration grants no production, release or temperature authority.",
+      "methods": [
+        {
+          "methodId": "BM-MESH-M0-M4",
+          "authorityClass": "STAGED_ANALYSIS_MESH_BENCHMARK_PROGRAM",
+          "command": [
+            "node",
+            "scripts/lafea-mesh-benchmark-run.mjs",
+            "--stage",
+            "M4"
+          ],
+          "sourceRefs": [
+            "scripts/lafea-mesh-benchmark-run.mjs",
+            "validation/lafea-benchmark-data/MESH/bucket-manifest.json",
+            "validation/lafea-benchmark-data/MESH/sources/source-registry.json",
+            "validation/lafea-benchmark-data/MESH/geometry/cases.json",
+            "validation/lafea-benchmark-data/MESH/oracle/expected-values.json",
+            "validation/lafea-benchmark-data/MESH/convergence/mesh-ladders.json",
+            "validation/lafea-benchmark-data/MESH/convergence/fixed-probes.json",
+            "validation/lafea-benchmark-data/MESH/governance/negative-cases.json",
+            "scripts/lib/lafea-mesh-benchmark-m4.mjs",
+            "validation/lafea-benchmark-data/MESH/convergence/shell-thickness.json",
+            "validation/lafea-benchmark-data/MESH/convergence/m4-physics-response.json",
+            "validation/lafea-benchmark-data/MESH/convergence/m3-policy-v2.json",
+            "scripts/lib/lafea-mesh-benchmark-m3.mjs"
+          ],
+          "expectedEvidenceSchema": "lafea-mesh-benchmark-program-run/v1",
+          "oracleAuthority": "BM_MESH_M0_M4_FROZEN_INDEPENDENT_GEOMETRY_ORACLE_AND_PRODUCTION_MESH_CONTRACT"
+        }
+      ],
+      "passCriteria": [
+        "the governed staged runner exits zero",
+        "M0 through M4 form one contiguous authorized PASS prefix",
+        "each selected mesh stage retains its own audit record and evidence",
+        "all frozen benchmark definitions and producer-policy custody inputs are hash-bound",
+        "no expected value is generated from observed production output",
+        "release and temperature authority remain false"
+      ]
+    }
+  ],
+  "futureQueue": [
+    {"caseId": "B03", "title": "Thin-shell patch and bending — authoritative route plus explicitly non-production method checks", "activation": "AFTER_B02_PASS"},
+    {"caseId": "B04", "title": "Trunnion footprint — load distribution and shell-result custody", "activation": "AFTER_B03_PASS"},
+    {"caseId": "B05", "title": "Foundation and pipe-section analytical screening", "activation": "AFTER_B04_PASS"},
+    {"caseId": "B06", "title": "Governance negative suite — unsupported, singular, stale, temperature and release fail-closed cases", "activation": "AFTER_B05_PASS"}
+  ]
+}

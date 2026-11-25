@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-lafea/
+test-results/
+playwright-report/
+reports/
+# reference clone of the upstream monorepo and extraction helpers
+_source/
+_tools/
+
+.claude/
+artifacts/

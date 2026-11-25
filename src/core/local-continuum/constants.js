@@ -1,0 +1,102 @@
+export const MODEL_SCHEMA = 'local-continuum-model/v1';
+export const RESULT_SCHEMA = 'local-continuum-result/v1';
+export const SOURCE_EVIDENCE_SCHEMA = 'local-continuum-source-evidence/v1';
+export const QUALIFICATION_PROFILE_SCHEMA = 'local-continuum-qualification-profile/v1';
+export const ENGINEERING_LEVEL = 'LINEAR_2D_CONTINUUM_T3_T6_Q8';
+
+export const FORMULATIONS = Object.freeze({
+  PLANE_STRESS: 'PLANE_STRESS',
+  PLANE_STRAIN: 'PLANE_STRAIN',
+  // Separately qualified mean-dilatation formulation. This is intentionally a
+  // distinct source identity: selecting it must never reinterpret or weaken
+  // the legacy displacement-only PLANE_STRAIN contract.
+  PLANE_STRAIN_BBAR: 'PLANE_STRAIN_BBAR',
+});
+
+/**
+ * Conservative interim guard for the legacy displacement-only plane-strain
+ * formulation. These values do not prove absence of volumetric locking below
+ * the block boundary; they prevent the clearly near-incompressible regime from
+ * being accepted without a separately qualified locking-resistant formulation.
+ * The boundary is source-controlled and may not be relaxed through solver/UI
+ * tolerances. Mesh-sensitivity/convergence evidence remains independently
+ * required for engineering release.
+ */
+export const FORMULATION_GUARDS = Object.freeze({
+  planeStrainPoissonWarning: 0.40,
+  planeStrainPoissonBlock: 0.45,
+});
+
+export const DOFS = Object.freeze({ UX: 'UX', UY: 'UY' });
+/**
+ * Spec §7: "Default T6 quadratic triangle and Q8 quadratic quadrilateral.
+ * T3 is benchmark/fallback only and cannot be the default production mesh."
+ * T3 remains a valid element type but requires the model's
+ * `elementTypePolicy.allowT3Fallback` to be explicitly `true`.
+ */
+export const ELEMENT_TYPES = Object.freeze({ T3: 'T3', T6: 'T6', Q8: 'Q8' });
+export const ELEMENT_TYPE_NODE_COUNTS = Object.freeze({ T3: 3, T6: 6, Q8: 8 });
+export const ELEMENT_TYPE_CORNER_COUNTS = Object.freeze({ T3: 3, T6: 3, Q8: 4 });
+export const QUALIFICATION_STATES = Object.freeze({
+  ACCEPTED: 'ACCEPTED',
+  REJECTED_MODEL: 'REJECTED_MODEL',
+  REJECTED_LOAD_CASE: 'REJECTED_LOAD_CASE',
+  UNSUPPORTED_REQUEST: 'UNSUPPORTED_REQUEST',
+  SINGULAR_SYSTEM: 'SINGULAR_SYSTEM',
+  NUMERICAL_FAILURE: 'NUMERICAL_FAILURE',
+});
+export const CANONICAL_UNITS = Object.freeze({
+  length: 'mm', force: 'N', stress: 'MPa', modulus: 'MPa', strain: 'dimensionless',
+  bodyForceIntensity: 'N/mm^3',
+});
+export const BASE_LIMITATIONS = Object.freeze([
+  'NO_ADAPTIVE_MESHING', 'NO_BENDING_DOF',
+  'NO_BUCKLING', 'NO_CODE_COMPLIANCE', 'NO_CONTACT', 'NO_CRACK_OR_FRACTURE',
+  'NO_DRILLING_DOF', 'NO_FATIGUE', 'NO_FRICTION', 'NO_LARGE_DISPLACEMENT',
+  'NO_ATTACHMENT_SPECIFIC_LOCAL_STRESS', 'NO_CONTOUR_AUTHORITY',
+  'NO_MATERIAL_NONLINEARITY', 'NO_NODAL_OR_SMOOTHED_STRESS', 'NO_NODAL_STRESS_AVERAGING', 'NO_PLASTICITY',
+  'NO_SHELL_ELEMENTS', 'NO_STRESS_SINGULARITY_ACCEPTANCE',
+  'NO_WELD_STRESS',
+]);
+export const FORMULA_IDS = Object.freeze({
+  UNIT_CONVERSION: 'EXPLICIT_CONTINUUM_UNIT_CONVERSION_V1',
+  ORIENTATION: 'CST_COUNTERCLOCKWISE_ORIENTATION_NORMALIZATION_V1',
+  B_MATRIX: 'CST_ENGINEERING_STRAIN_B_MATRIX_V1',
+  PLANE_STRESS_D: 'ISOTROPIC_PLANE_STRESS_CONSTITUTIVE_MATRIX_V1',
+  PLANE_STRAIN_D: 'ISOTROPIC_PLANE_STRAIN_CONSTITUTIVE_MATRIX_V1',
+  STIFFNESS: 'CST_STIFFNESS_T_A_BT_D_B_V1',
+  ASSEMBLY: 'DETERMINISTIC_GLOBAL_STIFFNESS_ASSEMBLY_V1',
+  SPARSE_ASSEMBLY: 'DETERMINISTIC_SYMMETRIC_CSR_ASSEMBLY_V1',
+  NODAL_FORCE: 'EXPLICIT_NODAL_FORCE_ASSEMBLY_V1',
+  EDGE_TRACTION: 'UNIFORM_BOUNDARY_EDGE_TRACTION_CONSISTENT_LOAD_V1',
+  PARTITION: 'EXACT_PRESCRIBED_DISPLACEMENT_PARTITION_V1',
+  CHOLESKY: 'DETERMINISTIC_SPD_CHOLESKY_SOLVE_V1',
+  PCG: 'DETERMINISTIC_JACOBI_PRECONDITIONED_CONJUGATE_GRADIENT_V1',
+  REACTION: 'REACTION_KU_MINUS_F_V1',
+  STRAIN: 'CST_CONSTANT_ENGINEERING_STRAIN_RECOVERY_V1',
+  STRESS: 'CST_CONSTANT_IN_PLANE_STRESS_RECOVERY_V1',
+  SIGMA_Z: 'FORMULATION_CORRECT_SIGMA_Z_RECOVERY_V1',
+  PRINCIPAL: 'IN_PLANE_PRINCIPAL_STRESS_RECOVERY_V1',
+  VON_MISES: 'THREE_DIMENSIONAL_VON_MISES_RECOVERY_V1',
+  ENERGY: 'THERMOELASTIC_PHYSICAL_STRAIN_ENERGY_RECONSTRUCTION_V2',
+  EQUILIBRIUM: 'FREE_DOF_AND_REACTION_EQUILIBRIUM_V1',
+  PRESSURE_LOAD: 'BOUNDARY_EDGE_NORMAL_PRESSURE_CONSISTENT_LOAD_V1',
+  BODY_FORCE_LOAD: 'ELEMENT_BODY_FORCE_CONSISTENT_LOAD_V1',
+  THERMAL_STRAIN_LOAD: 'FORMULATION_CORRECT_ISOTROPIC_THERMAL_STRAIN_LOAD_V2',
+  IMPOSED_DISPLACEMENT_LOAD: 'LOAD_CASE_IMPOSED_DISPLACEMENT_PARTITION_V1',
+});
+export const QUALIFICATION_PROFILE = Object.freeze({
+  schema: QUALIFICATION_PROFILE_SCHEMA,
+  identity: 'LAFEA3_SCALE_AWARE_CST_V1',
+  tolerances: Object.freeze({
+    minimumElementArea: Object.freeze({ absolute: 1e-12, relative: 1e-12 }),
+    stiffnessSymmetry: Object.freeze({ absolute: 1e-10, relative: 1e-12 }),
+    constitutiveSymmetry: Object.freeze({ absolute: 1e-12, relative: 1e-12 }),
+    choleskyPivot: Object.freeze({ absolute: 1e-12, relative: 1e-12 }),
+    freeDofResidual: Object.freeze({ absolute: 1e-8, relative: 1e-10 }),
+    reactionEquilibrium: Object.freeze({ absolute: 1e-8, relative: 1e-10 }),
+    strainEnergy: Object.freeze({ absolute: 1e-8, relative: 1e-10 }),
+    rigidBodyStrain: Object.freeze({ absolute: 1e-12, relative: 1e-12 }),
+    patchTestStress: Object.freeze({ absolute: 1e-9, relative: 1e-10 }),
+  }),
+});

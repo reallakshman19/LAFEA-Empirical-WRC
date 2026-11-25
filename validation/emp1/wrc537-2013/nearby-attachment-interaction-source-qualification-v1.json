@@ -1,0 +1,127 @@
+{
+  "schema": "emp1-wrc537-nearby-attachment-interaction-source-qualification/v1",
+  "qualificationId": "EMP1_WRC537_2013_NEARBY_INTERACTION_SOURCE_Q1",
+  "issue": 1373,
+  "sourceDocument": {
+    "path": "docs/emp1/WRC537_2013.pdf",
+    "gitBlobSha": "ce861233928154145a9257efbbf8dbef3f5a17d1",
+    "rawSha256": "698fcdc3e676e3bc6bbf710bc28ea8b666ac9511a81a0067a5d01088ae4c27b2"
+  },
+  "status": "BLOCKED_PARTIAL_PRIMARY_STRESS_ATTENUATION_AND_IDEALIZED_CASE_LIMITATION_QUALIFIED_NEIGHBOR_SPACING_AND_INTERACTION_AUTHORITY_UNRESOLVED",
+  "externalPrimaryTextObservation": {
+    "status": "PASS_TEXT_OBSERVED",
+    "documentIdentity": "WRC 537 (2013)",
+    "rendering": "https://studylib.net/doc/25312294/wrc-537-",
+    "byteIdentityToPinnedPdf": "UNPROVEN",
+    "locators": [
+      {
+        "locator": "Section 4.1 cylindrical-shell sign-convention discussion immediately before Section 4.2, printed page 11",
+        "directObservation": "PVRC test work is reported to show rapid attenuation of shell stresses at points removed from the attachment-to-shell juncture, with the maximum usually at the juncture",
+        "boundedConclusion": "QUALITATIVE_LOCAL_STRESS_ATTENUATION_AWAY_FROM_ATTACHMENT_JUNCTURE_OBSERVED"
+      },
+      {
+        "locator": "Section 4.5 Limits On Application, printed page 17",
+        "directObservation": "for relatively large attachments or situations departing considerably from the idealized cases, the designer is directed to Appendix A.3 and the original references for applicability limitations",
+        "boundedConclusion": "SUBSTANTIALLY_NONIDEAL_CASES_REQUIRE_DEEPER_SOURCE_APPLICABILITY_REVIEW"
+      }
+    ]
+  },
+  "primarySourceDirectlyReobserved": false,
+  "primarySourceExecutionStatus": "NOT_RUN_EXECUTION_ENVIRONMENT_BINARY_TRANSPORT",
+  "retainedTable5Evidence": {
+    "path": "docs/emp1/WRC537_2013_Tables_and_Charts.md",
+    "gitBlobSha": "810a39d845e15bae92d9c30abb8d452401e711d2",
+    "table": "Table 5",
+    "pages": "41-42",
+    "neighborAttachmentGeometryInputPresent": false,
+    "localDiscontinuityInventoryInputPresent": false,
+    "neighborSpacingInputPresent": false,
+    "interactionCorrectionInputPresent": false,
+    "classification": "QUALIFIED_TABLE5_EXPLICIT_INPUT_CONTENT_ONLY_NOT_ISOLATION_OR_NONINTERACTION_AUTHORITY"
+  },
+  "existingQualifiedApplicabilityRulesPreserved": {
+    "radialLoadCylinderLength": "l >= Rm when P is active",
+    "externalMomentEndDistance": "nearest cylinder end distance >= 0.5*Rm when Mc or Ml is active",
+    "sourceSection": "WRC537_4.5",
+    "changedByThisIncrement": false
+  },
+  "partialAuthority": {
+    "qualitativeStressAttenuationAwayFromJunctureQualified": true,
+    "maximumUsuallyAtJunctureObservationQualified": true,
+    "substantiallyNonidealCaseApplicabilityWarningQualified": true,
+    "appendixA3AndOriginalReferenceReviewDirectionQualified": true,
+    "quantitativeNeighborSpacingCriterionQualified": false,
+    "neighborSpacingDistanceBasisQualified": false,
+    "neighborSpacingInclusivityQualified": false,
+    "loadFamilyInteractionDependenceQualified": false,
+    "attachmentAlignmentInteractionDependenceQualified": false,
+    "commonReinforcementInteractionQualified": false,
+    "localDiscontinuitySeparationQualified": false,
+    "independentAttachmentEvaluationQualified": false,
+    "overlappingStressFieldSuperpositionQualified": false,
+    "interactionCorrectionQualified": false,
+    "automaticAlternativeMethodOrFeaTriggerQualified": false
+  },
+  "currentRouteCapability": {
+    "neighborAttachmentGeometryRetained": false,
+    "localDiscontinuityInventoryRetained": false,
+    "interactionCorrectionImplemented": false,
+    "independentAttachmentStressFieldSuperpositionAuthority": false,
+    "productionRouteAuthority": true,
+    "productionRouteAuthorityClassification": "OWNER_AUTHORIZED_BOUNDED_ROUTE_DOES_NOT_CLOSE_INTERACTION_SOURCE_GATE"
+  },
+  "engineeringConclusions": {
+    "table5ExplicitNeighborGeometryInputAbsent": true,
+    "table5ExplicitSpacingInputAbsent": true,
+    "primaryTextSupportsQualitativeStressAttenuation": true,
+    "primaryTextIdentifiesIdealizedCaseApplicabilityBoundary": true,
+    "existingEndDistanceRulesProveNeighborNoninteraction": false,
+    "rapidStressAttenuationProvesNeighborNoninteraction": false,
+    "rapidStressAttenuationDefinesASeparationDistance": false,
+    "maximumUsuallyAtJunctureProvesAllRemoteStressNegligible": false,
+    "idealizedCaseWarningAuthorizesAutomaticFea": false,
+    "absenceOfNeighborInputsProvesIsolation": false,
+    "nearbyAttachmentInteractionAccountedFor": false,
+    "nearbyDiscontinuityInteractionAccountedFor": false,
+    "sourceQualifiedSpacingCriterionAvailable": false,
+    "sourceQualifiedInteractionCorrectionAvailable": false,
+    "overlappingIndependentWrcResultsMayBeSuperposed": false,
+    "table5InputSilenceProvesNoninteraction": false
+  },
+  "requiredPrimarySourceClosure": [
+    "isolated-attachment assumption or equivalent source statement if such authority exists",
+    "quantitative nearby-attachment spacing criterion if any",
+    "distance basis and inclusivity",
+    "load-family dependence of interaction rules",
+    "same-circumferential versus longitudinal neighbor effects if distinguished",
+    "local discontinuity restrictions beyond existing cylinder-end rules",
+    "common reinforcement/support/stiffener/local-thickness interaction rules",
+    "independent-evaluation and stress-field superposition authority",
+    "interaction correction or alternative-method rule when separation is insufficient",
+    "canonical geometry evidence required to prove noninteraction"
+  ],
+  "prohibitions": [
+    "DO_NOT_INVENT_NEIGHBOR_SPACING_LIMIT",
+    "DO_NOT_CONVERT_QUALITATIVE_STRESS_ATTENUATION_INTO_A_NUMERICAL_SEPARATION_RULE",
+    "DO_NOT_TREAT_RAPID_ATTENUATION_AS_PROOF_OF_NONINTERACTION",
+    "DO_NOT_TREAT_ABSENT_NEIGHBOR_INPUT_AS_ISOLATION_PROOF",
+    "DO_NOT_SUPERPOSE_OVERLAPPING_INDEPENDENT_WRC_ATTACHMENT_SOLUTIONS_WITHOUT_AUTHORITY",
+    "DO_NOT_TREAT_THE_IDEALIZED_CASE_WARNING_AS_AN_AUTOMATIC_FEA_REQUIREMENT",
+    "DO_NOT_WEAKEN_EXISTING_WRC537_4_5_END_DISTANCE_RULES",
+    "DO_NOT_CLAIM_NEARBY_SUPPORT_OR_DISCONTINUITY_EFFECTS_ARE_INCLUDED",
+    "DO_NOT_INFER_NONINTERACTION_FROM_TABLE5_INPUT_SILENCE"
+  ],
+  "authorityEffect": {
+    "productionNumericsChanged": false,
+    "applicabilityNumericsChanged": false,
+    "productionGeometryEvidenceChanged": false,
+    "interactionModelImplemented": false,
+    "routeRegistryChanged": false,
+    "gammaBetaAuthorityChanged": false,
+    "pressureAuthorityChanged": false,
+    "scfAuthorityChanged": false,
+    "offAxisAuthorityChanged": false,
+    "codeComplianceAuthority": false,
+    "releaseAuthority": false
+  }
+}

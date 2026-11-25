@@ -1,0 +1,572 @@
+import { solveDeterministicJacobiPcg } from '../lafea-linear-solve/index.js';
+import { FORMULA_IDS } from './constants.js';
+import { numericalError, singularError } from './errors.js';
+import { resolveImposedDisplacementIndices } from './imposed-displacement-loads.js';
+import { dot, matrixVector, zeros } from './matrix.js';
+import { canonicalNumber, maxAbs, tolerance } from './numeric.js';
+import { rigidReferenceConditioning } from './rigid-reference-conditioning.js';
+import {
+  restrictSymmetricCsr,
+  sparseMatrixVector,
+  sparseMatrixVectorRaw,
+} from './sparse-matrix.js';
+
+const DENSE_CHOLESKY_REFINEMENT_STEPS = 3;
+
+export function solvePartitioned(model, mesh, load) {
+  const constraints = constraintData(model, mesh.dofOrdering, load);
+  const free = freeIndices(mesh.dofOrdering.length, constraints.indexSet);
+  const conditioning = rigidReferenceConditioning(
+    model,
+    mesh.dofOrdering,
+    constraints,
+  );
+  const correction = prescribedVector(
+    mesh.dofOrdering.length,
+    conditioning.constraints,
+  );
+  const solved = solveFreeSystem(
+    model,
+    mesh,
+    load.forceVector,
+    free,
+    conditioning.constraints,
+    correction,
+  );
+  solved.solution.forEach((value, position) => {
+    correction[free[position]] = value;
+  });
+  const displacement = correction.map((value, index) => (
+    value + conditioning.referenceVector[index]
+  ));
+  constraints.indices.forEach((index, position) => {
+    displacement[index] = constraints.values[position];
+  });
+  const residual = equilibriumResidual(mesh, correction, load.forceVector);
+  const qualification = qualifyResiduals(
+    model,
+    mesh.dofOrdering,
+    free,
+    constraints.indices,
+    load.forceVector,
+    residual,
+  );
+  return solutionRecord(
+    mesh.dofOrdering,
+    free,
+    constraints.indices,
+    displacement,
+    residual,
+    solved.evidence,
+    qualification,
+  );
+}
+
+function freeIndices(size, constrained) {
+  return Array.from({ length: size }, (_, index) => index)
+    .filter((index) => !constrained.has(index));
+}
+
+function prescribedVector(size, constraints) {
+  const displacement = Array(size).fill(0);
+  constraints.indices.forEach((index, position) => {
+    displacement[index] = constraints.values[position];
+  });
+  return displacement;
+}
+
+function solveFreeSystem(model, mesh, force, free, constraints, prescribed) {
+  if (!free.length) return { solution: [], evidence: emptySolverEvidence() };
+  if (mesh.globalStiffnessStorage === 'DENSE') {
+    const freeStiffness = submatrix(mesh.globalStiffnessMatrix, free, free);
+    const coupling = submatrix(
+      mesh.globalStiffnessMatrix,
+      free,
+      constraints.indices,
+    );
+    const rightHandSide = free.map((index, row) => (
+      force[index] - dotRow(coupling[row], constraints.values)
+    ));
+    return choleskySolve(
+      freeStiffness,
+      rightHandSide,
+      model.qualificationProfile,
+    );
+  }
+  if (mesh.globalStiffnessStorage === 'CSR_FULL_SYMMETRIC') {
+    const prescribedAction = sparseMatrixVectorRaw(
+      mesh.globalStiffnessCsr,
+      prescribed,
+    );
+    const rightHandSide = free.map((index) => canonicalNumber(
+      force[index] - prescribedAction[index],
+      'sparse partition rhs',
+    ));
+    const freeStiffness = restrictSymmetricCsr(mesh.globalStiffnessCsr, free);
+    return conjugateGradientSolve(
+      freeStiffness,
+      rightHandSide,
+      model.qualificationProfile,
+    );
+  }
+  throw numericalError(
+    'GLOBAL_STIFFNESS_STORAGE_UNSUPPORTED',
+    'solver',
+    'Global stiffness storage is not supported.',
+  );
+}
+
+function equilibriumResidual(mesh, displacement, force) {
+  return stiffnessAction(mesh, displacement).map((value, index) => canonicalNumber(
+    value - force[index],
+    'equilibrium residual',
+  ));
+}
+
+function stiffnessAction(mesh, vector) {
+  if (mesh.globalStiffnessStorage === 'DENSE') {
+    return matrixVector(mesh.globalStiffnessMatrix, vector);
+  }
+  if (mesh.globalStiffnessStorage === 'CSR_FULL_SYMMETRIC') {
+    return sparseMatrixVector(mesh.globalStiffnessCsr, vector);
+  }
+  throw numericalError(
+    'GLOBAL_STIFFNESS_STORAGE_UNSUPPORTED',
+    'solver',
+    'Global stiffness storage is not supported.',
+  );
+}
+
+function solutionRecord(
+  dofs,
+  free,
+  constrained,
+  displacement,
+  residual,
+  solverEvidence,
+  equilibrium,
+) {
+  const formulaIds = [
+    FORMULA_IDS.PARTITION,
+    FORMULA_IDS.REACTION,
+    FORMULA_IDS.EQUILIBRIUM,
+  ];
+  if (solverEvidence.method === 'DETERMINISTIC_CHOLESKY') {
+    formulaIds.push(FORMULA_IDS.CHOLESKY);
+  }
+  if (solverEvidence.method === 'DETERMINISTIC_JACOBI_PCG') {
+    formulaIds.push(FORMULA_IDS.PCG);
+  }
+  return {
+    displacementVector: displacement.map((value) =>
+      canonicalNumber(value, 'displacement')),
+    reactionVector: residual,
+    freeDofIdentities: free.map((index) => dofs[index]),
+    constrainedDofIdentities: constrained.map((index) => dofs[index]),
+    freeDofResiduals: free.map((index) => ({
+      dofIdentity: dofs[index],
+      value: residual[index],
+    })),
+    reactions: constrained.map((index) => ({
+      dofIdentity: dofs[index],
+      value: residual[index],
+      prescribedDisplacement: displacement[index],
+    })),
+    solverEvidence,
+    equilibrium,
+    formulaIds: formulaIds.sort(),
+  };
+}
+
+function constraintData(model, dofs, load) {
+  const index = new Map(dofs.map((identity, position) => [identity, position]));
+  const modelRows = model.constraints.map((row) => ({
+    index: index.get(`${row.nodeId}:${row.dof}`),
+    value: row.value,
+  }));
+  const imposedRows = resolveImposedDisplacementIndices(
+    load.imposedDisplacements,
+    index,
+  );
+  const rows = [...modelRows, ...imposedRows]
+    .sort((left, right) => left.index - right.index);
+  return {
+    indices: rows.map((row) => row.index),
+    values: rows.map((row) => row.value),
+    indexSet: new Set(rows.map((row) => row.index)),
+  };
+}
+
+function submatrix(matrix, rows, columns) {
+  return rows.map((row) => columns.map((column) => matrix[row][column]));
+}
+
+function dotRow(row, vector) {
+  return compensatedProductSumRaw(row, vector);
+}
+
+function choleskySolve(matrix, rightHandSide, profile) {
+  const lower = zeros(matrix.length, matrix.length);
+  const scale = Math.max(1, ...matrix.map((row, index) =>
+    Math.abs(row[index])));
+  const limit = tolerance(profile, 'choleskyPivot', scale);
+  const pivots = [];
+  factorCholesky(matrix, lower, pivots, limit);
+  const initialSolution = backward(lower, forward(lower, rightHandSide));
+  const refined = refineDenseCholesky(
+    matrix,
+    lower,
+    rightHandSide,
+    initialSolution,
+  );
+  const minimum = Math.min(...pivots);
+  const maximum = Math.max(...pivots);
+  return {
+    solution: refined.solution,
+    evidence: {
+      ...pivotEvidence(scale, limit, pivots, minimum, maximum),
+      iterativeRefinement: refined.evidence,
+    },
+  };
+}
+
+function refineDenseCholesky(matrix, lower, rightHandSide, initialSolution) {
+  let solution = [...initialSolution];
+  let residual = denseSystemResidual(matrix, rightHandSide, solution);
+  let currentInfinity = maxAbs(residual);
+  const residualHistory = [currentInfinity];
+  let stepsPerformed = 0;
+  for (let step = 0; step < DENSE_CHOLESKY_REFINEMENT_STEPS; step += 1) {
+    if (currentInfinity === 0) break;
+    const correction = backward(lower, forward(lower, residual));
+    if (correction.some((value) => !Number.isFinite(value))) {
+      throw numericalError(
+        'CHOLESKY_REFINEMENT_NONFINITE_CORRECTION',
+        'solver',
+        'Dense Cholesky iterative refinement produced a non-finite correction.',
+      );
+    }
+    const candidate = solution.map((value, index) => value + correction[index]);
+    const candidateResidual = denseSystemResidual(
+      matrix,
+      rightHandSide,
+      candidate,
+    );
+    const candidateInfinity = maxAbs(candidateResidual);
+    if (!(candidateInfinity < currentInfinity)) break;
+    solution = candidate;
+    residual = candidateResidual;
+    currentInfinity = candidateInfinity;
+    stepsPerformed += 1;
+    residualHistory.push(candidateInfinity);
+  }
+  return {
+    solution,
+    evidence: {
+      method: 'DETERMINISTIC_CHOLESKY_ITERATIVE_REFINEMENT',
+      maximumSteps: DENSE_CHOLESKY_REFINEMENT_STEPS,
+      stepsPerformed,
+      initialResidualInfinity: canonicalNumber(residualHistory[0]),
+      finalResidualInfinity: canonicalNumber(currentInfinity),
+      residualHistory: residualHistory.map((value) => canonicalNumber(value)),
+      accepted: true,
+    },
+  };
+}
+
+function denseSystemResidual(matrix, rightHandSide, solution) {
+  return matrix.map((row, index) => (
+    rightHandSide[index] - compensatedProductSumRaw(row, solution)
+  ));
+}
+
+function compensatedProductSumRaw(left, right) {
+  let sum = 0;
+  let compensation = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    const term = left[index] * right[index];
+    const next = sum + term;
+    compensation += Math.abs(sum) >= Math.abs(term)
+      ? (sum - next) + term
+      : (term - next) + sum;
+    sum = next;
+  }
+  return sum + compensation;
+}
+
+function conjugateGradientSolve(matrix, rightHandSide, profile) {
+  const diagonalScale = Math.max(
+    1,
+    ...matrix.diagonal.map((value) => Math.abs(value)),
+  );
+  const diagonalTolerance = tolerance(
+    profile,
+    'choleskyPivot',
+    diagonalScale,
+  );
+  const residualScale = Math.max(1, maxAbs(rightHandSide));
+  const residualTolerance = tolerance(
+    profile,
+    'freeDofResidual',
+    residualScale,
+  );
+  let solved;
+  try {
+    solved = solveDeterministicJacobiPcg({
+      size: matrix.size,
+      diagonal: matrix.diagonal,
+      rightHandSide,
+      multiply: (vector) => sparseMatrixVectorRaw(matrix, vector),
+      diagonalTolerance,
+      residualTolerance,
+    });
+  } catch (error) {
+    mapSharedPcgError(error, matrix, diagonalTolerance, residualTolerance);
+  }
+  return {
+    solution: solved.solution.map((value) =>
+      canonicalNumber(value, 'solved sparse displacement')),
+    evidence: continuumPcgEvidence(solved.evidence),
+  };
+}
+
+function mapSharedPcgError(error, matrix, diagonalTolerance, residualTolerance) {
+  const minimumDiagonal = Math.min(...matrix.diagonal);
+  if (error?.code === 'PCG_INDEFINITE_DIAGONAL') {
+    throw singularError(
+      'INDEFINITE_FREE_STIFFNESS',
+      'solver',
+      `Negative sparse stiffness diagonal ${minimumDiagonal}.`,
+    );
+  }
+  if (error?.code === 'PCG_SINGULAR_DIAGONAL') {
+    throw singularError(
+      'UNDER_CONSTRAINED_OR_SINGULAR_SYSTEM',
+      'solver',
+      `Sparse stiffness diagonal ${minimumDiagonal} does not exceed ${diagonalTolerance}.`,
+    );
+  }
+  if (error?.code === 'PCG_NON_POSITIVE_CURVATURE') {
+    throw singularError(
+      'INDEFINITE_FREE_STIFFNESS',
+      'solver',
+      'Sparse PCG encountered non-positive curvature.',
+    );
+  }
+  if (error?.code === 'PCG_NON_POSITIVE_INITIAL_PRODUCT') {
+    throw singularError(
+      'UNDER_CONSTRAINED_OR_SINGULAR_SYSTEM',
+      'solver',
+      'Sparse PCG initial preconditioned residual is not positive.',
+    );
+  }
+  if (error?.code === 'PCG_NON_POSITIVE_RELIABLE_PRODUCT') {
+    throw singularError(
+      'UNDER_CONSTRAINED_OR_SINGULAR_SYSTEM',
+      'solver',
+      'Sparse PCG reliable-update residual product is not positive.',
+    );
+  }
+  if (error?.code === 'PCG_NON_POSITIVE_RESIDUAL_PRODUCT') {
+    throw singularError(
+      'UNDER_CONSTRAINED_OR_SINGULAR_SYSTEM',
+      'solver',
+      'Sparse PCG residual product is not positive.',
+    );
+  }
+  if (error?.code === 'PCG_DID_NOT_CONVERGE') {
+    const evidence = error.evidence ?? {};
+    throw numericalError(
+      'ITERATIVE_SOLVER_DID_NOT_CONVERGE',
+      'solver',
+      `Sparse PCG residual ${evidence.finalResidualInfinity} exceeds internal target ${evidence.convergenceTarget} (acceptance gate ${residualTolerance}) after ${evidence.iterations} iterations.`,
+    );
+  }
+  throw error;
+}
+
+function continuumPcgEvidence(evidence) {
+  return {
+    method: 'DETERMINISTIC_JACOBI_PCG',
+    algorithmRevision: evidence.algorithmRevision,
+    pivotScale: null,
+    pivotTolerance: null,
+    pivots: [],
+    minimumPivot: null,
+    maximumPivot: null,
+    pivotRatio: null,
+    preconditioner: 'JACOBI',
+    iterationLimit: evidence.iterationLimit,
+    iterations: evidence.iterations,
+    reliableResidualInterval: evidence.reliableResidualInterval,
+    reliableResidualReplacements: evidence.reliableResidualReplacements,
+    residualScale: canonicalNumber(evidence.residualScale),
+    initialResidualInfinity: canonicalNumber(evidence.initialResidualInfinity),
+    finalResidualInfinity: canonicalNumber(evidence.finalResidualInfinity),
+    convergenceTarget: canonicalNumber(evidence.convergenceTarget),
+    residualTolerance: canonicalNumber(evidence.residualTolerance),
+    diagonalScale: canonicalNumber(evidence.diagonalScale),
+    diagonalTolerance: canonicalNumber(evidence.diagonalTolerance),
+    minimumDiagonal: canonicalNumber(evidence.minimumDiagonal),
+    maximumDiagonal: canonicalNumber(evidence.maximumDiagonal),
+    diagonalRatio: canonicalNumber(evidence.diagonalRatio),
+    accepted: true,
+  };
+}
+
+function pivotEvidence(scale, limit, pivots, minimum, maximum) {
+  return {
+    method: 'DETERMINISTIC_CHOLESKY',
+    pivotScale: scale,
+    pivotTolerance: limit,
+    pivots: pivots.map((value) => canonicalNumber(value, 'pivot')),
+    minimumPivot: canonicalNumber(minimum),
+    maximumPivot: canonicalNumber(maximum),
+    pivotRatio: canonicalNumber(minimum / maximum),
+    accepted: true,
+  };
+}
+
+function factorCholesky(matrix, lower, pivots, limit) {
+  for (let row = 0; row < matrix.length; row += 1) {
+    for (let column = 0; column <= row; column += 1) {
+      let value = matrix[row][column];
+      for (let index = 0; index < column; index += 1) {
+        value -= lower[row][index] * lower[column][index];
+      }
+      if (row === column) setPivot(lower, pivots, row, value, limit);
+      else lower[row][column] = value / lower[column][column];
+    }
+  }
+}
+
+function setPivot(lower, pivots, index, value, limit) {
+  if (value < -limit) {
+    throw singularError(
+      'INDEFINITE_FREE_STIFFNESS',
+      'solver',
+      `Negative Cholesky pivot ${value}.`,
+    );
+  }
+  if (value <= limit) {
+    throw singularError(
+      'UNDER_CONSTRAINED_OR_SINGULAR_SYSTEM',
+      'solver',
+      `Cholesky pivot ${value} does not exceed ${limit}.`,
+    );
+  }
+  lower[index][index] = Math.sqrt(value);
+  pivots.push(value);
+}
+
+function forward(lower, rightHandSide) {
+  const output = Array(rightHandSide.length).fill(0);
+  for (let row = 0; row < rightHandSide.length; row += 1) {
+    let value = rightHandSide[row];
+    for (let column = 0; column < row; column += 1) {
+      value -= lower[row][column] * output[column];
+    }
+    output[row] = value / lower[row][row];
+  }
+  return output;
+}
+
+function backward(lower, rightHandSide) {
+  const output = Array(rightHandSide.length).fill(0);
+  for (let row = rightHandSide.length - 1; row >= 0; row -= 1) {
+    let value = rightHandSide[row];
+    for (let column = row + 1; column < rightHandSide.length; column += 1) {
+      value -= lower[column][row] * output[column];
+    }
+    output[row] = value / lower[row][row];
+  }
+  return output;
+}
+
+function qualifyResiduals(model, dofs, free, constrained, force, residual) {
+  const scale = Math.max(1, maxAbs(force), maxAbs(residual));
+  const freeLimit = tolerance(
+    model.qualificationProfile,
+    'freeDofResidual',
+    scale,
+  );
+  const freeMaximum = Math.max(
+    0,
+    ...free.map((index) => Math.abs(residual[index])),
+  );
+  if (freeMaximum > freeLimit) {
+    throw numericalError(
+      'FREE_DOF_RESIDUAL_FAILURE',
+      'solver',
+      'Free-DOF residual did not qualify.',
+    );
+  }
+  const totals = equilibriumTotals(dofs, constrained, force, residual);
+  const equilibriumLimit = tolerance(
+    model.qualificationProfile,
+    'reactionEquilibrium',
+    scale,
+  );
+  if (Math.max(Math.abs(totals.UX), Math.abs(totals.UY)) > equilibriumLimit) {
+    throw numericalError(
+      'REACTION_EQUILIBRIUM_FAILURE',
+      'solver',
+      'Reaction equilibrium did not qualify.',
+    );
+  }
+  return residualEvidence(
+    scale,
+    freeMaximum,
+    freeLimit,
+    totals,
+    equilibriumLimit,
+  );
+}
+
+function residualEvidence(
+  scale,
+  freeMaximum,
+  freeLimit,
+  totals,
+  equilibriumLimit,
+) {
+  return {
+    residualScale: scale,
+    freeDofMaximumResidual: canonicalNumber(freeMaximum),
+    freeDofTolerance: freeLimit,
+    reactionPlusAppliedForce: {
+      x: canonicalNumber(totals.UX),
+      y: canonicalNumber(totals.UY),
+    },
+    reactionEquilibriumTolerance: equilibriumLimit,
+    accepted: true,
+  };
+}
+
+function equilibriumTotals(dofs, constrained, force, residual) {
+  const totals = { UX: 0, UY: 0 };
+  force.forEach((value, index) => {
+    totals[dofAxis(dofs[index])] += value;
+  });
+  constrained.forEach((index) => {
+    totals[dofAxis(dofs[index])] += residual[index];
+  });
+  return totals;
+}
+
+function dofAxis(identity) {
+  return identity.endsWith(':UX') ? 'UX' : 'UY';
+}
+
+function emptySolverEvidence() {
+  return {
+    method: 'FULLY_CONSTRAINED_NO_FREE_SOLVE',
+    pivotScale: null,
+    pivotTolerance: null,
+    pivots: [],
+    minimumPivot: null,
+    maximumPivot: null,
+    pivotRatio: null,
+    accepted: true,
+  };
+}

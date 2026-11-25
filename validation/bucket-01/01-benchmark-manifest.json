@@ -1,0 +1,245 @@
+{
+  "schema": "lafea-bucket-01-benchmark-manifest/v12",
+  "manifest_status": "DEFINITION_SET_FROZEN_WITH_EXTERNAL_GATES_OPEN",
+  "repository": "reallaksh19/Advanced_Analysis",
+  "baseline_main_sha": "eaac7e0532c114ef306d2d928f1d9f74348193cd",
+  "qualification_branch": "bucket-01-cantilever-benchmark-route",
+  "qualification_candidate_sha": "RESOLVED_ONLY_BY_EXACT_HEAD_EXECUTION",
+  "bucket_id": "LAFEA-BENCH-B01-CONTINUUM-LUG-PINHOLE",
+  "target": "C2D-LUG-PINHOLE -> LAFEA.3",
+  "stage_id": "LAFEA.3",
+  "formulation": "PLANE_STRESS",
+  "units": {
+    "length": "mm",
+    "force": "N",
+    "stress": "MPa",
+    "strain": "dimensionless"
+  },
+  "scope": {
+    "in_scope": [
+      "bounded concentric annular lug-pinhole geometry",
+      "T3 and T6 verification",
+      "governed production T6 mesh levels 64, 256, 1024 and 4096 elements",
+      "finest-three response and stress convergence over levels 256, 1024 and 4096",
+      "deterministic dense and sparse SPD solution routes",
+      "force, moment and energy evidence",
+      "direct T6 displacement-gradient stress recovery at fixed physical probes and paths",
+      "three-level Richardson and GCI convergence",
+      "exact-head deterministic evidence custody"
+    ],
+    "out_of_scope": [
+      "arbitrary outer profiles",
+      "eccentric or multiple holes",
+      "contact, plasticity or nonlinear response",
+      "shell formulations",
+      "general T7D authority",
+      "application release qualification"
+    ]
+  },
+  "benchmark_ladder": [
+    "C2D-PATCH-T3-01",
+    "C2D-PATCH-T6-01",
+    "C2D-PATCH-PURE-SHEAR-01",
+    "C2D-CANTILEVER-PLANE-STRESS-01",
+    "C2D-KIRSCH-HOLE-01",
+    "C2D-LUG-PINHOLE-01"
+  ],
+  "supplemental_benchmarks": [
+    "C2D-PURE-BENDING-PANEL-T6-01"
+  ],
+  "production_mesh_levels": [
+    {
+      "level": "L1",
+      "radial_divisions": 2,
+      "circumferential_divisions": 16,
+      "t6_elements": 64,
+      "stiffness_storage": "DENSE",
+      "solver_method": "DETERMINISTIC_CHOLESKY"
+    },
+    {
+      "level": "L2",
+      "radial_divisions": 4,
+      "circumferential_divisions": 32,
+      "t6_elements": 256,
+      "stiffness_storage": "DENSE",
+      "solver_method": "DETERMINISTIC_CHOLESKY"
+    },
+    {
+      "level": "L3",
+      "radial_divisions": 8,
+      "circumferential_divisions": 64,
+      "t6_elements": 1024,
+      "stiffness_storage": "CSR_FULL_SYMMETRIC",
+      "solver_method": "DETERMINISTIC_JACOBI_PCG"
+    },
+    {
+      "level": "L4",
+      "radial_divisions": 16,
+      "circumferential_divisions": 128,
+      "t6_elements": 4096,
+      "stiffness_storage": "CSR_FULL_SYMMETRIC",
+      "solver_method": "DETERMINISTIC_JACOBI_PCG"
+    }
+  ],
+  "production_convergence_window": {
+    "governed_levels": [64, 256, 1024, 4096],
+    "evaluated_finest_three_levels": [256, 1024, 4096],
+    "coarse_level_retained_for_trend_audit": true
+  },
+  "tolerances": {
+    "patch_normalized_error_max": 1e-8,
+    "force_equilibrium_relative_max": 1e-4,
+    "moment_equilibrium_relative_max": 1e-4,
+    "fine_area_relative_max": 0.005,
+    "fine_hole_radius_relative_max": 0.001,
+    "fine_hole_center_over_radius_max": 0.001,
+    "fine_ligament_relative_max": 0.0025,
+    "global_displacement_gci_max": 0.01,
+    "strain_energy_gci_max": 0.02,
+    "reaction_resultant_gci_max": 0.001,
+    "non_singular_stress_gci_max": 0.03,
+    "high_gradient_stress_gci_max": 0.05
+  },
+  "stress_authority": {
+    "primary": "DIRECT_T6_B_MATRIX_AT_FIXED_PHYSICAL_COORDINATE",
+    "source_fields": [
+      "retained nodal displacements",
+      "retained element constitutive matrix",
+      "deterministic containing-element natural coordinates"
+    ],
+    "integration_point_extrapolation_used": false,
+    "permitted": [
+      "principal and von Mises from unrounded direct-point tensor components",
+      "element-local fixed physical probes",
+      "fixed stress paths"
+    ],
+    "prohibited_as_sole_acceptance_basis": [
+      "moving global maximum",
+      "smoothed contour",
+      "nodal average",
+      "cross-element average",
+      "integration-point extrapolation",
+      "display interpolation",
+      "screen-picked value",
+      "unclassified singular peak"
+    ]
+  },
+  "expected_value_policy": {
+    "authority": "FROZEN_BEFORE_OBSERVED_PRODUCTION_EVIDENCE",
+    "production_output_may_generate_expected_values": false,
+    "failed_benchmarks_must_be_retained": true,
+    "frozen_oracle_status": "COMPLETE_DEFINITION_SET",
+    "registry": "validation/bucket-01/11-expected-value-registry.json",
+    "contract_check": "scripts/lafea-bucket-01-expected-value-registry-check.mjs",
+    "independent_closed_form_oracle_count": 4,
+    "independent_engineering_theory_oracle_count": 1,
+    "frozen_production_convergence_definition_count": 2,
+    "hash_authority": [
+      "GIT_BLOB_SHA",
+      "RAW_SHA256",
+      "CANONICAL_JSON_SHA256"
+    ],
+    "expected_value_package_hash": "RESOLVED_BY_EXACT_HEAD_DEFINITION_SET_HASH"
+  },
+  "governed_receipts": [
+    {
+      "benchmark_id": "C2D-PATCH-T3-01",
+      "script": "scripts/lafea-bucket-01-t3-patch-check.mjs",
+      "oracle": "validation/bucket-01/04-t3-patch-oracle.json"
+    },
+    {
+      "benchmark_id": "C2D-PATCH-T6-01",
+      "script": "scripts/lafea.3-t6-patch-check.mjs",
+      "authority": "ELEMENT_FORMULATION_AND_INTEGRATION_POINT_JACOBIAN_CHECK"
+    },
+    {
+      "benchmark_id": "C2D-PATCH-PURE-SHEAR-01",
+      "script": "scripts/lafea-bucket-01-pure-shear-check.mjs",
+      "oracle": "validation/bucket-01/05-pure-shear-oracle.json"
+    },
+    {
+      "benchmark_id": "C2D-CANTILEVER-PLANE-STRESS-01",
+      "script": "scripts/lafea-bucket-01-cantilever-check.mjs",
+      "oracle": "validation/bucket-01/12-cantilever-oracle.json"
+    },
+    {
+      "benchmark_id": "C2D-PURE-BENDING-PANEL-T6-01",
+      "classification": "SUPPLEMENTAL_NOT_A_CANTILEVER_SUBSTITUTE",
+      "script": "scripts/lafea-bucket-01-pure-bending-panel-check.mjs",
+      "oracle": "validation/bucket-01/03-pure-bending-panel-oracle.json"
+    },
+    {
+      "benchmark_id": "C2D-KIRSCH-HOLE-01",
+      "script": "scripts/lafea-bucket-01-kirsch-fixed-probes-check.mjs",
+      "oracle": "validation/bucket-01/07-kirsch-fixed-probe-oracle.json"
+    },
+    {
+      "benchmark_id": "C2D-LUG-PINHOLE-01",
+      "response_receipt": "scripts/lafea-bucket-01-production-response-receipt.mjs",
+      "stress_receipt": "scripts/lafea-bucket-01-production-lug-probe-receipt.mjs",
+      "status": "GOVERNED_4096_DIRECT_POINT_ROUTES_IMPLEMENTED_PENDING_RETAINED_PRODUCTION_EXECUTION"
+    }
+  ],
+  "production_response_convergence": {
+    "spec": "validation/bucket-01/06-production-response-convergence-spec.json",
+    "execution_runner": "scripts/lafea-bucket-01-production-response-runner.mjs",
+    "retained_receipt": "scripts/lafea-bucket-01-production-response-receipt.mjs",
+    "governed_levels": [64, 256, 1024, 4096],
+    "evaluated_levels": [256, 1024, 4096],
+    "status": "EXECUTION_NOT_RETAINED"
+  },
+  "production_lug_fixed_stress": {
+    "spec": "validation/bucket-01/08-production-lug-fixed-probe-spec.json",
+    "location_contract": "scripts/lafea-bucket-01-production-lug-probe-contract-check.mjs",
+    "retained_receipt": "scripts/lafea-bucket-01-production-lug-probe-receipt.mjs",
+    "recovery": "DIRECT_T6_B_MATRIX_AT_FIXED_PHYSICAL_COORDINATE",
+    "governed_levels": [64, 256, 1024, 4096],
+    "evaluated_levels": [256, 1024, 4096],
+    "status": "RETAINED_EXECUTION_NOT_PRODUCED"
+  },
+  "code_basis": {
+    "status": "INTAKE_CONTRACT_IMPLEMENTED_AUTHORITY_NOT_SUPPLIED",
+    "module": "src/workspace/lafea-bucket-01-code-basis.js",
+    "contract_check": "scripts/lafea-bucket-01-code-basis-check.mjs",
+    "intake_template": "validation/bucket-01/09-code-basis-intake-template.json",
+    "governing_code": null,
+    "edition": null,
+    "allowable_source": null,
+    "stress_classification": null,
+    "load_combination": null,
+    "code_verified": false
+  },
+  "replay_custody": {
+    "status": "INTAKE_CONTRACT_IMPLEMENTED_EXTERNAL_BUNDLES_NOT_SUPPLIED",
+    "module": "src/workspace/lafea-bucket-01-replay-custody.js",
+    "contract_check": "scripts/lafea-bucket-01-replay-custody-check.mjs",
+    "intake_template": "validation/bucket-01/10-three-replay-intake-template.json",
+    "required_replay_count": 3,
+    "external_replay_bundles_supplied": false,
+    "replay_pass_claimed": false
+  },
+  "automatic_stop_conditions": [
+    "exact head or parent mismatch",
+    "mandatory benchmark omitted or substituted",
+    "tolerance changed after observation",
+    "expected value derived from production output",
+    "non-positive Jacobian",
+    "iterative solver exact residual above tolerance",
+    "failed force or moment equilibrium",
+    "failed authoritative direct-point stress convergence",
+    "display, smoothed, nodal-averaged or integration-point-extrapolated stress substituted for direct-point authority",
+    "missing approved code authority",
+    "failed or divergent replay omitted",
+    "failed benchmark omitted or hidden"
+  ],
+  "qualification_states": {
+    "CONTRACT_VERIFIED": false,
+    "MESH_VERIFIED": false,
+    "SOLVER_VERIFIED": false,
+    "STRESS_VERIFIED": false,
+    "CODE_VERIFIED": false,
+    "INTEGRATION_VERIFIED": false,
+    "BUCKET_QUALIFIED": false
+  },
+  "current_disposition": "NOT_QUALIFIED"
+}

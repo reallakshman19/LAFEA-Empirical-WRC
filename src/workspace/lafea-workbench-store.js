@@ -1,0 +1,437 @@
+/**
+ * Immutable LAFEA editor state with bounded document-level undo/redo history.
+ *
+ * All source edits enter through StageEditCommand/v2. The store does not expose
+ * array-index record mutation and owns no Workspace or U3 lifecycle state.
+ */
+import {
+  createLafeaReplaceDocumentCommand,
+  createLafeaSetScalarCommand,
+  applyLafeaStageEditCommand,
+  lafeaDocumentDigest,
+} from './lafea-edit-command.js';
+import {
+  LAFEA_STAGE_IDS,
+  LAFEA_WORKBENCH_DOCUMENT_SCHEMA,
+  executeLafeaStage,
+  normalizeLafeaStageDocument,
+} from './lafea-workbench-model.js';
+import { requireLafeaInputDescriptor } from './lafea-stage-input-descriptors.js';
+import { requireLafeaStageRegistryEntry } from './lafea-stage-registry.js';
+
+const HISTORY_LIMIT = 50;
+const NODE_COORDINATE_DESCRIPTORS = Object.freeze({
+  'LAFEA.3': Object.freeze({ x: 'LAFEA.3.node.x', y: 'LAFEA.3.node.y' }),
+  'LAFEA.4': Object.freeze({ x: 'LAFEA.4.node.position.x', y: 'LAFEA.4.node.position.y' }),
+  'LAFEA.5': Object.freeze({ x: 'LAFEA.5.shell.node.position.x', y: 'LAFEA.5.shell.node.position.y' }),
+});
+
+/** Create an independent LAFEA workbench store. */
+export function createLafeaWorkbenchStore(options) {
+  const configuration = options ?? {};
+  const initialStage = configuration.initialStage ?? LAFEA_STAGE_IDS[0];
+  assertStage(initialStage);
+  let state = initialState(initialStage);
+  let commandSequence = 0;
+  const listeners = new Set();
+
+  if (configuration.initialDocument !== undefined) {
+    state = importIntoState(state, initialStage, configuration.initialDocument);
+  }
+
+  function publish(next) {
+    state = freeze(next);
+    listeners.forEach((listener) => listener(state));
+    return state;
+  }
+
+  function selectStage(stageId) {
+    assertStage(stageId);
+    return publish({ ...state, activeStageId: stageId, diagnostics: [] });
+  }
+
+  function importDocument(value, stageId) {
+    const targetStage = stageId ?? state.activeStageId;
+    try {
+      return publish(importIntoState(state, targetStage, value));
+    } catch (error) {
+      return publish(failedState(state, error, 'LAFEA_IMPORT_REJECTED'));
+    }
+  }
+
+  function applyEditCommand(command) {
+    const document = requireDocument(state);
+    if (command?.stageId !== state.activeStageId) {
+      return publish(failedState(
+        state,
+        commandError('LAFEA_EDIT_STAGE_MISMATCH', `Active stage ${state.activeStageId} cannot apply a ${command?.stageId ?? 'missing'} command.`),
+        'LAFEA_EDIT_STAGE_MISMATCH',
+      ));
+    }
+    const editResult = applyLafeaStageEditCommand(document, command);
+    if (editResult.status === 'APPLIED') {
+      return publish(commitDocument(state, editResult.document, editResult));
+    }
+    if (editResult.status === 'NO_CHANGE') {
+      return publish(withCurrentStage(state, {
+        ...currentStage(state),
+        lastEditResult: editResult,
+      }, 'READY', editResult.diagnostics));
+    }
+    return publish(withCurrentStage(state, {
+      ...currentStage(state),
+      lastEditResult: editResult,
+    }, 'FAILED', editResult.diagnostics));
+  }
+
+  function setScalar(descriptorId, entityId, rawText, surface = 'FORM') {
+    const document = requireDocument(state);
+    const descriptor = requireLafeaInputDescriptor(state.activeStageId, descriptorId);
+    const command = createLafeaSetScalarCommand({
+      commandId: nextCommandId('SET'),
+      stageId: state.activeStageId,
+      descriptorId: descriptor.descriptorId,
+      expectedDocumentDigest: lafeaDocumentDigest(document),
+      entityId: entityId ?? null,
+      rawText,
+      origin: commandOrigin(surface),
+    });
+    return applyEditCommand(command);
+  }
+
+  /**
+   * Apply a same-authority group of exact scalar commands atomically.
+   *
+   * Each edit is still validated through StageEditCommand/v2 against the digest
+   * produced by the previous local edit. State/history is committed only once
+   * after every command succeeds. A rejected command leaves the source document
+   * unchanged and publishes only its diagnostic evidence.
+   */
+  function setScalarBatch(edits, surface = 'FORM_GROUP') {
+    const initialDocument = requireDocument(state);
+    const initialStageState = currentStage(state);
+    if (!Array.isArray(edits) || !edits.length) {
+      return publish(failedState(
+        state,
+        commandError('LAFEA_SCALAR_BATCH_REQUIRED', 'Scalar edit batch requires at least one governed edit.'),
+        'LAFEA_SCALAR_BATCH_REQUIRED',
+      ));
+    }
+
+    let workingDocument = initialDocument;
+    let finalResult = null;
+    let applied = false;
+    for (let index = 0; index < edits.length; index += 1) {
+      const edit = requireScalarBatchEdit(edits[index], index);
+      const command = scalarCommand(
+        edit.descriptorId,
+        edit.entityId,
+        edit.rawText,
+        workingDocument,
+        surface,
+      );
+      const result = applyLafeaStageEditCommand(workingDocument, command);
+      finalResult = result;
+      if (!['APPLIED', 'NO_CHANGE'].includes(result.status)) {
+        return publish(withCurrentStage(state, {
+          ...initialStageState,
+          lastEditResult: result,
+        }, 'FAILED', result.diagnostics));
+      }
+      if (result.status === 'APPLIED') applied = true;
+      workingDocument = result.document;
+    }
+
+    if (!applied) {
+      return publish(withCurrentStage(state, {
+        ...initialStageState,
+        lastEditResult: finalResult,
+      }, 'READY', []));
+    }
+    return publish(commitDocument(state, workingDocument, finalResult));
+  }
+
+  function replaceDocument(value, surface = 'RAW_JSON') {
+    try {
+      const document = requireDocument(state);
+      const command = createLafeaReplaceDocumentCommand({
+        commandId: nextCommandId('REPLACE'),
+        stageId: state.activeStageId,
+        expectedDocumentDigest: lafeaDocumentDigest(document),
+        documentValue: value,
+        origin: commandOrigin(surface),
+      });
+      return applyEditCommand(command);
+    } catch (error) {
+      return publish(failedState(state, error, 'LAFEA_EDIT_REJECTED'));
+    }
+  }
+
+  function moveNode(nodePath, nodeId, x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return publish(failedState(state, new TypeError('Node coordinates must be finite.'), 'LAFEA_NODE_MOVE_REJECTED'));
+    }
+    const route = NODE_COORDINATE_DESCRIPTORS[state.activeStageId];
+    const registeredNodePath = requireLafeaStageRegistryEntry(state.activeStageId).previewSource.nodePath;
+    if (!route || nodePath !== registeredNodePath) {
+      return publish(failedState(
+        state,
+        commandError('LAFEA_NODE_PATH_NOT_AUTHORIZED', `${nodePath} is not the registered editable node path for ${state.activeStageId}.`),
+        'LAFEA_NODE_PATH_NOT_AUTHORIZED',
+      ));
+    }
+
+    const initialDocument = requireDocument(state);
+    const xCommand = scalarCommand(route.x, nodeId, String(x), initialDocument, 'SVG_DRAG');
+    const xResult = applyLafeaStageEditCommand(initialDocument, xCommand);
+    if (!['APPLIED', 'NO_CHANGE'].includes(xResult.status)) return publishEditFailure(xResult);
+
+    const yCommand = scalarCommand(route.y, nodeId, String(y), xResult.document, 'SVG_DRAG');
+    const yResult = applyLafeaStageEditCommand(xResult.document, yCommand);
+    if (!['APPLIED', 'NO_CHANGE'].includes(yResult.status)) return publishEditFailure(yResult);
+
+    if (xResult.status === 'NO_CHANGE' && yResult.status === 'NO_CHANGE') {
+      return publish(withCurrentStage(state, {
+        ...currentStage(state),
+        lastEditResult: yResult,
+      }, 'READY', []));
+    }
+    return publish(commitDocument(state, yResult.document, yResult));
+  }
+
+  function publishEditFailure(editResult) {
+    return publish(withCurrentStage(state, {
+      ...currentStage(state),
+      lastEditResult: editResult,
+    }, 'FAILED', editResult.diagnostics));
+  }
+
+  function scalarCommand(descriptorId, entityId, rawText, document, surface) {
+    const descriptor = requireLafeaInputDescriptor(state.activeStageId, descriptorId);
+    return createLafeaSetScalarCommand({
+      commandId: nextCommandId('SET'),
+      stageId: state.activeStageId,
+      descriptorId: descriptor.descriptorId,
+      expectedDocumentDigest: lafeaDocumentDigest(document),
+      entityId,
+      rawText,
+      origin: commandOrigin(surface),
+    });
+  }
+
+  function reportEditError(path, entityId, error) {
+    return publish({
+      ...failedState(state, error, 'LAFEA_SOURCE_EDIT_REJECTED'),
+      diagnostics: [{
+        severity: 'ERROR',
+        code: typeof error?.code === 'string' ? error.code : 'LAFEA_SOURCE_EDIT_REJECTED',
+        path,
+        entityId: typeof entityId === 'string' ? entityId : null,
+        message: error instanceof Error ? error.message : 'Unknown LAFEA source-edit failure.',
+      }],
+    });
+  }
+
+  function run() {
+    const document = requireDocument(state);
+    const execution = executeLafeaStage(state.activeStageId, document);
+    const stage = { ...currentStage(state), execution };
+    return publish({
+      ...state,
+      status: execution.status,
+      stages: { ...state.stages, [state.activeStageId]: freeze(stage) },
+      diagnostics: execution.diagnostics,
+    });
+  }
+
+  function undo() {
+    const stage = currentStage(state);
+    if (!stage.past.length) return state;
+    const document = stage.past.at(-1);
+    const nextStage = {
+      ...stage,
+      document,
+      execution: null,
+      lastEditResult: null,
+      past: stage.past.slice(0, -1),
+      future: [stage.document, ...stage.future].filter(Boolean).slice(0, HISTORY_LIMIT),
+    };
+    return publish(withCurrentStage(state, nextStage, 'READY', []));
+  }
+
+  function redo() {
+    const stage = currentStage(state);
+    if (!stage.future.length) return state;
+    const document = stage.future[0];
+    const nextStage = {
+      ...stage,
+      document,
+      execution: null,
+      lastEditResult: null,
+      past: [...stage.past, stage.document].filter(Boolean).slice(-HISTORY_LIMIT),
+      future: stage.future.slice(1),
+    };
+    return publish(withCurrentStage(state, nextStage, 'READY', []));
+  }
+
+  function exportDocument() {
+    const document = normalizeLafeaStageDocument(state.activeStageId, requireDocument(state));
+    return freeze({
+      schema: LAFEA_WORKBENCH_DOCUMENT_SCHEMA,
+      stageId: state.activeStageId,
+      document,
+    });
+  }
+
+  function subscribe(listener) {
+    if (typeof listener !== 'function') throw new TypeError('LAFEA subscriber must be a function.');
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }
+
+  function nextCommandId(action) {
+    commandSequence += 1;
+    return `LAFEA-${state.activeStageId}-${action}-${String(commandSequence).padStart(8, '0')}`;
+  }
+
+  function commandOrigin(surface) {
+    return {
+      surface,
+      sessionId: configuration.sessionId ?? 'LAFEA_WORKBENCH_SESSION',
+      sequence: commandSequence,
+    };
+  }
+
+  return Object.freeze({
+    selectStage,
+    importDocument,
+    applyEditCommand,
+    setScalar,
+    setScalarBatch,
+    replaceDocument,
+    moveNode,
+    reportEditError,
+    run,
+    undo,
+    redo,
+    exportDocument,
+    subscribe,
+    getState: () => state,
+    destroy: () => listeners.clear(),
+  });
+}
+
+function requireScalarBatchEdit(value, index) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw commandError('LAFEA_SCALAR_BATCH_EDIT_INVALID', `Scalar batch edit ${index} must be an object.`);
+  }
+  const keys = Object.keys(value).sort();
+  const expected = ['descriptorId', 'entityId', 'rawText'].sort();
+  if (JSON.stringify(keys) !== JSON.stringify(expected)
+    || typeof value.descriptorId !== 'string'
+    || (value.entityId !== null && typeof value.entityId !== 'string')
+    || typeof value.rawText !== 'string') {
+    throw commandError('LAFEA_SCALAR_BATCH_EDIT_INVALID', `Scalar batch edit ${index} is invalid.`);
+  }
+  return value;
+}
+
+function initialState(activeStageId) {
+  const stages = Object.fromEntries(LAFEA_STAGE_IDS.map((stageId) => [
+    stageId,
+    freeze({ document: null, execution: null, lastEditResult: null, past: [], future: [] }),
+  ]));
+  return freeze({
+    schema: 'lafea-workbench-state/v1',
+    activeStageId,
+    status: 'EMPTY',
+    stages,
+    diagnostics: [],
+  });
+}
+
+function importIntoState(state, stageId, value) {
+  assertStage(stageId);
+  const envelope = isRecord(value) && value.schema === LAFEA_WORKBENCH_DOCUMENT_SCHEMA;
+  const targetStage = envelope ? value.stageId : stageId;
+  assertStage(targetStage);
+  const document = normalizeLafeaStageDocument(targetStage, envelope ? value.document : value);
+  const stage = state.stages[targetStage];
+  const nextStage = {
+    document,
+    execution: null,
+    lastEditResult: null,
+    past: stage.document ? [...stage.past, stage.document].slice(-HISTORY_LIMIT) : stage.past,
+    future: [],
+  };
+  return withStage({ ...state, activeStageId: targetStage }, targetStage, nextStage, 'READY', []);
+}
+
+function commitDocument(state, document, editResult) {
+  const stage = currentStage(state);
+  const nextStage = {
+    document,
+    execution: null,
+    lastEditResult: editResult,
+    past: [...stage.past, stage.document].filter(Boolean).slice(-HISTORY_LIMIT),
+    future: [],
+  };
+  return withCurrentStage(state, nextStage, 'READY', []);
+}
+
+function withCurrentStage(state, stage, status, diagnostics) {
+  return withStage(state, state.activeStageId, stage, status, diagnostics);
+}
+
+function withStage(state, stageId, stage, status, diagnostics) {
+  return {
+    ...state,
+    status,
+    stages: { ...state.stages, [stageId]: freeze(stage) },
+    diagnostics: freeze([...diagnostics]),
+  };
+}
+
+function failedState(state, error, code) {
+  return {
+    ...state,
+    status: 'FAILED',
+    diagnostics: [{
+      severity: 'ERROR',
+      code: typeof error?.code === 'string' ? error.code : code,
+      path: typeof error?.path === 'string' ? error.path : 'document',
+      entityId: typeof error?.entityId === 'string' ? error.entityId : null,
+      message: error instanceof Error ? error.message : 'Unknown LAFEA workbench failure.',
+    }],
+  };
+}
+
+function currentStage(state) {
+  return state.stages[state.activeStageId];
+}
+
+function requireDocument(state) {
+  const document = currentStage(state).document;
+  if (!document) throw new TypeError(`Import a ${state.activeStageId} document before editing or calculating.`);
+  return document;
+}
+
+function assertStage(stageId) {
+  requireLafeaStageRegistryEntry(stageId);
+}
+
+function commandError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function isRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function freeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.values(value).forEach(freeze);
+  return Object.freeze(value);
+}

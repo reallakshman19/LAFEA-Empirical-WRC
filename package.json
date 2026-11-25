@@ -1,0 +1,40 @@
+{
+  "name": "lafea-empirical-wrc",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Standalone LAFEA (local FEA) and EMP1 Empirical/WRC calculation app, isolated from Advanced_Analysis.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "dev:lafea-only": "vite --open /lafea.html",
+    "build:lafea": "node scripts/lafea-standalone-boundary-check.mjs && vite build --config vite.lafea.config.js && node scripts/lafea-standalone-build-artifact-check.mjs",
+    "check:boundary": "node scripts/lafea-standalone-boundary-check.mjs && node scripts/lafea-standalone-boundary-self-test.mjs",
+    "check:e2e": "node scripts/run-playwright.mjs",
+    "check:all": "node scripts/run-all-checks.mjs",
+    "lint": "eslint src scripts e2e",
+    "check:lafea-e2e": "node scripts/run-playwright.mjs e2e/lafea-standalone.spec.js",
+    "check:emp1-ui": "node scripts/emp1-plain-language-labels-check.mjs && node scripts/emp1-governed-vector-table-check.mjs && node scripts/emp1-gamma-domain-panel-check.mjs && node scripts/emp1-interpolated-route-registration-check.mjs && node scripts/emp1-stress-units-presentation-check.mjs && node scripts/lafea-1-pressure-radius-recovery-check.mjs",
+    "check:lafea-agent1-stack": "node scripts/lafea-agent1-stack-check.mjs",
+    "check:lafea-nonbucket-stack": "node scripts/lafea-nonbucket-stack-check.mjs",
+    "check:lafea-template-stack": "node scripts/lafea-template-stack-check.mjs",
+    "check:lafea-foundation": "node scripts/lafea.15-profile-schema-check.mjs && node scripts/lafea.hash-lineage-check.mjs && node scripts/lafea.14-approximation-register-check.mjs",
+    "check:lafea-mesh-producer": "node scripts/lafea-mesh-producer-binding-check.mjs",
+    "check:lafea-solver": "node scripts/lafea.11-sparse-cholesky-check.mjs && node scripts/lafea.11-ldlt-pivoting-check.mjs && node scripts/lafea.11-mechanism-diagnosis-check.mjs && node scripts/lafea.11-tolerance-table-check.mjs && node scripts/lafea.11-scaling-reversibility-check.mjs && node scripts/lafea.11-determinism-check.mjs",
+    "check:lafea-canvas-contract": "node scripts/lafea-canvas-contract-check.mjs",
+    "check:lafea-render-parity": "node scripts/lafea-render-parity-check.mjs",
+    "check:lafea-canvas-performance": "node scripts/lafea-canvas-performance-check.mjs",
+    "check:lafea-canvas-anti-drift": "node scripts/lafea-canvas-anti-drift-check.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@playwright/test": "^1.59.1",
+    "eslint": "9.39.1",
+    "globals": "16.5.0",
+    "playwright": "^1.59.1",
+    "three": "^0.170.0",
+    "vite": "^7.3.1"
+  }
+}

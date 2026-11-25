@@ -1,0 +1,299 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const B02 = path.join(ROOT, 'validation/lafea-benchmark-data/B02');
+const manifest = read('bucket-manifest.json');
+const sources = read('sources/source-registry.json');
+const cases = read('oracle/cases.json');
+const expected = read('oracle/expected-values.json');
+const loadExpected = read('oracle/load-path-expected-values.json');
+const solverExpected = read('oracle/solver-numerics-expected-values.json');
+const ladders = read('convergence/mesh-ladders.json');
+const probes = read('convergence/fixed-probes.json');
+const negatives = read('governance/negative-cases.json');
+const semantics = read('governance/fem-semantics.json');
+
+assert.equal(manifest.schema, 'lafea-b02-solver-benchmark-manifest/v1');
+assert.equal(manifest.state, 'STAGED_DEFINITION_COMPLETE_NOT_PROGRAM_READY');
+assert.deepEqual(manifest.stageOrder, ['S0', 'S1', 'S2', 'S3', 'S4', 'S5']);
+assert.equal(manifest.authority.productionOutputMayGenerateExpectedValues, false);
+assert.equal(manifest.authority.performanceIsInformational, true);
+assert.equal(manifest.authority.releaseAuthorityGranted, false);
+assert.equal(manifest.scopeBoundary.productionMeshQualification, false);
+assert.equal(expected.authority.productionOutputUsed, false);
+assert.equal(expected.authority.productionOutputMayModifyExpectedValues, false);
+assert.equal(loadExpected.authority.productionOutputUsed, false);
+assert.equal(loadExpected.authority.productionOutputMayModifyExpectedValues, false);
+assert.equal(loadExpected.authority.productionOutputMayModifyAcceptance, false);
+assert.equal(solverExpected.authority.productionOutputUsed, false);
+assert.equal(solverExpected.authority.productionOutputMayModifyExpectedValues, false);
+assert.equal(solverExpected.authority.productionOutputMayModifyAcceptance, false);
+assert.equal(solverExpected.authority.conditioningMetricsAreDiagnosticOnly, true);
+assert.equal(semantics.invariants.movingMeshMaximumMayNotQualifyRichardsonGci, true);
+assert.equal(semantics.invariants.releaseAuthorityGranted, false);
+assert.equal(semantics.invariants.failClosedQualificationUsesFirstFailureBoundaryStateAndCode, true);
+assert.equal(semantics.invariants.messageRegexMayNotQualifyNegativeCase, true);
+assert.equal(semantics.invariants.matchingCodeAtWrongBoundaryMayNotQualifyNegativeCase, true);
+assert.equal(semantics.failClosedNegatives.q8InversionMustPreserveCounterClockwiseCorners, true);
+assert.equal(semantics.failClosedNegatives.q8InversionMustReachElementFormulation, true);
+assert.equal(semantics.failClosedNegatives.productionValidationRulesMayNotBeRelaxedByBenchmark, true);
+assert.equal(semantics.determinism.crossProcessIsolationRequired, true);
+assert.equal(semantics.determinism.compareSemanticHashesNotWholeAuditRecordBytes, true);
+assert.deepEqual(
+  semantics.determinism.requiredComparableHashFields,
+  [
+    'canonicalModelSemanticHash',
+    'loadCaseInputSemanticHash',
+    'resultPayloadSemanticHash',
+    'executionEvidenceHash',
+    'qualificationEvidenceHash',
+  ],
+);
+assert.equal(semantics.determinism.benchmarkLayerMayNotSortObservedProductionEvidenceToManufactureEquality, true);
+assert.equal(semantics.determinism.stableHashesAreRepeatabilityEvidenceNotIndependentPhysicsOracle, true);
+assert.equal(semantics.performance.informationalOnly, true);
+assert.equal(semantics.performance.wallTimeThresholdMs, null);
+assert.equal(semantics.performance.peakResidentSetThresholdKiB, null);
+assert.equal(semantics.performance.dofScalingThreshold, null);
+assert.equal(semantics.performance.processPeakMemoryMetric, 'process.resourceUsage().maxRSS');
+assert.equal(semantics.performance.processPeakMemoryUnit, 'KiB');
+assert.equal(semantics.performance.performanceMayNotGrantReleaseQualification, true);
+
+for (const stage of manifest.stages) {
+  assert.ok(manifest.stageOrder.includes(stage.benchmarkStage));
+  assert.ok(['READY', 'PLANNED'].includes(stage.definitionState));
+  if (stage.definitionState !== 'READY') continue;
+  assert.ok(stage.methods.length > 0, `${stage.benchmarkStage} READY stage requires methods`);
+  for (const method of stage.methods) {
+    assert.ok(method.command.length >= 2, `${method.methodId} command missing`);
+    for (const sourceRef of method.sourceRefs) {
+      assert.ok(fs.existsSync(path.join(ROOT, sourceRef)), `${method.methodId} missing sourceRef ${sourceRef}`);
+    }
+  }
+}
+assert.ok(manifest.stages.every((row) => row.definitionState === 'READY'), 'S0-S5 definitions must all be READY');
+
+const allExpectedCaseIds = [
+  ...expected.cases.map((row) => row.caseId),
+  ...loadExpected.cases.map((row) => row.caseId),
+  ...solverExpected.cases.map((row) => row.caseId),
+].sort();
+assert.deepEqual(cases.cases.map((row) => row.caseId).sort(), allExpectedCaseIds);
+for (const row of expected.cases) {
+  requireCitation(row.caseId, row.citation);
+  assert.equal(typeof row.acceptance.policyOrigin, 'string');
+}
+
+assert.equal(typeof loadExpected.acceptance.policyOrigin, 'string');
+assert.ok(loadExpected.acceptance.absoluteTolerance > 0);
+assert.ok(loadExpected.acceptance.relativeTolerance > 0);
+for (const row of loadExpected.cases) {
+  assert.ok(row.derivation && Object.keys(row.derivation).length > 0, `${row.caseId} derivation missing`);
+  assert.equal(typeof row.loadType, 'string');
+}
+assert.deepEqual(
+  loadExpected.cases.map((row) => row.loadType).sort(),
+  ['BODY_FORCE', 'EDGE_TRACTION', 'IMPOSED_DISPLACEMENT', 'PRESSURE', 'TEMPERATURE_STRAIN'],
+);
+
+assert.equal(typeof solverExpected.acceptance.policyOrigin, 'string');
+assert.equal(solverExpected.acceptance.linearRelationRelativeTolerance, 1e-8);
+assert.equal(solverExpected.acceptance.scalingReversibilityRelativeTolerance, 1e-10);
+assert.equal(solverExpected.acceptance.scaledDiagonalAbsoluteTolerance, 1e-9);
+assert.equal(solverExpected.acceptance.conditioningPassThreshold, null);
+assert.deepEqual(
+  solverExpected.cases.map((row) => row.caseId).sort(),
+  [
+    'SOLVER-DIAGONAL-SCALING-01',
+    'SOLVER-EQUILIBRIUM-ENERGY-01',
+    'SOLVER-LINEAR-SCALING-01',
+    'SOLVER-SUPERPOSITION-01',
+  ],
+);
+for (const row of solverExpected.cases) {
+  assert.ok(row.derivation && Object.keys(row.derivation).length > 0, `${row.caseId} derivation missing`);
+  assert.equal(typeof row.kind, 'string');
+}
+const equilibriumCase = solverExpected.cases.find((row) => row.caseId === 'SOLVER-EQUILIBRIUM-ENERGY-01');
+assert.equal(equilibriumCase.derived.appliedResultantN.x, 5000);
+assert.equal(equilibriumCase.derived.reactionResultantN.x, -5000);
+assert.equal(equilibriumCase.derived.strainEnergyNmm, 12.5);
+assert.equal(equilibriumCase.derived.externalWorkNmm, 25);
+assert.equal(equilibriumCase.derived.externalWorkOverTwoStrainEnergy, 1);
+const linearCase = solverExpected.cases.find((row) => row.caseId === 'SOLVER-LINEAR-SCALING-01');
+assert.equal(linearCase.derived.responseFactor, -0.5);
+assert.equal(linearCase.derived.strainEnergyFactor, 0.25);
+
+const s2 = manifest.stages.find((row) => row.benchmarkStage === 'S2');
+assert.equal(s2.definitionState, 'READY');
+assert.equal(s2.methods.length, 1);
+assert.equal(s2.methods[0].expectedEvidenceSchema, 'lafea3-bm-s-s2-load-path-evidence/v1');
+const s3 = manifest.stages.find((row) => row.benchmarkStage === 'S3');
+assert.equal(s3.definitionState, 'READY');
+assert.equal(s3.methods.length, 1);
+assert.equal(s3.methods[0].expectedEvidenceSchema, 'lafea3-bm-s-s3-solver-numerics-evidence/v1');
+assert.equal(
+  s3.methods[0].oracleAuthority,
+  'INDEPENDENT_STATIC_EQUILIBRIUM_CLAPEYRON_LINEARITY_SUPERPOSITION_AND_SCALING_INVARIANTS',
+);
+const s4 = manifest.stages.find((row) => row.benchmarkStage === 'S4');
+assert.equal(s4.definitionState, 'READY');
+assert.equal(s4.methods.length, 1);
+assert.equal(s4.methods[0].methodId, 'FAIL-CLOSED-NEGATIVES');
+assert.equal(s4.methods[0].authorityClass, 'STRUCTURED_REJECTION_CONTRACT');
+assert.equal(s4.methods[0].expectedEvidenceSchema, 'lafea3-bm-s-s4-fail-closed-evidence/v1');
+assert.equal(
+  s4.methods[0].oracleAuthority,
+  'FROZEN_STRUCTURED_FIRST_FAILURE_BOUNDARY_STATE_AND_CODE_CONTRACT',
+);
+const s5 = manifest.stages.find((row) => row.benchmarkStage === 'S5');
+assert.equal(s5.definitionState, 'READY');
+assert.equal(s5.gateMode, 'QUALIFICATION_PLUS_INFORMATIONAL_PERFORMANCE');
+assert.equal(s5.methods.length, 1);
+assert.equal(s5.methods[0].methodId, 'CROSS-PROCESS-DETERMINISM-AND-COST');
+assert.equal(s5.methods[0].authorityClass, 'SEMANTIC_HASH_REPEATABILITY_PLUS_INFORMATIONAL_COST');
+assert.equal(s5.methods[0].expectedEvidenceSchema, 'lafea3-bm-s-s5-determinism-cost-evidence/v1');
+assert.equal(
+  s5.methods[0].oracleAuthority,
+  'CROSS_PROCESS_PRODUCTION_SEMANTIC_HASH_EQUALITY_WITH_INDEPENDENT_TOPOLOGY_DOF_COUNTS_AND_INFORMATIONAL_PROCESS_COST',
+);
+
+for (const probe of probes.probes) {
+  assert.equal('nodeId' in probe, false, `${probe.probeId} may not use node identity`);
+  assert.ok(Number.isFinite(probe.physicalCoordinateMm.x));
+  assert.ok(Number.isFinite(probe.physicalCoordinateMm.y));
+  assert.ok(expected.cases.some((row) => row.caseId === probe.caseId));
+}
+assert.ok(ladders.ladders.every((row) => row.primaryConvergenceQuantity === 'FIXED_PHYSICAL_PROBE'));
+assert.equal(
+  ladders.qualificationRule,
+  'MOVING_PEAKS_AND_MESH_WIDE_MAXIMA_MAY_BE_RETAINED_AS_DIAGNOSTICS_BUT_NOT_USED_AS_RICHARDSON_GCI_QUANTITIES',
+);
+const cylinderLadder = ladders.ladders.find((row) => row.caseId === 'CONT-CYL-01');
+assert.ok(cylinderLadder, 'CONT-CYL-01 ladder required for S5 cost evidence');
+assert.deepEqual(
+  cylinderLadder.levels.map((row) => q8StructuredDofCount(row.radialElements, row.circumferentialElements)),
+  [74, 242, 866],
+  'independent Q8 ladder DOF counts drifted',
+);
+
+assert.equal(negatives.schema, 'lafea-b02-negative-cases/v1');
+assert.equal(negatives.assertionPolicy, 'EXACT_STRUCTURED_STATE_AND_CODE_NOT_MESSAGE_REGEX');
+assert.equal(negatives.releaseQualified, false);
+assert.equal(negatives.cases.length, 9);
+assert.equal(new Set(negatives.cases.map((row) => row.negativeCaseId)).size, 9);
+const expectedNegativeContract = new Map([
+  ['S4-UNDER-CONSTRAINED', ['solver', 'SINGULAR_SYSTEM', 'UNDER_CONSTRAINED_OR_SINGULAR_SYSTEM']],
+  ['S4-ZERO-AREA', ['canonical-model', 'REJECTED_MODEL', 'DEGENERATE_ELEMENT']],
+  ['S4-NEAR-ZERO-AREA', ['canonical-model', 'REJECTED_MODEL', 'DEGENERATE_ELEMENT']],
+  ['S4-Q8-INVERTED-MAPPING', ['element-formulation', 'NUMERICAL_FAILURE', 'Q8_NONPOSITIVE_JACOBIAN']],
+  ['S4-DUPLICATE-CONSTRAINT', ['canonical-model', 'REJECTED_MODEL', 'DUPLICATE_CONSTRAINT']],
+  ['S4-CONFLICTING-CONSTRAINT', ['canonical-model', 'REJECTED_MODEL', 'CONFLICTING_CONSTRAINT']],
+  ['S4-INTERNAL-EDGE-TRACTION', ['load-case-preflight', 'REJECTED_LOAD_CASE', 'TRACTION_EDGE_NOT_BOUNDARY']],
+  ['S4-DISCONNECTED-NODE', ['canonical-model', 'REJECTED_MODEL', 'DISCONNECTED_UNREFERENCED_NODE']],
+  ['S4-DUPLICATE-ELEMENT-NODE-SET', ['canonical-model', 'REJECTED_MODEL', 'DUPLICATE_ELEMENT_NODE_SET']],
+]);
+for (const row of negatives.cases) {
+  assert.ok(expectedNegativeContract.has(row.negativeCaseId), `unexpected S4 case ${row.negativeCaseId}`);
+  assert.deepEqual(
+    [row.expectedBoundary, row.expectedQualificationState, row.expectedErrorCode],
+    expectedNegativeContract.get(row.negativeCaseId),
+    `${row.negativeCaseId} frozen rejection tuple drift`,
+  );
+}
+assert.deepEqual(
+  [...expectedNegativeContract.keys()].sort(),
+  negatives.cases.map((row) => row.negativeCaseId).sort(),
+);
+const q8Negative = negatives.cases.find((row) => row.negativeCaseId === 'S4-Q8-INVERTED-MAPPING');
+assert.equal(
+  q8Negative.mutation,
+  'KEEP_COUNTER_CLOCKWISE_Q8_CORNERS_BUT_MOVE_MIDSIDE_GEOMETRY_TO_FORCE_NONPOSITIVE_INTEGRATION_POINT_JACOBIAN',
+);
+
+const requiredNegativeCodes = new Set([
+  'UNDER_CONSTRAINED_OR_SINGULAR_SYSTEM',
+  'DEGENERATE_ELEMENT',
+  'Q8_NONPOSITIVE_JACOBIAN',
+  'DUPLICATE_CONSTRAINT',
+  'CONFLICTING_CONSTRAINT',
+  'TRACTION_EDGE_NOT_BOUNDARY',
+  'DISCONNECTED_UNREFERENCED_NODE',
+  'DUPLICATE_ELEMENT_NODE_SET',
+]);
+for (const row of negatives.cases) requiredNegativeCodes.delete(row.expectedErrorCode);
+assert.deepEqual([...requiredNegativeCodes], [], 'required S4 exact error codes must be frozen');
+
+for (const source of sources.sources) {
+  assert.match(source.blobSha, /^[0-9a-f]{40}$/u);
+  const filePath = path.join(ROOT, source.path);
+  assert.ok(fs.existsSync(filePath), `source registry path missing: ${source.path}`);
+  assert.equal(git('hash-object', source.path).trim(), source.blobSha, `source custody drift: ${source.path}`);
+}
+assert.ok(sources.sources.some((row) => row.path === 'src/core/local-continuum/errors.js'));
+assert.ok(sources.sources.some((row) => row.path === 'src/core/shared-primitives/canonical-json.js'));
+
+const oracleCheck = runIndependentOracle();
+assert.equal(
+  oracleCheck.status,
+  0,
+  oracleCheck.stderr || oracleCheck.stdout || 'independent oracle check failed without diagnostic output',
+);
+const oraclePayload = JSON.parse(oracleCheck.stdout);
+assert.equal(oraclePayload.productionOutputUsed, false);
+assert.equal(oraclePayload.expectedValuesCheck, 'PASS');
+assert.equal(Object.keys(oraclePayload['S2-load-paths']).length, 5);
+assert.equal(Object.keys(oraclePayload['S3-solver-numerics']).length, 4);
+
+console.log('LAFEA.3 BM-S B02 definition, source custody, S1-S4 contracts and S5 deterministic/informational-cost definition passed.');
+
+function read(relativePath) {
+  return JSON.parse(fs.readFileSync(path.join(B02, relativePath), 'utf8'));
+}
+
+function requireCitation(caseId, citation) {
+  for (const field of ['publisher', 'author', 'title', 'edition', 'year']) {
+    assert.ok(citation[field], `${caseId} citation.${field} missing`);
+  }
+  assert.ok(Array.isArray(citation.pages) && citation.pages.length > 0, `${caseId} pages missing`);
+  assert.ok(
+    Array.isArray(citation.equationIdentifiers) && citation.equationIdentifiers.length > 0,
+    `${caseId} equation identifiers missing`,
+  );
+}
+
+function q8StructuredDofCount(nr, nt) {
+  return 2 * (3 * nr * nt + 2 * nr + 2 * nt + 1);
+}
+
+function runIndependentOracle() {
+  const oracleArgs = [path.join(B02, 'oracle/independent-oracle.py'), '--check'];
+  const candidates = process.platform === 'win32'
+    ? [
+        { command: 'py', args: ['-3', ...oracleArgs] },
+        { command: 'python', args: oracleArgs },
+        { command: 'python3', args: oracleArgs },
+      ]
+    : [
+        { command: 'python3', args: oracleArgs },
+        { command: 'python', args: oracleArgs },
+      ];
+  const launchFailures = [];
+  for (const candidate of candidates) {
+    const result = spawnSync(candidate.command, candidate.args, { cwd: ROOT, encoding: 'utf8' });
+    if (!result.error) return result;
+    launchFailures.push(`${candidate.command}: ${result.error.message}`);
+  }
+  throw new Error(`No supported Python 3 launcher could start the independent oracle. ${launchFailures.join(' | ')}`);
+}
+
+function git(...args) {
+  const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+  if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`);
+  return result.stdout;
+}

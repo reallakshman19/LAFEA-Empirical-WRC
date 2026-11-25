@@ -1,0 +1,557 @@
+{
+  "schema": "known-upstream-failures/v1",
+  "upstream": "reallakshman19/Advanced_Analysis@11eca8e40",
+  "note": "FAIL / TIMEOUT_120S: also fails upstream at the extraction commit (stale assertions, heavy runs). PASS: passes upstream but needs modules or specs that are not part of this standalone app (combined-app facade, lafea-templates, LFEA, combined-app e2e specs) or an upstream git checkout.",
+  "scripts": [
+    {
+      "name": "bundle-lazy-emp1-product-run-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: The single currentEmp1WorkbenchRouteAuthority owner must remain in product-run.\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "emp1-analytical-layout-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "emp1-benchmark-evidence-projection-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "emp1-issue1743-pressure-radius-validation-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Use Undo/u. Input:\r |   code: 'ERR_ASSERTION',\r |   expected: /Use Undo/u,\r"
+    },
+    {
+      "name": "emp1-wrc-gamma5-authority-identity-reconciliation-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: node:internal/errors:983\r |   const err = new Error(message);\r | Error: Command failed: git ls-files -z\r"
+    },
+    {
+      "name": "emp1-wrc537-cylindrical-physical-applicability-source-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  \"status\": \"FAIL\", |   \"failures\": ["
+    },
+    {
+      "name": "emp1-wrc537-cylindrical-stress-semantics-source-check.mjs",
+      "upstream": "FAIL",
+      "reason": "    throw new Error(\r | Error: EMP1 stress-semantics assertion failed: expected \"BLOCKED_PARTIAL_TABLE5_STRESS_INTENSITY_FORMULA_AUTHORITY_PLANE_STRESS_SEMANTICS_UNQUALIFIED\", got \"BLOCKED_PARTIAL_PRIMARY_STRESS_INTENSITY_DEFINITION_AND_MAX"
+    },
+    {
+      "name": "lafea-ac2-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: src/workspace/lafea-workbench-orchestration-projection.js has 321 lines\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-accessory-panel-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /const \\{ accessoryPanels, THREE, \\.\\.\\.storeOptions \\} = configuration/u. Input:\r |   \"import { publicLafeaFailure } from './lafea-public-failure.js';\\r\\n\" +\r |"
+    },
+    {
+      "name": "lafea-agent1-stack-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea-architecture-convergence-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r |   code: 'ERR_ASSERTION',\r |   expected: false,\r"
+    },
+    {
+      "name": "lafea-architecture-convergence-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: ../src/workspace/lafea-workbench-orchestration-projection.js exceeds the 299-line architectural limit\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-b01-integrated-exact-head-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-b01-metamorphic-route-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-b01-negative-route-check.mjs",
+      "upstream": "FAIL",
+      "reason": "{\"schema\":\"lafea-b01-negative-master/v1\",\"issue\":1100,\"stageId\":\"LAFEA.3\",\"gitHead\":\"11eca8e40e560fc2e5f0866489f0b419e1b5afb1\",\"cleanTreeAtStart\":true,\"negativeDefinitionSha256\":\"sha256:2eae992aae6167bd366c75212b46acbbb9796bf5cb33c5b36ff351"
+    },
+    {
+      "name": "lafea-b01-post-nullspace-boundary-check.mjs",
+      "upstream": "FAIL",
+      "reason": "    throw new Error(`LAFEA_B01_POST_NULLSPACE_CLEAN_CHECKOUT_REQUIRED_${stage.toUpperCase()}`);\r | Error: LAFEA_B01_POST_NULLSPACE_CLEAN_CHECKOUT_REQUIRED_START\r"
+    },
+    {
+      "name": "lafea-b01-registered-route-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  if (!cleanTreeAtStart && !options.allowDirty) throw new Error('B01 untouched baseline requires a clean tree.');\r | Error: B01 untouched baseline requires a clean tree.\r"
+    },
+    {
+      "name": "lafea-b02-definition-freeze-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: B02A frozen definition bytes changed\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea-b02-production-sequence-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": "{\"schema\":\"lafea-b02-rectangle-production-qualification-receipt/v1\",\"caseId\":\"B02A\",\"status\":\"PASS\",\"definitionHash\":\"sha256:709695f825b6669fb01eb6854aad2d1c6b9f3190d348b6358d386dbdccaf78c5\",\"convergencePolicyHash\":\"sha256:804cf96e0022dee1d"
+    },
+    {
+      "name": "lafea-b02d-probe-stable-polar-mesh-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: T3/L1\r |   code: 'ERR_ASSERTION',\r |   expected: 'PASS',\r"
+    },
+    {
+      "name": "lafea-b02d-production-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-b02d-v2-binding-exact-head-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  \"schema\": \"lafea-b02d-v2-binding-exact-head-failure/v1\","
+    },
+    {
+      "name": "lafea-b02d-v2-governing-response-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-b02d-v2-governing-response-exact-head-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  \"schema\": \"lafea-b02d-v2-governing-response-exact-head-failure/v1\","
+    },
+    {
+      "name": "lafea-b02d-v2-production-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-benchmark-program-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r |   code: 'ERR_ASSERTION',\r |   expected: 'B01',\r"
+    },
+    {
+      "name": "lafea-bucket-01-cantilever-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-bucket-01-controlled-replay-entrypoint-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /ARTIFACT_NOT_REGISTRY_VERIFIED/u. Input:\r |   '  assertRegisteredLafeaBucket01ReplayArtifacts,\\r\\n' +\r |   '  replayError,\\r\\n' +\r"
+    },
+    {
+      "name": "lafea-bucket-01-exact-head-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-bucket-01-repair-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-bucket-01-solver-policy-contract-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: solver implementation missing policy token: const convergenceTarget = residualTolerance / 10;\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-canvas-anti-drift-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-canvas\\render-packet-contract.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-continuum-mesh-v3-production-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  const error = new TypeError(message);\r | TypeError: LAFEA.3 mesh quality settings may tighten but may not weaken LAFEA3_MESH_QUALITY_POLICY_V1@2026-08-15.\r |     at meshContractError (<repo>/src/"
+    },
+    {
+      "name": "lafea-continuum-mesh-v3-workbench-state-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  const error = new TypeError(message);\r | TypeError: LAFEA.3 mesh quality settings may tighten but may not weaken LAFEA3_MESH_QUALITY_POLICY_V1@2026-08-15.\r |     at meshContractError (<repo>/src/"
+    },
+    {
+      "name": "lafea-correlation-end-to-end-check.mjs",
+      "upstream": "FAIL",
+      "reason": "<repo>/src/core/local-attachment-screening/errors.js:7\r | export function unsupportedError(code,path,message){return new ScreeningError(QUALIFICATION_STATES.UNSUPPORTED_REQUEST,code,path,message);}"
+    },
+    {
+      "name": "lafea-current-mesh-compaction-check.mjs",
+      "upstream": "FAIL",
+      "reason": "TypeError: generation.replaceWith is not a function\r"
+    },
+    {
+      "name": "lafea-mesh-convergence-replay-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Usage: node scripts/lafea-mesh-convergence-replay-check.mjs <old M4 audit> <new output JSON>\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-mesh-m3-policy-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Usage: node scripts/lafea-mesh-m3-policy-check.mjs <M3 audit> <new output JSON>\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-mesh-workspace-v3-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: Cannot find module '<repo>\\scripts\\lafea-mesh-workspace-v3-batch3-check.mjs'\r | {\"check\":\"lafea-mesh-workspace-v3\",\"status\":\"FAIL\",\"failed\":\"lafea-mesh-workspace-v3-batch3-check.mjs\",\"results\":[{\"check\":\"lafea-mesh-workspace-v3-bat"
+    },
+    {
+      "name": "lafea-mp2-domain-geometry-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: src/workspace/lafea-workbench-orchestrator-store.js exceeds 299 physical lines\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-nb-t3-composition-root-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea-nb-t4a-analysis-mesh-evidence-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /from ['\"][^'\"]*(?:local-continuum|local-shell|lafea-canvas|render-packet)[^'\"]*['\"]/u. Input:\r |   \"    throw meshContractError('LAFEA_ANALYSIS_MESH"
+    },
+    {
+      "name": "lafea-nb-t4a-analysis-mesh-live-store-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: src/workspace/lafea-workbench-controller.js exceeds limit\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-nc05-check.mjs",
+      "upstream": "FAIL",
+      "reason": "TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string or an instance of Buffer or URL. Received undefined\r"
+    },
+    {
+      "name": "lafea-nonbucket-stack-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea-plane-strain-bbar-lame-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-plane-strain-bbar-qualification-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-plane-strain-bbar-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Temperature \\/ eigenstrain authority', 'NOT GRANTED/u. Input:\r |   \"      failClosed: 'EXTERNAL CI EVIDENCE REQUIRED',\\r\\n\" +\r |   \"  if (!root?.ownerDocument) "
+    },
+    {
+      "name": "lafea-shell-curved-hole-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: "
+    },
+    {
+      "name": "lafea-shell-curved-hole-ladder-check.mjs",
+      "upstream": "FAIL",
+      "reason": "function fail(code) { const error = new TypeError(code); error.code = code; throw error; }\r | TypeError: LAFEA_SHELL_MESH_QUALITY_BLOCKED\r |     at fail (<repo>/src/workspace/lafea-shell-mesh-produ"
+    },
+    {
+      "name": "lafea-shell-hole-ladder-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: ONE_RECT_HOLE target 25: direct quality BLOCK; blocking=E000056,E000058\r |   code: 'ERR_ASSERTION',\r |   expected: 'BLOCK',\r"
+    },
+    {
+      "name": "lafea-shell-hole-mesh-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-stage12b-parity-gate-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>\\src\\workspace\\lafea-workbench.js' imported from <repo>\\scripts\\lafea-continuum-solver-model-check.mjs\r | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>\\src\\workspace\\l"
+    },
+    {
+      "name": "lafea-stage13-authoritative-run-gate-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": ""
+    },
+    {
+      "name": "lafea-stage17-browser-source-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Failure journey spec exceeds the 200-line module ceiling.\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-tech1-mesh-quality-truth-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea-tech12d-activation-record-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r | +   '      \"inheritedErrorPrefix\": \"Error: FORBIDDEN_PRODUCT_OR_COMBINED_DEPENDENCY:\"\\n' +\r"
+    },
+    {
+      "name": "lafea-tech12h-overview-result-currentness-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r | +   '      \"inheritedErrorPrefix\": \"Error: FORBIDDEN_PRODUCT_OR_COMBINED_DEPENDENCY:\"\\n' +\r"
+    },
+    {
+      "name": "lafea-tech12i-release-result-currentness-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r | +   '      \"inheritedErrorPrefix\": \"Error: FORBIDDEN_PRODUCT_OR_COMBINED_DEPENDENCY:\"\\n' +\r"
+    },
+    {
+      "name": "lafea-tech12l-lifecycle-export-consumer-enforcement-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r | +   '      \"inheritedErrorPrefix\": \"Error: FORBIDDEN_PRODUCT_OR_COMBINED_DEPENDENCY:\"\\n' +\r"
+    },
+    {
+      "name": "lafea-tech4-curved-hole-convergence-check.mjs",
+      "upstream": "FAIL",
+      "reason": "function fail(code) { const error = new TypeError(code); error.code = code; throw error; }\r | TypeError: LAFEA_SHELL_CURVED_HOLE_POINT_KEYS_INVALID\r |     at fail (<repo>/src/workspace/lafea-shell-"
+    },
+    {
+      "name": "lafea-template-b2-target-compatibility-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r |   code: 'ERR_ASSERTION',\r |   expected: 'BLOCKED',\r"
+    },
+    {
+      "name": "lafea-template-b7e-b7-gate-closure-check.mjs",
+      "upstream": "FAIL",
+      "reason": "      throw new TypeError('Material-region metrics are inconsistent.');\r | TypeError: Material-region metrics are inconsistent.\r | Syntax check failed for 1210 file(s):"
+    },
+    {
+      "name": "lafea-template-b7f-current-main-qualification-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": "      throw new TypeError('Material-region metrics are inconsistent.');\r | TypeError: Material-region metrics are inconsistent.\r | Syntax check failed for 1210 file(s):"
+    },
+    {
+      "name": "lafea-template-b7h-self-hosted-gate-closure-check.mjs",
+      "upstream": "FAIL",
+      "reason": "{\"schema\":\"lafea-b7h-self-hosted-gate-closure-report/v1\",\"status\":\"BLOCKED\",\"exactHead\":\"11eca8e40e560fc2e5f0866489f0b419e1b5afb1\",\"expectedHead\":\"11eca8e40e560fc2e5f0866489f0b419e1b5afb1\",\"mainHead\":\"11eca8e40e560fc2e5f0866489f0b419e1b5afb"
+    },
+    {
+      "name": "lafea-template-stack-check.mjs",
+      "upstream": "TIMEOUT_120S",
+      "reason": "AssertionError [ERR_ASSERTION]: Missing load-transfer projection token: loadCases(\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-template-t2-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE:   \"status\": \"FAIL\", |   \"errors\": [ |     \"Required T2 file is missing: src/workspace/lafea-templates/catalog-card.js.\","
+    },
+    {
+      "name": "lafea-template-t3-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: AssertionError [ERR_ASSERTION]: <repo>\\src\\core\\lafea-application-templates\\compile-template.js is missing.\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea-template-t3-unit-projection-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "  throw new TypeError(\r | TypeError: Usage: node scripts/lafea-template-t3-unit-projection-source-guard.mjs --base <sha>\r"
+    },
+    {
+      "name": "lafea-template-t4-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "  throw new Error('Usage: node scripts/lafea-template-t4-source-guard.mjs --base <BASE_SHA>');\r | Error: Usage: node scripts/lafea-template-t4-source-guard.mjs --base <BASE_SHA>\r"
+    },
+    {
+      "name": "lafea-template-t5-recovery-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "  throw new TypeError(\r | TypeError: Usage: node scripts/lafea-template-t5-recovery-source-guard.mjs --base <sha>\r"
+    },
+    {
+      "name": "lafea-template-t5-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "  throw new Error('Usage: node scripts/lafea-template-t5-source-guard.mjs --base <BASE_SHA>');\r | Error: Usage: node scripts/lafea-template-t5-source-guard.mjs --base <BASE_SHA>\r"
+    },
+    {
+      "name": "lafea-template-t6a-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\t6a-standalone-wizard.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-template-t6c-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\workbench-registration.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-template-t7a-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\parameter-draft.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-template-t7b-evidence-correction-workflow-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  throw new TypeError('PR_BASE_SHA is required for the T7B workflow contract check.');\r | TypeError: PR_BASE_SHA is required for the T7B workflow contract check.\r"
+    },
+    {
+      "name": "lafea-template-t7b-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\compilation-preview.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-template-t7c-certification-workflow-check.mjs",
+      "upstream": "FAIL",
+      "reason": "Error: ENOENT: no such file or directory, open '<repo>\\.github\\workflows\\lafea-template-t7c-certification.yml'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-template-t7c-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\workbench-import.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-u1-stage-registry-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea-u1b-registry-consumer-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-workbench.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-u4g-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /onBindMeshProfile\\?\\.\\(profileEnvelope\\);\\s*handlers\\.onGenerateMesh\\?\\.\\(\\{\\}\\);/u. Input:\r |   code: 'ERR_ASSERTION',\r |   expected: /onBindMeshProfile\\?\\.\\(p"
+    },
+    {
+      "name": "lafea-u4h-browser-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\e2e\\lafea-hybrid-validation-matrix.json'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-u4i-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-workbench.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-u4j-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\e2e\\fixtures\\lafea-hybrid-workbench-fixture.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-ui-formal-presentation-check.mjs",
+      "upstream": "FAIL",
+      "reason": "    throw new TypeError(`LAFEA_WORKFLOW_AREA_STEP_REQUIRED:${stepId}`);\r | TypeError: LAFEA_WORKFLOW_AREA_STEP_REQUIRED:CONVERGENCE\r"
+    },
+    {
+      "name": "lafea-ui-guided-discretization-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r |   code: 'ERR_ASSERTION',\r |   expected: false,\r"
+    },
+    {
+      "name": "lafea-ui-numerical-verification-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Area, curved perimeter, boundary deviation/u. Input:\r |   code: 'ERR_ASSERTION',\r |   expected: /Area, curved perimeter, boundary deviation/u,\r"
+    },
+    {
+      "name": "lafea-ui-t6-geometry-qualification-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-workbench.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-uq-u1-source-authority-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea-verification-presentation-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\e2e\\lafea3-sample-mesh.spec.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-workflow-area-applicability-check.mjs",
+      "upstream": "FAIL",
+      "reason": "    throw new TypeError(`LAFEA_WORKFLOW_AREA_STEP_REQUIRED:${stepId}`);\r | TypeError: LAFEA_WORKFLOW_AREA_STEP_REQUIRED:CONVERGENCE\r"
+    },
+    {
+      "name": "lafea.1-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "node:internal/errors:983\r |   const err = new Error(message);\r | Error: Command failed: git fetch --no-tags --depth=1 origin ce719a719a740d5228b5a404a6848af878954609\r"
+    },
+    {
+      "name": "lafea.12-analytical-qualification-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: LAFEA2-SEC-01/LAFEA2-COMB-01/LAFEA2-ENV-01 must be accepted by the live calculator.\r | + actual - expected\r |     at assertAccepted (<repo>/scripts/lafea.12-independ"
+    },
+    {
+      "name": "lafea.12-independent-oracle-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: LAFEA2-SEC-01/LAFEA2-COMB-01/LAFEA2-ENV-01 must be accepted by the live calculator.\r | + actual - expected\r |     at assertAccepted (<repo>/scripts/lafea.12-independ"
+    },
+    {
+      "name": "lafea.12-independent-oracle-extended-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: combined radial/principal must be accepted.\r | + actual - expected\r |     at assertAccepted (<repo>/scripts/lafea.12-independent-oracle-extended-check.mjs:433:10)\r"
+    },
+    {
+      "name": "lafea.2-pressure-invariant-check.mjs",
+      "upstream": "FAIL",
+      "reason": "<repo>/src/core/local-attachment-screening/errors.js:7\r | export function unsupportedError(code,path,message){return new ScreeningError(QUALIFICATION_STATES.UNSUPPORTED_REQUEST,code,path,message);}"
+    },
+    {
+      "name": "lafea.2-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "node:internal/errors:983\r |   const err = new Error(message);\r | Error: Command failed: git fetch --no-tags --depth=1 origin 23828ceb8a66466e9dc327d191489b0fd5b874e1\r"
+    },
+    {
+      "name": "lafea.3-c3b-mesh-qualification-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  throw new Error(message);\r | Error: Tracked worktree must be clean before C3-B qualification:\r |     at fail (<repo>/scripts/lafea.3-c3b-mesh-qualification-check.mjs:140:9)\r"
+    },
+    {
+      "name": "lafea.3-c3c-model-compiler-qualification-check.mjs",
+      "upstream": "FAIL",
+      "reason": "function fail(message) { throw new Error(message); }\r | Error: Tracked worktree must be clean before C3-C qualification:\r |     at fail (<repo>/scripts/lafea.3-c3c-model-compiler-qualification-chec"
+    },
+    {
+      "name": "lafea.3-solver-benchmark-definition-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\validation\\lafea-benchmark-data\\B02\\bucket-manifest.json'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea.3-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "exact baseline unavailable: Command failed: git cat-file -e d9a9431cc25750d9fccf2c21936cd5d6099ff3ff^{commit}"
+    },
+    {
+      "name": "lafea.3-visible-convergence-flow-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: public workbench store must retain the convergence wrapper\r |   code: 'ERR_ASSERTION',\r |     '    } catch (error) {\\r\\n' +\r"
+    },
+    {
+      "name": "lafea.4-a4-thickness-applicability-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: solver DETERMINISTIC_DENSE_CHOLESKY must be accepted\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea.4-contract-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: solver DETERMINISTIC_DENSE_CHOLESKY must be accepted\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea.4-production-adoption-aggregate-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: solver DETERMINISTIC_DENSE_CHOLESKY must be accepted\r | + actual - expected\r |   code: 'ERR_ASSERTION',\r"
+    },
+    {
+      "name": "lafea.4-source-guard.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: src\\core\\local-shell\\assembly.js imports outside local-shell: ../lafea-linear-solve/index.js\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea1371-registry-closure-readiness-check.mjs",
+      "upstream": "FAIL",
+      "reason": "AssertionError [ERR_ASSERTION]: Section 17 readiness requires a clean exact-head checkout; dirty state:\r | ?? reports/qualification/lafea-bucket-01-expected-value-registry.json\r | + actual - expected\r"
+    },
+    {
+      "name": "lafea1413-exact-head-preflight-check.mjs",
+      "upstream": "FAIL",
+      "reason": "  \"status\": \"FAIL\", |   \"expectedHead\": null, |   \"firstFailure\": {"
+    },
+    {
+      "name": "lafea1413-validation-isolation-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\e2e\\lafea4-sample-mesh.spec.js'\r |   code: 'ENOENT',\r"
+    }
+  ]
+}

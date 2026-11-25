@@ -1,0 +1,72 @@
+html,
+body,
+#app-root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  background: #020711;
+}
+
+#app-root {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #07101f;
+  border-bottom: 1px solid #1c2a40;
+  font: 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-nav__brand {
+  color: #9fb3d1;
+  font-weight: 600;
+  margin-right: 12px;
+}
+
+.app-nav__tab {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #c9d6ea;
+  padding: 6px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-nav__tab:hover {
+  background: #0e1a2e;
+}
+
+.app-nav__tab[aria-pressed='true'] {
+  background: #13243f;
+  border-color: #2b4a78;
+  color: #ffffff;
+}
+
+.app-nav__tab:focus-visible {
+  outline: 2px solid #4c8dff;
+  outline-offset: 1px;
+}
+
+.app-views,
+.app-view {
+  flex: 1;
+  min-height: 0;
+}
+
+.app-view [data-role='lafea-mock'],
+.app-view [data-role='lafea-benchmark'] {
+  display: none;
+}
