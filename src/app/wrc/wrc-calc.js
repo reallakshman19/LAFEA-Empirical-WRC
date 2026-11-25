@@ -17,6 +17,7 @@ import {
 } from '../../core/emp1/emp1-wrc537-cylindrical-gamma-interpolation.js';
 import {
   EMP1_WRC537_CYL_LOCATIONS,
+  emp1Wrc537PlaneStressIntensity as tresca,
   evaluateEmp1Wrc537CylindricalTable5,
 } from '../../core/emp1/emp1-wrc537-cylindrical-table5.js';
 
@@ -50,6 +51,12 @@ export const WRC_TIER_TEXT = Object.freeze({
   BLOCKED: 'Not calculated. See the reasons below.',
 });
 
+/** How the shell bending stress from external loads is classified for the code check. */
+export const WRC_BENDING_CLASS = Object.freeze({
+  Q: 'Secondary Q, PL+Pb+Q ≤ SPS (default)',
+  PB: 'Primary Pb, PL+Pb ≤ 1.5S (conservative)',
+});
+
 export const DEFAULT_CASE = Object.freeze({
   title: 'Nozzle on cylinder',
   shellOutsideDiameter: 1000,
@@ -62,6 +69,12 @@ export const DEFAULT_CASE = Object.freeze({
   momentUnit: 'N·m',
   loads: Object.freeze({ P: -2000, Vc: 500, Vl: -800, Mc: 1500, Ml: -2500, Mt: 1000 }),
   coordinate: 'LINEAR_GAMMA',
+  designPressure: 0,
+  Kn: 1,
+  Kb: 1,
+  allowableS: '',
+  allowableSps: '',
+  bendingClass: 'Q',
 });
 
 /** Reference cases, each with independently known answers (see scripts/wrc-calculator-check.mjs). */
@@ -155,6 +168,11 @@ export function calculateWrc537(input) {
   }
   if (!FORCE_UNITS[input.forceUnit] || !MOMENT_UNITS[input.momentUnit]) reasons.push(reason('INPUT', 'Choose force and moment units.'));
   const coordinate = WRC_COORDINATES[input.coordinate] ? input.coordinate : 'LINEAR_GAMMA';
+  const Kn = numOr(input.Kn, 1);
+  const Kb = numOr(input.Kb, 1);
+  const pressure = numOr(input.designPressure, 0);
+  if (!(Kn > 0) || !(Kb > 0)) reasons.push(reason('INPUT', 'Kn and Kb must be positive numbers (use 1 if you have no value).'));
+  if (!Number.isFinite(pressure)) reasons.push(reason('INPUT', 'Design pressure must be a number (use 0 if none).'));
 
   let gammaClass = { tier: WRC_TIER.BLOCKED };
   if (!reasons.length) {
@@ -214,19 +232,37 @@ export function calculateWrc537(input) {
   }
   const table5 = evaluateEmp1Wrc537CylindricalTable5({
     geometry: { meanRadius: g.Rm, shellThickness: g.T, attachmentRadius: g.r0, beta: g.beta },
-    stressConcentration: { Kn: 1, Kb: 1 },
+    stressConcentration: { Kn, Kb },
     loads,
     curveOrdinates: ordinateSet.ordinates,
   });
   const s = table5.stresses;
-  const rows = WRC_LOCATIONS.map((location, i) => ({
-    location,
-    circumferential: s.circumferential[i],
-    longitudinal: s.longitudinal[i],
-    shear: s.shear[i],
-    stressIntensity: s.stressIntensity[i],
-  }));
+  const c = table5.components;
+  // Thin-shell pressure membrane stress, added at every point on both surfaces.
+  const pressureStress = { circumferential: pressure * g.Rm / g.T, longitudinal: pressure * g.Rm / (2 * g.T) };
+  const rows = WRC_LOCATIONS.map((location, i) => {
+    const circumferential = s.circumferential[i] + pressureStress.circumferential;
+    const longitudinal = s.longitudinal[i] + pressureStress.longitudinal;
+    const membraneCirc = c.circumferential.Pmem[i] + c.circumferential.Mcmem[i] + c.circumferential.Mlmem[i] + pressureStress.circumferential;
+    const membraneLong = c.longitudinal.Pmem[i] + c.longitudinal.Mcmem[i] + c.longitudinal.Mlmem[i] + pressureStress.longitudinal;
+    return {
+      location,
+      circumferential,
+      longitudinal,
+      shear: s.shear[i],
+      stressIntensity: pressure === 0 ? s.stressIntensity[i] : tresca(circumferential, longitudinal, s.shear[i]),
+      membraneIntensity: tresca(membraneCirc, membraneLong, s.shear[i]),
+    };
+  });
   const governing = rows.reduce((best, row) => (row.stressIntensity > best.stressIntensity ? row : best), rows[0]);
+  if (pressure !== 0) {
+    warnings.push(`Pressure ${fmt(pressure, 3)} MPa adds thin-shell membrane stress p·Rm/T = ${fmt(pressureStress.circumferential, 2)} MPa (hoop) and p·Rm/2T = ${fmt(pressureStress.longitudinal, 2)} MPa (longitudinal) at every point. `
+      + 'This is common practice, not part of WRC 537. The extra pressure stress at the edge of the opening is not included: check it with the code nozzle rules or FE.');
+  }
+  if (Kn !== 1 || Kb !== 1) {
+    warnings.push(`User-supplied stress concentration factors: Kn = ${fmt(Kn, 3)} (membrane), Kb = ${fmt(Kb, 3)} (bending). They multiply the WRC load stresses only, not the pressure or shear stress.`);
+  }
+  const codeCheck = buildCodeCheck(rows, governing, { pressure, g, input });
   if (gammaClass.tier === WRC_TIER.INTERPOLATED) {
     warnings.push(`γ ${fmt(g.gamma, 2)} lies between tabulated rows γ = ${gammaClass.lower} and ${gammaClass.upper}. `
       + `Curve values were blended (${coordinate === 'LINEAR_GAMMA' ? 'linear in γ' : 'log γ'}).`);
@@ -246,7 +282,67 @@ export function calculateWrc537(input) {
     components: table5.components,
     rows,
     governing,
+    pressureStress,
+    stressConcentration: { Kn, Kb },
+    codeCheck,
     policy: { coordinate, interpolationPolicy: EMP1_WRC537_GAMMA_INTERPOLATION_POLICY.basis },
+  };
+}
+
+/**
+ * Code check against user-entered allowables, using the ASME VIII-2 Part 5 stress categories:
+ *  - Pm      (pressure hoop membrane, thin shell)     <= S
+ *  - PL      (membrane at the attachment, all points) <= 1.5 S
+ *  - PL+Pb+Q (total, all points)                      <= SPS (default 3 S), when load bending is Q
+ *  - PL+Pb   (total, all points)                      <= 1.5 S, when load bending is treated as primary
+ * Returns null when no allowable S has been entered.
+ */
+function buildCodeCheck(rows, governing, { pressure, g, input }) {
+  const S = num(input.allowableS);
+  if (!(S > 0)) return null;
+  const SpsIn = num(input.allowableSps);
+  const Sps = SpsIn > 0 ? SpsIn : 3 * S;
+  const bendingClass = WRC_BENDING_CLASS[input.bendingClass] ? input.bendingClass : 'Q';
+  const membrane = rows.reduce((best, row) => (row.membraneIntensity > best.membraneIntensity ? row : best), rows[0]);
+  const item = (id, label, value, location, limit, limitText) => ({
+    id, label, value, location, limit, limitText, ratio: value / limit, pass: value <= limit,
+  });
+  const items = [
+    item('PM', 'Pm, general primary membrane (pressure only)', Math.abs(pressure) * g.Rm / g.T, '—', S, 'S'),
+    item('PL', 'PL, local primary membrane', membrane.membraneIntensity, membrane.location, 1.5 * S, '1.5 S'),
+    bendingClass === 'Q'
+      ? item('PLPBQ', 'PL + Pb + Q, total', governing.stressIntensity, governing.location, Sps, SpsIn > 0 ? 'SPS' : 'SPS = 3 S')
+      : item('PLPB', 'PL + Pb, total (load bending treated as primary)', governing.stressIntensity, governing.location, 1.5 * S, '1.5 S'),
+  ];
+  const worst = items.reduce((a, b) => (b.ratio > a.ratio ? b : a));
+  return { S, Sps, bendingClass, items, pass: items.every((i) => i.pass), worst };
+}
+
+/**
+ * Run several load cases on one geometry. `input.loadCases` = [{ name, loads }]; when absent,
+ * `input.loads` is the only case. Returns each case's result plus an envelope.
+ */
+export function calculateWrc537Cases(input) {
+  const list = Array.isArray(input.loadCases) && input.loadCases.length
+    ? input.loadCases
+    : [{ name: 'Case 1', loads: input.loads }];
+  const cases = list.map((c, index) => ({
+    name: String(c?.name || `Case ${index + 1}`),
+    result: calculateWrc537({ ...input, loads: c?.loads ?? {} }),
+  }));
+  const ok = cases.filter((c) => c.result.ok);
+  const governing = ok.reduce((best, c) => (best && best.result.governing.stressIntensity >= c.result.governing.stressIntensity ? best : c), null);
+  const checked = ok.filter((c) => c.result.codeCheck);
+  const worstCheck = checked.reduce((a, b) => (a && a.result.codeCheck.worst.ratio >= b.result.codeCheck.worst.ratio ? a : b), null);
+  return {
+    cases,
+    allCalculated: ok.length === cases.length,
+    governing: governing
+      ? { name: governing.name, location: governing.result.governing.location, stressIntensity: governing.result.governing.stressIntensity }
+      : null,
+    codeCheck: worstCheck
+      ? { pass: checked.length === cases.length && checked.every((c) => c.result.codeCheck.pass), worstCase: worstCheck.name, worst: worstCheck.result.codeCheck.worst }
+      : null,
   };
 }
 
@@ -264,6 +360,7 @@ function explainCoreError(error) {
 }
 
 function reason(kind, text, fix = '') { return { kind, text, fix }; }
+function numOr(value, fallback) { return value === '' || value == null ? fallback : num(value); }
 function num(value) { return typeof value === 'number' ? value : (value === '' || value == null ? NaN : Number(value)); }
 export function fmt(value, digits = 2) { return Number.isFinite(value) ? value.toFixed(digits) : '—'; }
 function structuredCloneSafe(value) { try { return structuredClone(value); } catch { return JSON.parse(JSON.stringify(value)); } }

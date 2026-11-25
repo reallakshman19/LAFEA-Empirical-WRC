@@ -23,7 +23,9 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   - shell OD, thickness and corrosion allowance;
   - attachment OD;
   - optional cylinder length and attachment position;
-  - P, Vc, Vl, Mc, Ml and Mt in WRC axes.
+  - P, Vc, Vl, Mc, Ml and Mt in WRC axes, as **up to 20 named load cases**;
+  - design pressure, and stress concentration factors Kn and Kb;
+  - optional allowables S and SPS.
 - **Live results:** T, Rm, γ and β are shown live, with range badges. Results update as you type.
 - **Which γ it accepts:**
 
@@ -34,17 +36,25 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   | between those rows | **interpolated** between the two nearest rows; linear in γ by default (conservative) or log γ. Labelled engineering judgement, not a WRC rule. |
   | below 5 or above 300, β outside 0.05–0.5, or §4.5.2 length/end-distance limits not met | **not calculated**, with a plain reason and a suggested fix |
 
-- **Output:** circumferential, longitudinal and shear stress, plus stress intensity
-  (Tresca), at each point. The governing point is highlighted.
+- **Output:** circumferential, longitudinal and shear stress, membrane stress intensity (PL)
+  and total stress intensity (Tresca), at each point. The governing point is highlighted.
+  With more than one load case, an envelope table shows each case's governing point.
+- **Pressure:** adds the thin-shell membrane stress p·Rm/T (hoop) and p·Rm/2T (longitudinal)
+  at every point. This is common practice, not part of WRC 537. The extra pressure stress at
+  the edge of the opening is **not** included.
+- **Code check (when S is entered):** a screening check using the ASME VIII-2 Part 5 categories:
+  Pm ≤ S, PL ≤ 1.5S, and PL+Pb+Q ≤ SPS (default 3S). Shell bending from the nozzle loads is
+  Q by default (VIII-2 Table 5.6); you can treat it as primary Pb (PL+Pb ≤ 1.5S) instead.
 - **Report:** "Print report" or "Download report" produces a self-contained HTML report:
-  - geometry, loads and derived γ/β;
+  - geometry, pressure, Kn/Kb, allowables, all load cases and derived γ/β;
+  - the load-case envelope and each case's code check;
   - the WRC curve values used;
   - the 8-point table and limitations;
   - prepared/checked sign-off lines.
 - **Saving:** cases are saved automatically in the browser. "Save case" and "Open case"
   use `*.wrc.json` files.
-- **Not covered:** pressure stress, Kn/Kb other than 1, code allowables, spherical
-  shells and rectangular attachments. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
+- **Not covered:** spherical shells and rectangular attachments (the extracted EMP1 core has
+  no WRC 537 data for them), pressure stress concentration at the opening, and fatigue. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
 
 The calculator is a thin wrapper over the EMP1 core
 (`buildEmp1Wrc537InterpolatedTable5Ordinates` and
@@ -53,7 +63,8 @@ The calculator is a thin wrapper over the EMP1 core
 - the frozen **γ = 5 independent hand calculation**: all 8 points to 1e‑9; governing Au = 72.67 MPa;
 - the **CAESAR II 2017 WRC benchmark** at γ = 48.03 (interpolated): worst point
   +2.0%, never below CAESAR II, same governing point (Du);
-- every blocking rule, unit conversion and the corroded mean radius.
+- every blocking rule, unit conversion and the corroded mean radius;
+- pressure, Kn/Kb, the code check and load-case envelopes, against hand arithmetic.
 
 ## Run
 
@@ -88,7 +99,7 @@ Results at extraction time, on Windows with Node 22 and Chrome:
 | Suite | Command | Result |
 |---|---|---|
 | Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **277 pass**, 0 fail, 128 skipped as KNOWN |
-| Browser e2e (19 specs, 43 tests) | `npx playwright test` | **35 pass**, 8 fail (the same 8 fail upstream; the 3 new WRC calculator tests pass) |
+| Browser e2e (19 specs, 44 tests) | `npx playwright test` | 4/4 WRC calculator tests pass. The other 40 were last run before the WRC work: 32 passed, and the 8 that failed also fail upstream. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%) |
 | Build | `npm run build`, `npm run build:lafea` | pass |

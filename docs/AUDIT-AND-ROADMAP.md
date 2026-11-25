@@ -102,6 +102,24 @@ Still open:
 - A2–A4;
 - Phase 2 onward.
 
+**2026-11-25: Phase 2, first part.** Added to the WRC calculator:
+
+| Item | Done |
+|---|---|
+| 12 | Design pressure (thin-shell membrane p·Rm/T and p·Rm/2T) and Kn/Kb inputs |
+| 13 | Code check with user allowables: Pm ≤ S, PL ≤ 1.5S, PL+Pb+Q ≤ SPS (or PL+Pb ≤ 1.5S) |
+| 16 | Up to 20 named load cases, with an envelope table and a code check for each case |
+
+All of these are in the report and checked against hand arithmetic in `wrc-calculator-check.mjs`.
+
+Still open in Phase 2:
+- **14 spheres and 15 rectangular attachments:** blocked on source data. The extracted EMP1 core
+  has only the WRC 537 curves for cylinders with round attachments. The sphere and
+  rectangular-attachment curves must be digitised from the bulletin and validated before they
+  can be added.
+- **17 more benchmarks:** needs CAESAR II or PV Elite output for more γ/β cases.
+- **Pressure stress concentration at the opening:** not included (WRC 368 or FE).
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

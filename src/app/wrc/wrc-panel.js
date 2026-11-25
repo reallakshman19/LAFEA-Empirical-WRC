@@ -4,12 +4,13 @@
 import './wrc.css';
 import {
   DEFAULT_CASE, EXAMPLE_CASES, FORCE_UNITS, MOMENT_UNITS, WRC_BETA_RANGE, WRC_COORDINATES,
-  WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537, fmt,
+  WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases, fmt,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
 
 const STORAGE_KEY = 'lafea-emp-app/wrc-case';
 const CASE_SCHEMA = 'lafea-emp-app/wrc537-case/v1';
+const MAX_CASES = 20;
 
 const FIELDS = [
   { group: 'Shell (cylinder)', key: 'shellOutsideDiameter', label: 'Outside diameter', unit: 'mm' },
@@ -18,6 +19,11 @@ const FIELDS = [
   { group: 'Attachment', key: 'attachmentOutsideDiameter', label: 'Outside diameter at shell', unit: 'mm' },
   { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'cylinderLength', label: 'Length between heads or stiffeners', unit: 'mm', optional: true },
   { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'attachmentStation', label: 'Attachment position from one end', unit: 'mm', optional: true },
+  { group: 'Pressure and stress concentration', key: 'designPressure', label: 'Design pressure (internal +)', unit: 'MPa', signed: true },
+  { group: 'Pressure and stress concentration', key: 'Kn', label: 'Kn, membrane factor', unit: '' },
+  { group: 'Pressure and stress concentration', key: 'Kb', label: 'Kb, bending factor', unit: '' },
+  { group: 'Allowables (optional)', key: 'allowableS', label: 'Allowable stress S', unit: 'MPa', optional: true },
+  { group: 'Allowables (optional)', key: 'allowableSps', label: 'SPS (blank = 3S)', unit: 'MPa', optional: true },
 ];
 
 const LOADS = [
@@ -31,7 +37,8 @@ const LOADS = [
 
 export function mountWrcCalculator(host) {
   const doc = host.ownerDocument;
-  let state = loadSaved() ?? cloneCase(DEFAULT_CASE);
+  let state = loadSaved() ?? normalizeCase(DEFAULT_CASE);
+  let batch = null;
   let result = null;
 
   host.classList.add('wrc');
@@ -55,7 +62,9 @@ export function mountWrcCalculator(host) {
       <form class="wrc__inputs" autocomplete="off" novalidate>
         <div data-slot="fields"></div>
         <fieldset class="wrc__group">
-          <legend>Loads at the attachment (WRC 537 axes)</legend>
+          <legend>Load cases at the attachment (WRC 537 axes)</legend>
+          <div class="wrc__cases" data-slot="caseTabs"></div>
+          <label class="wrc__row wrc__row--name"><span>Case name</span><input data-casename type="text" maxlength="60"></label>
           <div class="wrc__units">
             <label>Force <select data-k="forceUnit">${Object.keys(FORCE_UNITS).map((u) => `<option>${u}</option>`).join('')}</select></label>
             <label>Moment <select data-k="momentUnit">${Object.keys(MOMENT_UNITS).map((u) => `<option>${u}</option>`).join('')}</select></label>
@@ -67,6 +76,12 @@ export function mountWrcCalculator(host) {
           <p class="wrc__help">Signs follow WRC 537 Figure 2. This is the same convention CAESAR II uses for its WRC input, confirmed against a CAESAR II benchmark. Enter 0 for any load you don't have.</p>
         </fieldset>
         <fieldset class="wrc__group">
+          <legend>Code check classification</legend>
+          <label class="wrc__row"><span>Load bending stress</span>
+            <select data-k="bendingClass">${Object.entries(WRC_BENDING_CLASS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+          <p class="wrc__help">Enter S to check Pm ≤ S, PL ≤ 1.5S and PL+Pb+Q ≤ SPS (ASME VIII-2 Part 5 categories). ASME VIII-2 Table 5.6 classes the shell bending from nozzle loads as Q; choose Pb to be conservative for sustained loads. Leave S blank for stresses only.</p>
+        </fieldset>
+        <fieldset class="wrc__group">
           <legend>Between tabulated γ rows</legend>
           <label class="wrc__row"><span>Interpolation</span>
             <select data-k="coordinate">${Object.entries(WRC_COORDINATES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
@@ -75,8 +90,10 @@ export function mountWrcCalculator(host) {
       </form>
       <section class="wrc__results" aria-live="polite">
         <div class="wrc__derived" data-slot="derived"></div>
+        <div data-slot="envelope"></div>
         <div data-slot="status"></div>
         <div data-slot="table"></div>
+        <div data-slot="check"></div>
         <div data-slot="notes"></div>
       </section>
     </div>`;
@@ -90,7 +107,7 @@ export function mountWrcCalculator(host) {
   host.querySelector('[data-slot="fields"]').innerHTML = [...groups].map(([group, fields]) => `
     <fieldset class="wrc__group"><legend>${group}</legend>${fields.map((f) => `
       <label class="wrc__row"><span>${f.label}${f.optional ? ' <small>(optional)</small>' : ''}</span>
-        <input data-k="${f.key}" type="number" step="any" min="0" inputmode="decimal"><em>${f.unit}</em></label>`).join('')}
+        <input data-k="${f.key}" type="number" step="any"${f.signed ? '' : ' min="0"'} inputmode="decimal"><em>${f.unit}</em></label>`).join('')}
     </fieldset>`).join('');
 
   const $ = (sel) => host.querySelector(sel);
@@ -98,19 +115,39 @@ export function mountWrcCalculator(host) {
 
   function writeForm() {
     for (const el of host.querySelectorAll('[data-k]')) el.value = state[el.dataset.k] ?? '';
-    for (const el of host.querySelectorAll('[data-load]')) el.value = state.loads?.[el.dataset.load] ?? 0;
+    writeCase();
+  }
+  function activeCase() { return state.loadCases[state.activeCase]; }
+  function writeCase() {
+    for (const el of host.querySelectorAll('[data-load]')) el.value = activeCase().loads?.[el.dataset.load] ?? 0;
+    $('[data-casename]').value = activeCase().name;
+    renderCaseTabs();
+  }
+  function renderCaseTabs() {
+    $('[data-slot="caseTabs"]').innerHTML = `${state.loadCases.map((c, i) => `
+      <button type="button" data-case="${i}" class="${i === state.activeCase ? 'is-active' : ''}" aria-pressed="${i === state.activeCase}">${escapeHtml(c.name)}</button>`).join('')}
+      <button type="button" data-act="addCase" title="Copy this case as a new one"${state.loadCases.length >= MAX_CASES ? ' disabled' : ''}>+ Add case</button>
+      ${state.loadCases.length > 1 ? '<button type="button" data-act="deleteCase" title="Delete this case">Delete case</button>' : ''}`;
+  }
+  function selectCase(index) {
+    state.activeCase = Math.max(0, Math.min(state.loadCases.length - 1, index));
+    writeCase();
+    render();
   }
   function readForm() {
-    const next = { ...state, loads: { ...state.loads } };
+    const next = { ...state, loadCases: state.loadCases.map((c) => ({ ...c, loads: { ...c.loads } })) };
     for (const el of host.querySelectorAll('[data-k]')) {
       next[el.dataset.k] = el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value;
     }
-    for (const el of host.querySelectorAll('[data-load]')) next.loads[el.dataset.load] = el.value === '' ? 0 : Number(el.value);
+    const current = next.loadCases[next.activeCase];
+    for (const el of host.querySelectorAll('[data-load]')) current.loads[el.dataset.load] = el.value === '' ? 0 : Number(el.value);
+    current.name = $('[data-casename]').value || `Case ${next.activeCase + 1}`;
     return next;
   }
 
   function render() {
-    result = calculateWrc537(state);
+    batch = calculateWrc537Cases(state);
+    result = batch.cases[state.activeCase].result;
     const g = result.geometry;
     for (const l of LOADS) {
       host.querySelector(`[data-unit="${l.key}"]`).textContent = ['P', 'Vc', 'Vl'].includes(l.key) ? state.forceUnit : state.momentUnit;
@@ -123,6 +160,8 @@ export function mountWrcCalculator(host) {
       ${chip('γ = Rm/T', fmt(g.gamma, 2), Number.isFinite(g.gamma) ? (gammaOk ? (result.gammaClass.tier === WRC_TIER.SOURCE_QUALIFIED || result.gammaClass.tier === WRC_TIER.TABULATED_ROW ? 'ok' : 'warn') : 'bad') : '', `Allowed ${WRC_GAMMA_GRID[0]}–${WRC_GAMMA_GRID.at(-1)}`)}
       ${chip('β = 0.875·r0/Rm', fmt(g.beta, 3), Number.isFinite(g.beta) ? (betaOk ? 'ok' : 'bad') : '', 'Allowed 0.05–0.5')}`;
 
+    renderEnvelope();
+    renderCheck();
     const tierClass = { SOURCE_QUALIFIED: 'ok', TABULATED_ROW: 'ok', INTERPOLATED: 'warn', BLOCKED: 'bad' }[result.tier];
     if (result.ok) {
       $('[data-slot="status"]').innerHTML = `
@@ -143,26 +182,70 @@ export function mountWrcCalculator(host) {
     }
     $('[data-slot="notes"]').innerHTML = `
       ${result.warnings.length ? `<ul class="wrc__notes">${result.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>` : ''}
-      <p class="wrc__help">Only stress in the shell at the attachment is calculated: no attachment or nozzle stress, no pressure stress, and no check against allowables. K<sub>n</sub> = K<sub>b</sub> = 1.</p>`;
+      <p class="wrc__help">Only stress in the shell at the attachment is calculated, not in the attachment or nozzle. Pressure adds the thin-shell membrane stress only.</p>`;
     save(state);
   }
 
+  function renderEnvelope() {
+    const slot = $('[data-slot="envelope"]');
+    if (batch.cases.length < 2) { slot.innerHTML = ''; return; }
+    const hasCheck = batch.cases.some((c) => c.result.codeCheck);
+    slot.innerHTML = `
+      <table class="wrc__table wrc__envelope"><thead><tr><th>Load case</th><th>Governing SI</th><th>Point</th><th>PL</th>${hasCheck ? '<th>Worst ratio</th>' : ''}</tr></thead>
+      <tbody>${batch.cases.map((c, i) => {
+        const r = c.result;
+        const pl = r.ok ? Math.max(...r.rows.map((row) => row.membraneIntensity)) : NaN;
+        const gov = r.ok && batch.governing && batch.governing.name === c.name && r.governing.stressIntensity === batch.governing.stressIntensity;
+        return `<tr data-case="${i}" class="${i === state.activeCase ? 'is-active' : ''}${gov ? ' is-gov' : ''}">
+          <td>${escapeHtml(c.name)}</td>
+          <td>${r.ok ? `<b>${fmt(r.governing.stressIntensity, 2)}</b>` : '<span class="wrc__bad">not calculated</span>'}</td>
+          <td>${r.ok ? r.governing.location : '—'}</td><td>${fmt(pl, 2)}</td>
+          ${hasCheck ? `<td>${r.codeCheck ? ratioCell(r.codeCheck.worst) : '—'}</td>` : ''}</tr>`;
+      }).join('')}</tbody>
+      <caption>All load cases, MPa. Click a case to see its detail. ${batch.governing ? `Envelope: ${escapeHtml(batch.governing.name)}, ${fmt(batch.governing.stressIntensity, 2)} MPa at ${batch.governing.location}.` : ''}${batch.codeCheck ? ` Code check: <b class="${batch.codeCheck.pass ? 'wrc__ok' : 'wrc__bad'}">${batch.codeCheck.pass ? 'all cases pass' : 'fails'}</b> (worst: ${escapeHtml(batch.codeCheck.worstCase)}).` : ''}</caption></table>`;
+  }
+
+  function renderCheck() {
+    const slot = $('[data-slot="check"]');
+    const cc = result.ok ? result.codeCheck : null;
+    if (!cc) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <h3 class="wrc__h">Code check: <span class="${cc.pass ? 'wrc__ok' : 'wrc__bad'}">${cc.pass ? 'PASS' : 'FAIL'}</span></h3>
+      <table class="wrc__table wrc__check"><thead><tr><th>Category</th><th>Point</th><th>Stress</th><th>Limit</th><th>Ratio</th></tr></thead>
+      <tbody>${cc.items.map((i) => `<tr><td>${escapeHtml(i.label)}</td><td>${i.location}</td><td>${fmt(i.value, 2)}</td><td>${fmt(i.limit, 1)} <small>(${i.limitText})</small></td><td>${ratioCell(i)}</td></tr>`).join('')}</tbody>
+      <caption>MPa. S = ${fmt(cc.S, 1)}, SPS = ${fmt(cc.Sps, 1)}. Stress intensity (Tresca). PL is the membrane part: pressure, WRC membrane and shear. A screening check with your allowables, not a full code assessment.</caption></table>`;
+  }
+
   function setCase(next) {
-    state = cloneCase(next);
+    state = normalizeCase(next);
     writeForm();
     render();
   }
 
-  form.addEventListener('input', () => { state = readForm(); render(); });
+  form.addEventListener('input', (event) => {
+    state = readForm();
+    if (event.target.matches('[data-casename]')) renderCaseTabs();
+    render();
+  });
   form.addEventListener('change', () => { state = readForm(); render(); });
   form.addEventListener('submit', (event) => event.preventDefault());
 
   host.addEventListener('click', (event) => {
+    const caseEl = event.target.closest('[data-case]');
+    if (caseEl) { selectCase(Number(caseEl.dataset.case)); return; }
     const act = event.target.closest('[data-act]')?.dataset.act;
+    if (act === 'addCase' && state.loadCases.length < MAX_CASES) {
+      state.loadCases.push({ name: `Case ${state.loadCases.length + 1}`, loads: { ...activeCase().loads } });
+      selectCase(state.loadCases.length - 1);
+    }
+    if (act === 'deleteCase' && state.loadCases.length > 1) {
+      state.loadCases.splice(state.activeCase, 1);
+      selectCase(Math.min(state.activeCase, state.loadCases.length - 1));
+    }
     if (act === 'save') downloadFile(`${slug(state.title)}.wrc.json`, JSON.stringify({ schema: CASE_SCHEMA, case: state }, null, 2), 'application/json');
     if (act === 'open') $('[data-act="file"]').click();
-    if (act === 'print') printReport(result);
-    if (act === 'download') downloadFile(`${slug(state.title)}-wrc537-report.html`, reportHtml(result), 'text/html');
+    if (act === 'print') printReport(batch);
+    if (act === 'download') downloadFile(`${slug(state.title)}-wrc537-report.html`, reportHtml(batch), 'text/html');
   });
   $('[data-act="example"]').addEventListener('change', (event) => {
     const key = event.target.value;
@@ -178,7 +261,7 @@ export function mountWrcCalculator(host) {
       const parsed = JSON.parse(await file.text());
       const loaded = parsed?.schema === CASE_SCHEMA ? parsed.case : null;
       if (!loaded || typeof loaded !== 'object') throw new Error('Not a WRC case file.');
-      setCase({ ...cloneCase(DEFAULT_CASE), ...loaded, loads: { ...DEFAULT_CASE.loads, ...loaded.loads } });
+      setCase(loaded);
     } catch (error) {
       globalThis.alert?.(`Could not open the case: ${error.message}`);
     }
@@ -213,6 +296,7 @@ export function mountWrcCalculator(host) {
   return {
     getState: () => cloneCase(state),
     getResult: () => result,
+    getBatch: () => batch,
     setCase,
     destroy() { host.replaceChildren(); host.classList.remove('wrc'); },
   };
@@ -222,6 +306,23 @@ function chip(label, value, tone = '', title = '') {
   return `<div class="wrc__chip ${tone ? `wrc__chip--${tone}` : ''}" title="${title}"><span>${label}</span><b>${value}</b></div>`;
 }
 function cloneCase(c) { return JSON.parse(JSON.stringify(c)); }
+function ratioCell(item) {
+  return `<span class="${item.pass ? 'wrc__ok' : 'wrc__bad'}">${fmt(item.ratio, 2)} ${item.pass ? 'pass' : 'FAIL'}</span>`;
+}
+/** Fill defaults and turn an old single-load case (`loads`) into the load-case list. */
+function normalizeCase(c) {
+  const src = cloneCase(c ?? {});
+  const merged = { ...cloneCase(DEFAULT_CASE), ...src };
+  let cases = Array.isArray(src.loadCases) ? src.loadCases.filter((x) => x && typeof x === 'object') : [];
+  if (!cases.length) cases = [{ name: 'Case 1', loads: { ...DEFAULT_CASE.loads, ...(src.loads ?? {}) } }];
+  merged.loadCases = cases.slice(0, MAX_CASES).map((x, i) => ({
+    name: String(x.name || `Case ${i + 1}`).slice(0, 60),
+    loads: Object.fromEntries(Object.keys(DEFAULT_CASE.loads).map((k) => [k, Number(x.loads?.[k] ?? 0) || 0])),
+  }));
+  merged.activeCase = Number.isInteger(src.activeCase) && src.activeCase >= 0 && src.activeCase < merged.loadCases.length ? src.activeCase : 0;
+  delete merged.loads;
+  return merged;
+}
 function slug(text) { return (String(text || 'wrc-case').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'wrc-case').slice(0, 60); }
 function escapeHtml(text) { return String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function loadSaved() {
@@ -229,7 +330,7 @@ function loadSaved() {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? { ...cloneCase(DEFAULT_CASE), ...parsed, loads: { ...DEFAULT_CASE.loads, ...parsed.loads } } : null;
+    return parsed && typeof parsed === 'object' ? normalizeCase(parsed) : null;
   } catch { return null; }
 }
 function save(c) { try { globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(c)); } catch { /* storage optional */ } }

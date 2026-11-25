@@ -71,3 +71,15 @@
 .wrc__table tr.is-gov td { background: #2a2410; }
 .wrc__table caption { caption-side: bottom; text-align: left; color: var(--wrc-muted); font-size: 12px; padding-top: 6px; }
 .wrc__notes { color: var(--wrc-warn); font-size: 13px; padding-left: 20px; margin: 12px 0 0; }
+
+.wrc__cases { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+.wrc__cases button { padding: 3px 9px; font-size: 13px; }
+.wrc__cases button.is-active { background: #1b3663; border-color: var(--wrc-accent); }
+.wrc__row--name { grid-template-columns: 1fr 1.4fr; }
+.wrc__envelope { margin-bottom: 14px; }
+.wrc__envelope tbody tr { cursor: pointer; }
+.wrc__envelope tr.is-active td { box-shadow: inset 0 -2px 0 var(--wrc-accent); }
+.wrc__check td:first-child { white-space: normal; }
+.wrc__h { font-size: 14px; margin: 16px 0 4px; }
+.wrc__ok { color: var(--wrc-ok); font-weight: 600; }
+.wrc__bad { color: var(--wrc-bad); font-weight: 600; }
