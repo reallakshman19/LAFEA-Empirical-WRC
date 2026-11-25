@@ -29,6 +29,11 @@
       "reason": "OUT_OF_SCOPE: node:internal/errors:983\r |   const err = new Error(message);\r | Error: Command failed: git ls-files -z\r"
     },
     {
+      "name": "emp1-wrc-gamma5-requalification-observation-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: function gateError(code) { const error = new TypeError(code); error.code = code; return error; }\r | TypeError: EMP1_CURRENT_REOBSERVATION_RECORD_REQUIRED\r |     at gateError (file:///<repo>/scripts/emp1-wrc-gamma5-requalification-observatio"
+    },
+    {
       "name": "emp1-wrc537-cylindrical-physical-applicability-source-check.mjs",
       "upstream": "FAIL",
       "reason": "  \"status\": \"FAIL\", |   \"failures\": ["
@@ -99,6 +104,21 @@
       "reason": "{\"schema\":\"lafea-b02-rectangle-production-qualification-receipt/v1\",\"caseId\":\"B02A\",\"status\":\"PASS\",\"definitionHash\":\"sha256:709695f825b6669fb01eb6854aad2d1c6b9f3190d348b6358d386dbdccaf78c5\",\"convergencePolicyHash\":\"sha256:804cf96e0022dee1d"
     },
     {
+      "name": "lafea-b02a-production-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-workbench.js' imported from <repo>/scripts\\lib\\lafea-b02-production-route.mjs\r"
+    },
+    {
+      "name": "lafea-b02b-production-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-workbench.js' imported from <repo>/scripts\\lib\\lafea-b02-production-route.mjs\r"
+    },
+    {
+      "name": "lafea-b02c-production-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-workbench.js' imported from <repo>/scripts\\lib\\lafea-b02-kirsch-production-route.mjs\r"
+    },
+    {
       "name": "lafea-b02d-probe-stable-polar-mesh-check.mjs",
       "upstream": "FAIL",
       "reason": "AssertionError [ERR_ASSERTION]: T3/L1\r |   code: 'ERR_ASSERTION',\r |   expected: 'PASS',\r"
@@ -164,6 +184,11 @@
       "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-canvas\\render-packet-contract.js'\r |   code: 'ENOENT',\r"
     },
     {
+      "name": "lafea-continuum-compiled-execution-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-workbench.js' imported from <repo>/scripts\\lafea-continuum-compiled-execution-check.mjs\r"
+    },
+    {
       "name": "lafea-continuum-mesh-v3-production-check.mjs",
       "upstream": "FAIL",
       "reason": "  const error = new TypeError(message);\r | TypeError: LAFEA.3 mesh quality settings may tighten but may not weaken LAFEA3_MESH_QUALITY_POLICY_V1@2026-08-15.\r |     at meshContractError (<repo>/src/"
@@ -172,6 +197,11 @@
       "name": "lafea-continuum-mesh-v3-workbench-state-check.mjs",
       "upstream": "FAIL",
       "reason": "  const error = new TypeError(message);\r | TypeError: LAFEA.3 mesh quality settings may tighten but may not weaken LAFEA3_MESH_QUALITY_POLICY_V1@2026-08-15.\r |     at meshContractError (<repo>/src/"
+    },
+    {
+      "name": "lafea-continuum-solver-model-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-workbench.js' imported from <repo>/scripts\\lafea-continuum-solver-model-check.mjs\r"
     },
     {
       "name": "lafea-correlation-end-to-end-check.mjs",
@@ -309,6 +339,11 @@
       "reason": "function fail(code) { const error = new TypeError(code); error.code = code; throw error; }\r | TypeError: LAFEA_SHELL_CURVED_HOLE_POINT_KEYS_INVALID\r |     at fail (<repo>/src/workspace/lafea-shell-"
     },
     {
+      "name": "lafea-tech7-graded-refinement-executor-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea4-shell-geometric-quality-evidence.js' imported from <repo>/scripts\\lafea-tech7-graded-refinement-executor-check.mjs\r"
+    },
+    {
       "name": "lafea-template-b2-target-compatibility-check.mjs",
       "upstream": "FAIL",
       "reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r |   code: 'ERR_ASSERTION',\r |   expected: 'BLOCKED',\r"
@@ -334,9 +369,19 @@
       "reason": "AssertionError [ERR_ASSERTION]: Missing load-transfer projection token: loadCases(\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
     },
     {
+      "name": "lafea-template-t2-catalog-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\core\\lafea-application-templates\\index.js' imported from <repo>/scripts\\lafea-template-t2-catalog-check.mjs\r"
+    },
+    {
       "name": "lafea-template-t2-source-guard.mjs",
       "upstream": "PASS",
       "reason": "OUT_OF_SCOPE:   \"status\": \"FAIL\", |   \"errors\": [ |     \"Required T2 file is missing: src/workspace/lafea-templates/catalog-card.js.\","
+    },
+    {
+      "name": "lafea-template-t3-analytical-compiler-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\core\\lafea-application-templates\\t3-analytical.js' imported from <repo>/scripts\\lafea-template-t3-analytical-compiler-check.mjs\r"
     },
     {
       "name": "lafea-template-t3-source-guard.mjs",
@@ -369,14 +414,34 @@
       "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\t6a-standalone-wizard.js'\r |   code: 'ENOENT',\r"
     },
     {
+      "name": "lafea-template-t6a-standalone-wizard-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-templates\\index.js' imported from <repo>/scripts\\lafea-template-t6a-standalone-wizard-check.mjs\r"
+    },
+    {
+      "name": "lafea-template-t6c-cross-contract-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-workbench.js' imported from <repo>/scripts\\lafea-template-t6c-cross-contract-check.mjs\r"
+    },
+    {
       "name": "lafea-template-t6c-source-guard.mjs",
       "upstream": "PASS",
       "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\workbench-registration.js'\r |   code: 'ENOENT',\r"
     },
     {
+      "name": "lafea-template-t7a-parameter-entry-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-workbench.js' imported from <repo>/scripts\\lafea-template-t7a-parameter-entry-check.mjs\r"
+    },
+    {
       "name": "lafea-template-t7a-source-guard.mjs",
       "upstream": "PASS",
       "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\parameter-draft.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-template-t7b-compilation-preview-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-workbench.js' imported from <repo>/scripts\\lafea-template-t7b-compilation-preview-check.mjs\r"
     },
     {
       "name": "lafea-template-t7b-evidence-correction-workflow-check.mjs",
@@ -389,6 +454,11 @@
       "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\compilation-preview.js'\r |   code: 'ENOENT',\r"
     },
     {
+      "name": "lafea-template-t7b-validation-parent-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\workspace\\lafea-templates\\wizard-model.js' imported from <repo>/scripts\\lafea-template-t7b-validation-parent-check.mjs\r"
+    },
+    {
       "name": "lafea-template-t7c-certification-workflow-check.mjs",
       "upstream": "FAIL",
       "reason": "Error: ENOENT: no such file or directory, open '<repo>\\.github\\workflows\\lafea-template-t7c-certification.yml'\r |   code: 'ENOENT',\r"
@@ -397,6 +467,11 @@
       "name": "lafea-template-t7c-source-guard.mjs",
       "upstream": "PASS",
       "reason": "OUT_OF_SCOPE: Error: ENOENT: no such file or directory, open '<repo>\\src\\workspace\\lafea-templates\\workbench-import.js'\r |   code: 'ENOENT',\r"
+    },
+    {
+      "name": "lafea-template-t7c-workbench-import-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\core\\shared-piping-model\\index.js' imported from <repo>/scripts\\lafea-template-t7c-workbench-import-check.mjs\r"
     },
     {
       "name": "lafea-u1-stage-registry-check.mjs",
@@ -494,6 +569,16 @@
       "reason": "node:internal/errors:983\r |   const err = new Error(message);\r | Error: Command failed: git fetch --no-tags --depth=1 origin 23828ceb8a66466e9dc327d191489b0fd5b874e1\r"
     },
     {
+      "name": "lafea.3-benchmark-cont-cyl-01-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\core\\lafea-geometry\\index.js' imported from <repo>/scripts\\lafea.3-benchmark-mesh-adapter.mjs\r"
+    },
+    {
+      "name": "lafea.3-benchmark-cont-hole-01-check.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '<repo>/src\\core\\lafea-geometry\\index.js' imported from <repo>/scripts\\lafea.3-benchmark-mesh-adapter.mjs\r"
+    },
+    {
       "name": "lafea.3-c3b-mesh-qualification-check.mjs",
       "upstream": "FAIL",
       "reason": "  throw new Error(message);\r | Error: Tracked worktree must be clean before C3-B qualification:\r |     at fail (<repo>/scripts/lafea.3-c3b-mesh-qualification-check.mjs:140:9)\r"
@@ -537,6 +622,11 @@
       "name": "lafea.4-source-guard.mjs",
       "upstream": "FAIL",
       "reason": "AssertionError [ERR_ASSERTION]: src\\core\\local-shell\\assembly.js imports outside local-shell: ../lafea-linear-solve/index.js\r |   code: 'ERR_ASSERTION',\r |   expected: true,\r"
+    },
+    {
+      "name": "lafea.5-source-guard.mjs",
+      "upstream": "PASS",
+      "reason": "OUT_OF_SCOPE: AssertionError [ERR_ASSERTION]: Got unwanted exception: Accepted baseline 7e12954f2923c2df574bf94cb0d94811c813d463 is unavailable; exact-baseline containment cannot be certified.\r | Actual message: \"Command failed: git cat-file -e 7e12954f2"
     },
     {
       "name": "lafea1371-registry-closure-readiness-check.mjs",
