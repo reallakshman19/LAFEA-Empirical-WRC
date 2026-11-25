@@ -10,3 +10,6 @@ _tools/
 
 .claude/
 artifacts/
+
+# third-party copyrighted source documents (kept only in the upstream repo)
+docs/emp1/*.pdf

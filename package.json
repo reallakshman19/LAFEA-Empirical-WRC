@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "dev:lafea-only": "vite --open /lafea.html",
     "build:lafea": "node scripts/lafea-standalone-boundary-check.mjs && vite build --config vite.lafea.config.js && node scripts/lafea-standalone-build-artifact-check.mjs",
-    "check:boundary": "node scripts/lafea-standalone-boundary-check.mjs && node scripts/lafea-standalone-boundary-self-test.mjs",
+    "check:boundary": "node scripts/lafea-standalone-boundary-check.mjs && node scripts/lafea-standalone-boundary-check.mjs --entry src/app/main.js && node scripts/lafea-standalone-boundary-self-test.mjs",
     "check:e2e": "node scripts/run-playwright.mjs",
     "check:all": "node scripts/run-all-checks.mjs",
     "lint": "eslint src scripts e2e",
@@ -25,7 +25,8 @@
     "check:lafea-canvas-contract": "node scripts/lafea-canvas-contract-check.mjs",
     "check:lafea-render-parity": "node scripts/lafea-render-parity-check.mjs",
     "check:lafea-canvas-performance": "node scripts/lafea-canvas-performance-check.mjs",
-    "check:lafea-canvas-anti-drift": "node scripts/lafea-canvas-anti-drift-check.mjs"
+    "check:lafea-canvas-anti-drift": "node scripts/lafea-canvas-anti-drift-check.mjs",
+    "check:wrc": "node scripts/wrc-calculator-check.mjs"
   },
   "dependencies": {},
   "devDependencies": {

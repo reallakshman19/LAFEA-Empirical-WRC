@@ -7,11 +7,53 @@ at `11eca8e40` (main, 2026-11-25):
 | View | What it is | Controller config |
 |---|---|---|
 | **LAFEA** | Local finite-element analysis workbench (2D continuum, shell, trunnion footprint, weld profile…) | `LafeaStandaloneController`, `initialStage: 'LAFEA.3'` |
-| **Empirical / WRC** | EMP1 local-attachment analytical assessment (WRC 537 cylindrical data, gamma interpolation, section/local checks) | same controller, `presentationMode: 'ANALYTICAL_CALC'`, `analyticalOnly: true`, `initialStage: 'LAFEA.1'` |
+| **Empirical / WRC** | Opens on the **WRC 537 calculator** (below). The full governed EMP1 workflow is kept as the "Full EMP.1 workflow (advanced)" sub-tab. | calculator: `src/app/wrc/`; workflow: same controller, `presentationMode: 'ANALYTICAL_CALC'`, `analyticalOnly: true`, `initialStage: 'LAFEA.1'` |
 
-These are the same two configurations the upstream combined app uses for its
-`LAFEA` and `EMPIRICAL` tabs (`src/workspace/bootstrap.js` upstream), without the
-combined workspace, LFEA, pipe-model, event bus, mock data or benchmark panels.
+The LAFEA tab and the advanced EMP1 workflow use the same two configurations the
+upstream combined app uses for its `LAFEA` and `EMPIRICAL` tabs
+(`src/workspace/bootstrap.js` upstream). They run without the combined workspace,
+LFEA, pipe-model, event bus, mock data or benchmark panels.
+
+## WRC 537 calculator
+
+This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** at a
+**round attachment**, at the 8 WRC points (A–D, outside/inside surface).
+
+- **Inputs:** plain inputs in mm, N or kN, and N·m, kN·m or N·mm:
+  - shell OD, thickness and corrosion allowance;
+  - attachment OD;
+  - optional cylinder length and attachment position;
+  - P, Vc, Vl, Mc, Ml and Mt in WRC axes.
+- **Live results:** T, Rm, γ and β are shown live, with range badges. Results update as you type.
+- **Which γ it accepts:**
+
+  | γ = Rm/T | Result |
+  |---|---|
+  | exactly 5 | WRC 537 source-qualified range |
+  | 15, 50, 100 or 300 | tabulated WRC row; β limit 0.05–0.5 assumed, because the source does not print it |
+  | between those rows | **interpolated** between the two nearest rows; linear in γ by default (conservative) or log γ. Labelled engineering judgement, not a WRC rule. |
+  | below 5 or above 300, β outside 0.05–0.5, or §4.5.2 length/end-distance limits not met | **not calculated**, with a plain reason and a suggested fix |
+
+- **Output:** circumferential, longitudinal and shear stress, plus stress intensity
+  (Tresca), at each point. The governing point is highlighted.
+- **Report:** "Print report" or "Download report" produces a self-contained HTML report:
+  - geometry, loads and derived γ/β;
+  - the WRC curve values used;
+  - the 8-point table and limitations;
+  - prepared/checked sign-off lines.
+- **Saving:** cases are saved automatically in the browser. "Save case" and "Open case"
+  use `*.wrc.json` files.
+- **Not covered:** pressure stress, Kn/Kb other than 1, code allowables, spherical
+  shells and rectangular attachments. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
+
+The calculator is a thin wrapper over the EMP1 core
+(`buildEmp1Wrc537InterpolatedTable5Ordinates` and
+`evaluateEmp1Wrc537CylindricalTable5`). `npm run check:wrc` checks it against:
+
+- the frozen **γ = 5 independent hand calculation**: all 8 points to 1e‑9; governing Au = 72.67 MPa;
+- the **CAESAR II 2017 WRC benchmark** at γ = 48.03 (interpolated): worst point
+  +2.0%, never below CAESAR II, same governing point (Du);
+- every blocking rule, unit conversion and the corroded mean radius.
 
 ## Run
 
@@ -45,9 +87,10 @@ Results at extraction time, on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **274 pass**, 0 fail, 128 skipped as KNOWN |
-| Browser e2e (18 specs, 40 tests) | `npx playwright test` | **32 pass**, 8 fail (the same 8 fail upstream) |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **277 pass**, 0 fail, 128 skipped as KNOWN |
+| Browser e2e (19 specs, 43 tests) | `npx playwright test` | **35 pass**, 8 fail (the same 8 fail upstream; the 3 new WRC calculator tests pass) |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
+| WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
 
 `scripts/known-upstream-failures.json` lists the 128 KNOWN checks, each with the
@@ -78,6 +121,10 @@ to use the Chrome you already have.
   `linear-fea-*` and the event bus, which this app's isolation check forbids.
   Its real runs also go through the combined app's `AnalysisCoordinator`.
   Upstream itself only tests it inside the combined app.
+
+- The WRC 537 bulletin PDF and the CAESAR II training PDF from upstream
+  `docs/emp1/`. They are third-party copyrighted documents, so they are git-ignored
+  here. The checks that read them stay on the known list.
 
 `_source/` (the upstream clone) and `_tools/` (the extraction scripts: `closure.mjs`
 and `tests.mjs`) are git-ignored. You can re-run them to re-extract from a newer

@@ -6,12 +6,16 @@
  *  - EMPIRICAL  : EMP1 analytical calculation (WRC 537 / WRC 297 style local stress),
  *                 the same controller in ANALYTICAL_CALC presentation mode.
  *
+ * The EMPIRICAL view opens on the plain WRC 537 calculator; the full governed EMP.1
+ * workflow stays available as an advanced sub-view.
+ *
  * Each view's controller is created lazily on first activation so a hidden
  * root is never laid out by the workbench.
  */
 import './app.css';
 import '../lafea-app/app.css';
 import { LafeaStandaloneController } from '../lafea-app/standalone-controller.js';
+import { mountWrcCalculator } from './wrc/wrc-panel.js';
 
 export const APP_VIEWS = Object.freeze([
   Object.freeze({
@@ -78,10 +82,9 @@ export function mountApp(root) {
       entry.button.setAttribute('aria-pressed', String(active));
     }
     if (!controllers.has(target.view.id)) {
-      controllers.set(
-        target.view.id,
-        new LafeaStandaloneController(target.host, { ...target.view.options }).init(),
-      );
+      controllers.set(target.view.id, target.view.id === 'EMPIRICAL'
+        ? mountEmpiricalView(target.host)
+        : new LafeaStandaloneController(target.host, { ...target.view.options }).init());
     }
     try { globalThis.localStorage?.setItem(STORAGE_KEY, target.view.id); } catch { /* storage optional */ }
     return target.view.id;
@@ -100,6 +103,69 @@ export function mountApp(root) {
       for (const controller of controllers.values()) controller.destroy();
       controllers.clear();
       root.replaceChildren();
+    },
+  });
+}
+
+const EMPIRICAL_SUBVIEW_KEY = 'lafea-emp-app/empirical-subview';
+
+/** Empirical view: WRC 537 calculator first, full EMP.1 workflow as an advanced sub-view. */
+export function mountEmpiricalView(host) {
+  const doc = host.ownerDocument;
+  const options = APP_VIEWS.find((view) => view.id === 'EMPIRICAL').options;
+  const tabs = doc.createElement('div');
+  tabs.className = 'app-subnav';
+  tabs.setAttribute('role', 'tablist');
+  const calcHost = doc.createElement('div');
+  calcHost.dataset.empiricalSubview = 'WRC';
+  const workflowHost = doc.createElement('div');
+  workflowHost.dataset.empiricalSubview = 'WORKFLOW';
+  host.replaceChildren(tabs, calcHost, workflowHost);
+
+  const calculator = mountWrcCalculator(calcHost);
+  let workflow = null;
+  const subviews = [
+    { id: 'WRC', label: 'WRC 537 calculator', panel: calcHost },
+    { id: 'WORKFLOW', label: 'Full EMP.1 workflow (advanced)', panel: workflowHost },
+  ];
+  const buttons = subviews.map((sub) => {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.className = 'app-subnav__tab';
+    button.dataset.empiricalNav = sub.id;
+    button.setAttribute('role', 'tab');
+    button.textContent = sub.label;
+    button.addEventListener('click', () => show(sub.id));
+    tabs.append(button);
+    return button;
+  });
+
+  function show(id) {
+    const target = subviews.find((sub) => sub.id === id) ?? subviews[0];
+    subviews.forEach((sub, index) => {
+      const active = sub === target;
+      sub.panel.hidden = !active;
+      buttons[index].setAttribute('aria-selected', String(active));
+    });
+    if (target.id === 'WORKFLOW' && !workflow) {
+      workflow = new LafeaStandaloneController(workflowHost, { ...options }).init();
+    }
+    try { globalThis.localStorage?.setItem(EMPIRICAL_SUBVIEW_KEY, target.id); } catch { /* storage optional */ }
+    return target.id;
+  }
+
+  let initial = 'WRC';
+  try { initial = globalThis.localStorage?.getItem(EMPIRICAL_SUBVIEW_KEY) ?? 'WRC'; } catch { /* storage optional */ }
+  show(initial);
+
+  return Object.freeze({
+    show,
+    calculator,
+    getWorkflowController: () => workflow,
+    destroy() {
+      workflow?.destroy();
+      calculator.destroy();
+      host.replaceChildren();
     },
   });
 }

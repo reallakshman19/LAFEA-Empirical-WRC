@@ -1,7 +1,8 @@
 /**
  * Runs every inherited LAFEA / EMP1 / WRC node check in scripts/ and reports a summary.
  *
- * Selected: *-check.mjs, *-self-test.mjs, *-source-guard.mjs, *-falsifiers.mjs.
+ * Selected: *-check.mjs, *-self-test.mjs, *-source-guard.mjs, *-falsifiers.mjs, and the
+ * independent WRC hand-calculation scripts (*-handcalc.mjs, *-refreeze.mjs).
  * Checks listed in scripts/known-upstream-failures.json also fail (or time out) in the
  * upstream Advanced_Analysis repo at the extraction commit. They are skipped by default
  * and reported as KNOWN; pass --include-known to run them anyway.
@@ -17,7 +18,7 @@ const args = process.argv.slice(2);
 const filter = args.find((a) => !a.startsWith('--')) ?? '';
 const timeout = Number(args.find((a) => a.startsWith('--timeout='))?.split('=')[1] ?? 180000);
 const includeKnown = args.includes('--include-known');
-const PATTERN = /(?:-check|-self-test|-source-guard|-falsifiers)\.mjs$/u;
+const PATTERN = /(?:-check|-self-test|-source-guard|-falsifiers|-handcalc|-refreeze)\.mjs$/u;
 const knownFile = JSON.parse(fs.readFileSync('scripts/known-upstream-failures.json', 'utf8'));
 const known = new Map(knownFile.scripts.map((entry) => [entry.name, entry]));
 

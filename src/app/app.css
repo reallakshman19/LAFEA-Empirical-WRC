@@ -8,6 +8,8 @@ body,
 body {
   min-width: 320px;
   background: #020711;
+  color: #dbe5f4;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 #app-root {
@@ -69,4 +71,30 @@ body {
 .app-view [data-role='lafea-mock'],
 .app-view [data-role='lafea-benchmark'] {
   display: none;
+}
+
+.app-subnav {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid #1c2a40;
+  font: 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.app-subnav__tab {
+  appearance: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #9fb3d1;
+  padding: 7px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-subnav__tab[aria-selected='true'] {
+  background: #07101f;
+  border-color: #2b4a78;
+  color: #ffffff;
 }
