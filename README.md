@@ -14,6 +14,20 @@ upstream combined app uses for its `LAFEA` and `EMPIRICAL` tabs
 (`src/workspace/bootstrap.js` upstream). They run without the combined workspace,
 LFEA, pipe-model, event bus, mock data or benchmark panels.
 
+## LAFEA example
+
+The LAFEA tab has an example bar:
+
+- **Load: Cantilever plate, end shear.** A 200 × 40 × 10 mm plane-stress plate, fixed on the left
+  edge, with a uniform end shear traction. It is mounted on the qualified domain-first route, and its
+  mesh is generated and qualified.
+- **Solve + convergence study.** Solves, then runs the governed three-level mesh study (40 / 20 / 10 mm)
+  on the tip deflection. The workbench publishes results only after this study passes.
+  - Tip deflection converges to −0.508 mm, which is 1.4% from Timoshenko beam theory.
+  - Root bending stress is 150.2 MPa, against 150.0 MPa by hand.
+
+You can also use the workbench's own Run and Convergence steps after loading.
+
 ## WRC 537 calculator
 
 This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** at a
@@ -99,7 +113,7 @@ Results at extraction time, on Windows with Node 22 and Chrome:
 | Suite | Command | Result |
 |---|---|---|
 | Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **277 pass**, 0 fail, 128 skipped as KNOWN |
-| Browser e2e (19 specs, 44 tests) | `npx playwright test` | 4/4 WRC calculator tests pass. The other 40 were last run before the WRC work: 32 passed, and the 8 that failed also fail upstream. |
+| Browser e2e (20 specs, 45 tests) | `npx playwright test` | **37 pass**, 8 fail. The 8 also fail upstream, and all run on the original `lafea.html` entry, not the app. The new WRC calculator and LAFEA example tests pass. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%) |
 | Build | `npm run build`, `npm run build:lafea` | pass |

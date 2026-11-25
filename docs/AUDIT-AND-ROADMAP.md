@@ -120,6 +120,41 @@ Still open in Phase 2:
 - **17 more benchmarks:** needs CAESAR II or PV Elite output for more γ/β cases.
 - **Pressure stress concentration at the opening:** not included (WRC 368 or FE).
 
+**2026-11-25: LAFEA fixed (Phase 3, item 18).** What was actually wrong:
+
+- **L2:** the "demo source" route is refused on purpose. `lafea-preparation-profile.js` hard-codes
+  `producerQualified: false`, so the simulated-source import can never qualify. The route that works is
+  domain-first: source → analysis domain → geometry evidence → mesh profile → mesh. The upstream A17
+  browser journey uses the same route.
+- **L3:** not a solver bug. A solve is `QUALIFIED`, but `resultReady` also needs a passed mesh
+  **convergence study** (lifecycle artifact `CONVERGENCE`). The upstream golden test never runs one.
+  Its triangle fixture also uses a point load, which is singular in 2-D, so a study on it is correctly
+  classified `DIVERGENT`. The test's `resultReady = true` expectation is stale, and the test stays on the
+  known list.
+
+The fix is a new **example bar** in the LAFEA tab (`src/app/lafea/`):
+
+- **"Load: Cantilever plate"** loads a 200 × 40 × 10 mm plane-stress plate, fixed on the left edge, with
+  a −5 MPa end shear traction. It is built on the domain-first route and the 40 mm mesh qualifies.
+- **"Solve + convergence study"** solves, then runs the three-level study (40 / 20 / 10 mm) on the tip
+  deflection. The study passes (`MONOTONIC_CONVERGING`) and results are published.
+
+Results against hand calculations:
+
+| Quantity | FE | Hand | Difference |
+|---|---|---|---|
+| Tip deflection, mm (h = 40 / 20 / 10 mm) | −0.4993 / −0.5073 / −0.5082 | −0.5156 (Timoshenko beam) | 1.4% stiffer, as expected for a fully clamped edge |
+| Max σx at the root | 150.16 MPa | 6PL/(t·d²) = 150.0 MPa | 0.1% |
+
+A 5 mm level fails: it solves without producing current recovery, likely above the qualified solve size.
+That is why the ladder starts at 40 mm.
+
+- **L6:** the duplicate EMP.1 entry is hidden in the LAFEA tab.
+- **L4:** LAFEA.6 (weld profile, not implemented) is hidden there too.
+- **L1:** the "mock" demo button stays hidden, because it only leads to the refused route.
+
+Covered by `e2e/lafea-example.spec.js`.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

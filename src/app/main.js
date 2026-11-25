@@ -16,6 +16,7 @@ import './app.css';
 import '../lafea-app/app.css';
 import { LafeaStandaloneController } from '../lafea-app/standalone-controller.js';
 import { mountWrcCalculator } from './wrc/wrc-panel.js';
+import { mountLafeaView } from './lafea/lafea-view.js';
 
 export const APP_VIEWS = Object.freeze([
   Object.freeze({
@@ -84,7 +85,7 @@ export function mountApp(root) {
     if (!controllers.has(target.view.id)) {
       controllers.set(target.view.id, target.view.id === 'EMPIRICAL'
         ? mountEmpiricalView(target.host)
-        : new LafeaStandaloneController(target.host, { ...target.view.options }).init());
+        : mountLafeaView(target.host, { ...target.view.options }));
     }
     try { globalThis.localStorage?.setItem(STORAGE_KEY, target.view.id); } catch { /* storage optional */ }
     return target.view.id;
