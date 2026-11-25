@@ -63,3 +63,15 @@ test('load cases, pressure and the allowables check', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.wrc__envelope tbody tr')).toHaveCount(2);
 });
+
+test('shell FE cross-check runs in the background and agrees on the governing point', async ({ page }) => {
+  test.setTimeout(240000);
+  const calc = page.locator('[data-empirical-subview="WRC"]');
+  await calc.locator('[data-act="example"]').selectOption('CAESAR_GAMMA48');
+  await calc.locator('[data-act="runFe"]').click();
+  await expect(calc.locator('[data-act="runFe"]')).toBeDisabled();
+  await expect(calc.locator('.wrc__fetable')).toBeVisible({ timeout: 200000 });
+  await expect(calc.locator('.wrc__fetable caption')).toContainText('WRC 1.52 at Du, FE 2.13 at Du');
+  await calc.locator('[data-load="Ml"]').fill('40000');
+  await expect(calc.locator('[data-slot="feResult"]')).toContainText('Inputs have changed');
+});

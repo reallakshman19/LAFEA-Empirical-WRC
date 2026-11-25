@@ -155,6 +155,41 @@ That is why the ladder starts at 40 mm.
 
 Covered by `e2e/lafea-example.spec.js`.
 
+**2026-11-25: Shell-FE cross-check of WRC 537 (Phase 3, item 19).** The WRC calculator has a
+"Run shell FE cross-check" button. It solves the same geometry with the LAFEA shell core
+(`src/core/local-shell`, CST/DKT thin-shell triangles) in a Web Worker and compares stress intensity at
+the 8 WRC points. The model is built in `src/app/lafea/nozzle-shell.js`:
+
+- full circumference with clamped ends;
+- a graded polar patch around the attachment;
+- the attachment as a near-rigid plug (4 × T);
+- P, Mc and Ml applied at the plug centre (Vc, Vl, Mt and pressure are not modelled);
+- stresses extrapolated from the first two element rings to r0.
+
+CAESAR II nozzle (γ 48, β 0.155), per unit load, maximum stress intensity:
+
+| Load | Shell FE | WRC 537 | FE / WRC | Finer mesh (16 330 DOF) | Plug 8 × T |
+|---|---|---|---|---|---|
+| Ml 10 kN·m | 57.99 | 60.86 | 0.95 | 57.65 | 58.81 |
+| Mc 10 kN·m | 145.62 | 103.87 | 1.40 | 147.98 | 149.55 |
+| P 10 kN | 21.58 | 16.83 | 1.28 | 21.88 | 22.91 |
+
+- **Mesh-independent:** the finer mesh changes the maxima by under 2%.
+- **Plug stiffness:** a stiffer plug changes them by up to 6%.
+- **Signs:** they agree at every significant point.
+- **Where FE and WRC differ:**
+  - Under P, FE puts the stress on the circumferential axis (C/D) and much less on A/B.
+  - Mc stresses are higher in FE.
+
+  Published FE studies of WRC 107/537 report differences of this kind, so the button reports a
+  ratio and does not give a pass/fail.
+
+`scripts/wrc-nozzle-fe-check.mjs` (about 2 min) freezes these values, the sign mapping and superposition.
+
+Shell core tolerances: the Jacobi-PCG solve of a thin shell cannot meet the core's default 1e-8
+equilibrium tolerances. The cross-check model therefore uses 0.5 N / 1e-6 for forces and 1e-5 for
+moments. The core is unchanged.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

@@ -83,3 +83,8 @@
 .wrc__h { font-size: 14px; margin: 16px 0 4px; }
 .wrc__ok { color: var(--wrc-ok); font-weight: 600; }
 .wrc__bad { color: var(--wrc-bad); font-weight: 600; }
+
+.wrc__fe { margin-top: 18px; border-top: 1px solid var(--wrc-line); padding-top: 6px; max-width: 680px; }
+.wrc__fe .wrc__h small { color: var(--wrc-muted); font-weight: 400; }
+.wrc__fe button[disabled] { opacity: .55; cursor: default; }
+.wrc__fetable { margin-top: 8px; }

@@ -4,7 +4,7 @@
 import './wrc.css';
 import {
   DEFAULT_CASE, EXAMPLE_CASES, FORCE_UNITS, MOMENT_UNITS, WRC_BETA_RANGE, WRC_COORDINATES,
-  WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases, fmt,
+  WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537, calculateWrc537Cases, fmt,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
 
@@ -40,6 +40,7 @@ export function mountWrcCalculator(host) {
   let state = loadSaved() ?? normalizeCase(DEFAULT_CASE);
   let batch = null;
   let result = null;
+  let fe = null; // { key, status: 'running' | 'done' | 'error', reference, result, error }
 
   host.classList.add('wrc');
   host.innerHTML = `
@@ -94,6 +95,12 @@ export function mountWrcCalculator(host) {
         <div data-slot="status"></div>
         <div data-slot="table"></div>
         <div data-slot="check"></div>
+        <section class="wrc__fe" data-slot="fe">
+          <h3 class="wrc__h">Shell FE cross-check <small>(LAFEA shell solver)</small></h3>
+          <p class="wrc__help">Solves this geometry with a thin-shell FE model: a rigid round attachment on a cylinder with clamped ends, about 10 000 DOF. It uses this case's P, Mc and Ml only (not Vc, Vl, Mt or pressure) and compares stress intensity at the 8 WRC points. It takes about 1–2 minutes and runs in the background.</p>
+          <button type="button" data-act="runFe">Run shell FE cross-check</button>
+          <div data-slot="feResult" aria-live="polite"></div>
+        </section>
         <div data-slot="notes"></div>
       </section>
     </div>`;
@@ -162,6 +169,7 @@ export function mountWrcCalculator(host) {
 
     renderEnvelope();
     renderCheck();
+    renderFe();
     const tierClass = { SOURCE_QUALIFIED: 'ok', TABULATED_ROW: 'ok', INTERPOLATED: 'warn', BLOCKED: 'bad' }[result.tier];
     if (result.ok) {
       $('[data-slot="status"]').innerHTML = `
@@ -205,6 +213,79 @@ export function mountWrcCalculator(host) {
       <caption>All load cases, MPa. Click a case to see its detail. ${batch.governing ? `Envelope: ${escapeHtml(batch.governing.name)}, ${fmt(batch.governing.stressIntensity, 2)} MPa at ${batch.governing.location}.` : ''}${batch.codeCheck ? ` Code check: <b class="${batch.codeCheck.pass ? 'wrc__ok' : 'wrc__bad'}">${batch.codeCheck.pass ? 'all cases pass' : 'fails'}</b> (worst: ${escapeHtml(batch.codeCheck.worstCase)}).` : ''}</caption></table>`;
   }
 
+  function feReference() {
+    const c = state.loadCases[state.activeCase];
+    return calculateWrc537({
+      ...state,
+      loads: { ...c.loads, Vc: 0, Vl: 0, Mt: 0 },
+      designPressure: 0, Kn: 1, Kb: 1, allowableS: '',
+    });
+  }
+  function feKey() {
+    const c = state.loadCases[state.activeCase];
+    return JSON.stringify([state.shellOutsideDiameter, state.shellThickness, state.corrosionAllowance, state.attachmentOutsideDiameter,
+      state.cylinderLength, state.attachmentStation, state.forceUnit, state.momentUnit, state.coordinate, c.loads.P, c.loads.Mc, c.loads.Ml]);
+  }
+  function runFe() {
+    const reference = feReference();
+    if (!reference.ok) { fe = { key: feKey(), status: 'error', error: 'The WRC calculation for this case is blocked, so there is nothing to compare.' }; renderFe(); return; }
+    if (!(reference.loadsBase.P || reference.loadsBase.Mc || reference.loadsBase.Ml)) {
+      fe = { key: feKey(), status: 'error', error: 'This case has no P, Mc or Ml load, so there is nothing to compare.' }; renderFe(); return;
+    }
+    let worker;
+    try {
+      worker = new Worker(new URL('../lafea/nozzle-worker.js', import.meta.url), { type: 'module' });
+    } catch (error) {
+      fe = { key: feKey(), status: 'error', error: `Could not start the background solver: ${error.message}` }; renderFe(); return;
+    }
+    const key = feKey();
+    const started = Date.now();
+    fe = { key, status: 'running', reference, started };
+    renderFe();
+    const tick = setInterval(() => { if (fe?.status === 'running') renderFe(); }, 1000);
+    worker.onmessage = (event) => {
+      clearInterval(tick);
+      worker.terminate();
+      fe = event.data.ok
+        ? { key, status: 'done', reference, result: event.data.result }
+        : { key, status: 'error', error: event.data.error };
+      renderFe();
+    };
+    worker.onerror = (event) => {
+      clearInterval(tick);
+      worker.terminate();
+      fe = { key, status: 'error', error: event.message || 'The background solver failed.' };
+      renderFe();
+    };
+    worker.postMessage({ wrcResult: JSON.parse(JSON.stringify(reference)), options: { plugFactor: 4 } });
+  }
+  function renderFe() {
+    const slot = $('[data-slot="feResult"]');
+    const button = $('[data-act="runFe"]');
+    button.disabled = fe?.status === 'running';
+    if (!fe) { slot.innerHTML = ''; return; }
+    const stale = fe.key !== feKey();
+    if (fe.status === 'running') {
+      slot.innerHTML = `<p class="wrc__help">Solving… ${Math.round((Date.now() - fe.started) / 1000)} s</p>`;
+      return;
+    }
+    if (fe.status === 'error') { slot.innerHTML = `<p class="wrc__bad">${escapeHtml(fe.error)}</p>`; return; }
+    const r = fe.result;
+    const ref = fe.reference;
+    const wrcGov = ref.governing;
+    const ratio = r.feGoverning.fe / wrcGov.stressIntensity;
+    slot.innerHTML = `
+      ${stale ? '<p class="wrc__notes">Inputs have changed since this run. Run it again to compare the current case.</p>' : ''}
+      <table class="wrc__table wrc__fetable"><thead><tr><th>Point</th><th>WRC 537 SI</th><th>Shell FE SI</th><th>FE / WRC</th></tr></thead>
+      <tbody>${r.rows.map((row, i) => {
+        const w = ref.rows[i].stressIntensity;
+        return `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${fmt(w, 2)}</td><td><b>${fmt(row.fe, 2)}</b></td><td>${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td></tr>`;
+      }).join('')}</tbody>
+      <caption>MPa, loads P, Mc and Ml of case "${escapeHtml(state.loadCases[state.activeCase].name)}" only. Governing: WRC ${fmt(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
+      Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF, solved in ${fmt(r.milliseconds / 1000, 0)} s.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·Rm) was assumed.` : ''}</caption></table>
+      <p class="wrc__help">FE: CST/DKT thin-shell triangles, attachment modelled as a near-rigid plug, stresses extrapolated to the attachment edge. On the CAESAR II check case, FE/WRC is 0.95 for Ml, 1.40 for Mc and 1.28 for P, and is mesh-independent within 2%. Differences of this size between WRC 537 and FE are normal. Treat a large FE/WRC ratio as a reason to look closer, not as a pass or fail.</p>`;
+  }
+
   function renderCheck() {
     const slot = $('[data-slot="check"]');
     const cc = result.ok ? result.codeCheck : null;
@@ -234,6 +315,7 @@ export function mountWrcCalculator(host) {
     const caseEl = event.target.closest('[data-case]');
     if (caseEl) { selectCase(Number(caseEl.dataset.case)); return; }
     const act = event.target.closest('[data-act]')?.dataset.act;
+    if (act === 'runFe') { runFe(); return; }
     if (act === 'addCase' && state.loadCases.length < MAX_CASES) {
       state.loadCases.push({ name: `Case ${state.loadCases.length + 1}`, loads: { ...activeCase().loads } });
       selectCase(state.loadCases.length - 1);
@@ -297,6 +379,7 @@ export function mountWrcCalculator(host) {
     getState: () => cloneCase(state),
     getResult: () => result,
     getBatch: () => batch,
+    getFe: () => fe,
     setCase,
     destroy() { host.replaceChildren(); host.classList.remove('wrc'); },
   };

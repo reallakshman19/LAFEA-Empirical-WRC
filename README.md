@@ -67,6 +67,11 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   - prepared/checked sign-off lines.
 - **Saving:** cases are saved automatically in the browser. "Save case" and "Open case"
   use `*.wrc.json` files.
+- **Shell FE cross-check:** "Run shell FE cross-check" solves the same geometry with LAFEA's shell
+  solver in the background, taking about 30 s. The model is a rigid round attachment on a clamped cylinder,
+  using P, Mc and Ml only. The table shows WRC and FE stress intensity at the 8 points. On the CAESAR II
+  case, FE/WRC is 0.95 for Ml, 1.40 for Mc and 1.28 for P, and the result is mesh-independent within 2%.
+  It is a reason to look closer, not a pass or fail. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
 - **Not covered:** spherical shells and rectangular attachments (the extracted EMP1 core has
   no WRC 537 data for them), pressure stress concentration at the opening, and fatigue. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
 
@@ -112,8 +117,8 @@ Results at extraction time, on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **277 pass**, 0 fail, 128 skipped as KNOWN |
-| Browser e2e (20 specs, 45 tests) | `npx playwright test` | **37 pass**, 8 fail. The 8 also fail upstream, and all run on the original `lafea.html` entry, not the app. The new WRC calculator and LAFEA example tests pass. |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **278 pass**, 0 fail, 128 skipped as KNOWN |
+| Browser e2e (20 specs, 46 tests) | `npx playwright test` | **38 pass**, 8 fail. The 8 also fail upstream, and all run on the original `lafea.html` entry, not the app. The new WRC calculator and LAFEA example tests pass. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
