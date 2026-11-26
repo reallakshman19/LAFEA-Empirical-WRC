@@ -51,9 +51,9 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
   frozen checks.
 - This is what turns "interpolated γ" from engineering judgement into evidence.
 
-### 5.5 Clean up inherited checks (M): done 2026-11-26 for the checks (128 KNOWN → 13, see the AUDIT-AND-ROADMAP progress entry); `lafea.html` waits for your decision
+### 5.5 Clean up inherited checks (M): done 2026-11-26 for the checks (128 KNOWN → 13, see the AUDIT-AND-ROADMAP progress entry); `lafea.html` kept (owner decision, 2026-11-26)
 - Fix, update or delete each of the 90 stale upstream checks, so `check:all` reflects real risk.
-- Delete `lafea.html` and the specs that only test it, if you don't need the single-view entry.
+- ~~Delete `lafea.html` and the specs that only test it~~: decided 2026-11-26 to keep the single-view entry, its build step and its specs.
 
 ### 5.6 Widen WRC 537 (L, **needs your decision and source**)
 - Spherical shells and rectangular attachments need their curves digitised from your licensed copy
@@ -64,7 +64,7 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 1. **Benchmarks:** can you supply CAESAR II or PV Elite WRC outputs (inputs and the 8-point stress
    table) for 3 or more nozzles?
 2. **Spheres and rectangular attachments:** needed now, or later?
-3. **`lafea.html`:** keep the original single-view LAFEA page, or remove it with its upstream-only
+3. **`lafea.html`:** *decided 2026-11-26: keep it.* Keep the original single-view LAFEA page, or remove it with its upstream-only
    tests?
 
 ## Suggested start
