@@ -16,6 +16,23 @@ Written 2026-11-26, after:
 | Hosting / CI | GitHub Pages and CI on every push. |
 | Debt | A 1.9 MB first load. 128 inherited checks are skipped (90 of them are stale upstream assertions). The custody/authority text is noisy. |
 
+## Direction (owner, 2026-11-26)
+
+The app is meant to become a **mini empirical solver**, not only a nozzle-load calculator:
+
+1. a **universal canvas**, where basic geometry is drawn and boundary conditions are specified;
+2. a **WRC (empirical) solver** that solves local stress from that model and presents it the way an FE app
+   does, but lighter.
+
+**Focus on production.** The first canvas and solver scope is **cylindrical shells** with **round
+attachments** (nozzles, trunnions) and **rectangular plate attachments** (lugs). Spheres and heads come
+later. Lugs need the WRC 537 rectangular-attachment curves from the licensed bulletin; until those are
+digitised and validated, lugs can only be solved with FE.
+
+The next work is to finish the UI. The app's **Status & roadmap** tab (`src/app/status/status-content.js`)
+holds the known issues, the planned improvements and the staged roadmap (A: canvas, B: empirical solver on
+the canvas, C: empirical and FE together, D: wider coverage). Keep that file and this plan in step.
+
 ## Proposed order
 
 Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
@@ -69,7 +86,8 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 
 1. **Benchmarks:** can you supply CAESAR II or PV Elite WRC outputs (inputs and the 8-point stress
    table) for 3 or more nozzles?
-2. **Spheres and rectangular attachments:** needed now, or later?
+2. **Spheres and rectangular attachments:** *decided 2026-11-26: lugs (rectangular attachments on
+   cylinders) now, spheres later.* Can you supply the rectangular-attachment curves from the licensed bulletin?
 3. **`lafea.html`:** *decided 2026-11-26: keep it.* Keep the original single-view LAFEA page, or remove it with its upstream-only
    tests?
 

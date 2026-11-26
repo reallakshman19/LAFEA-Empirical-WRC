@@ -1,6 +1,6 @@
 # LAFEA + Empirical/WRC
 
-A standalone app with two views, extracted from
+A standalone app with two working views and a status page, extracted from
 [reallakshman19/Advanced_Analysis](https://github.com/reallakshman19/Advanced_Analysis)
 at `11eca8e40` (main, 2026-11-25):
 
@@ -8,6 +8,7 @@ at `11eca8e40` (main, 2026-11-25):
 |---|---|---|
 | **LAFEA** | Local finite-element analysis workbench (2D continuum, shell, trunnion footprint, weld profile…) | `LafeaStandaloneController`, `initialStage: 'LAFEA.3'` |
 | **Empirical / WRC** | Opens on the **WRC 537 calculator** (below). The full governed EMP1 workflow is kept as the "Full EMP.1 workflow (advanced)" sub-tab. | calculator: `src/app/wrc/`; workflow: same controller, `presentationMode: 'ANALYTICAL_CALC'`, `analyticalOnly: true`, `initialStage: 'LAFEA.1'` |
+| **Status & roadmap** | The app's vision, what works today, **known issues** (what happens, what to do today, fix status; filter by area), **improvements planned** and the **future roadmap** toward a universal canvas and an empirical local-stress solver. | `src/app/status/`; the content is plain data in `status-content.js` |
 
 The LAFEA tab and the advanced EMP1 workflow use the same two configurations the
 upstream combined app uses for its `LAFEA` and `EMPIRICAL` tabs
@@ -171,15 +172,15 @@ Results after Phase 5.4 (2026-11-26), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **303 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **304 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
 | Browser e2e (21 specs, 49 tests) | `npx playwright test` (dev server) | **41 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, LAFEA example, plate form) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js` | **9 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
+| App e2e (WRC calculator, LAFEA example, plate form, status page) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js` | **11 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
-| First-load size | `npm run check:bundle-size` (after `build`) | pass: 107.7 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 128.5 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 13 KNOWN checks that `check:all`
 skips, each with a plain reason:
