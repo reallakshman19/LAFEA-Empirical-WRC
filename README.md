@@ -131,7 +131,13 @@ The calculator is a thin wrapper over the EMP1 core
 - the **CAESAR II 2017 WRC benchmark** at γ = 48.03 (interpolated): worst point
   +2.0%, never below CAESAR II, same governing point (Du);
 - every blocking rule, unit conversion and the corroded mean radius;
-- pressure, Kn/Kb, the code check and load-case envelopes, against hand arithmetic.
+- pressure, Kn/Kb, the code check and load-case envelopes, against hand arithmetic;
+- a **PV Elite 28 report** for a 36-inch nozzle (γ = 21.6 at the junction, 42.7 at the pad edge).
+  PV Elite used **WRC 297**, so this is a different-method reference, not a WRC 537 benchmark. The
+  check confirms what does not depend on the method: the 24 printed stress intensities, the sign of
+  every load term at every point, and the shear stresses within 1%. With the same 1.2 shell SCF,
+  PV Elite's governing load stress is 1.39× ours at the junction and 1.78× at the pad edge; see
+  the Phase 5.4 entry in [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
 
 ## Run
 
@@ -161,17 +167,17 @@ dependencies**.
 
 ## Tests
 
-Results after Phase 5.5 (2026-11-26), on Windows with Node 22 and Chrome:
+Results after Phase 5.4 (2026-11-26), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **302 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **303 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
 | Browser e2e (21 specs, 49 tests) | `npx playwright test` (dev server) | **41 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
 | App e2e (WRC calculator, LAFEA example, plate form) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js` | **9 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
-| WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%) |
+| WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
 | First-load size | `npm run check:bundle-size` (after `build`) | pass: 107.7 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 

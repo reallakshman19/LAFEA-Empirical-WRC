@@ -383,6 +383,48 @@ aggregate, so the CST/DKT shell contracts that the WRC FE cross-check relies on 
 | **Experimental MITC4 at t/L = 0.001** fails its own recovery-energy check (2 checks). | No: the shell FE uses CST+DKT. |
 | **B02A definition drift.** The frozen B02A benchmark file was edited upstream after its freeze. | No. |
 
+**2026-11-26: Phase 5.4, partly done: a PV Elite WRC 297 reference.** The only new data was a PV Elite 28
+report for one 36-inch nozzle (914.4 × 10 mm) on a 2111 mm ID × 25 mm column shell, with a
+1064.4 × 25 mm pad and all six sustained loads. PV Elite evaluated it with **WRC 297**, not WRC 537, so
+it cannot be a WRC 537 benchmark: the two methods use different curves. The numbers are frozen in
+`validation/emp1/pvelite28-wrc297-36in-nozzle/` (the PDF itself is not committed; `validation/**/*.pdf`
+is now ignored), and `scripts/wrc-pvelite-wrc297-reference-check.mjs` checks what does not depend on
+the method:
+
+| Check | Result |
+|---|---|
+| PV Elite's 24 printed stress intensities (vessel at the junction and at the pad edge, nozzle at the junction) from its own summaries, using our Tresca function | all within 6 kPa (rounding of the printed summaries) |
+| PV Elite's vessel stresses rebuilt from its printed WRC 297 coefficients | 24 of 24 terms: stress = **1.2 (shell SCF)** × coefficient × load / T² (P) or / (d·T²) (Mc, Ml), × 6 for bending; every implied coefficient within 0.0008 of the printed one |
+| Sign of each load term (P, Mc, Ml; membrane and bending) at each of the 8 points, ours vs PV Elite | all 192 term-points (2 locations × 12 terms × 8 points): same sign wherever PV Elite prints a value, zero wherever it prints zero (Mc at A/B, Ml at C/D) |
+| Shear from Vc, Vl and Mt | within 1% at all 16 points |
+| Linear-γ vs log-γ interpolation, our WRC 537 | same governing point (Cu); 1.8% apart at γ = 21.6, 1.3% at γ = 42.7 |
+
+**Why the stresses differ.** Two reasons, now separated:
+
+1. PV Elite applies the 1.2 shell stress concentration factor from its input to every load stress. With
+   Kn = Kb = 1 our results are 1.2 times lower for that reason alone.
+2. With the same 1.2 on both sides, the rest is the method. WRC 297 and WRC 537 split the load between the
+   two directions differently: at the junction PV Elite's stress normal to the plane is 1.4 to 2.9 times
+   ours, while its stress parallel to the plane is 0.3 to 0.6 times ours. Per load term the ratio runs
+   from 0.28 to 3.69.
+
+Load-only stress intensity (pressure rows removed from PV Elite), both with the 1.2 SCF:
+
+| Location | γ, β | PV Elite WRC 297 governing | Ours, WRC 537 governing | Ratio |
+|---|---|---|---|---|
+| Nozzle-to-shell junction (PV Elite adds the pad: T = 50 mm) | 21.6, 0.370 | 42.5 MPa at Bu | 30.6 MPa at Cu | 1.39 |
+| Pad edge (T = 25 mm) | 42.7, 0.436 | 153.6 MPa at Cu | 86.4 MPa at Cu | 1.78 |
+
+So for this nozzle our WRC 537 result is lower than PV Elite's WRC 297 result, and at the junction the
+governing point is different. That is a property of the two methods, not an error found in either
+program, but an engineer comparing the two reports should expect it. Both pad treatments are PV Elite's
+WRC 297 choices: at the junction the pad is added to the shell, at the pad edge it is modelled as part of
+a thick nozzle (t = 85 mm). Our runs use the same thickness and diameter at each location.
+
+**What this does not settle.** Interpolated γ is still engineering judgement: the only external WRC 537
+reference is still the CAESAR II case at γ = 48. 5.4 stays open for WRC 537 output from CAESAR II or
+PV Elite.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
