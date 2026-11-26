@@ -1,10 +1,11 @@
 /**
  * LAFEA + Empirical/WRC application entry.
  *
- * Two views over the same isolated LAFEA workbench kernel:
+ * Two views over the same isolated LAFEA workbench kernel, plus a status page:
  *  - LAFEA      : local finite-element analysis workbench (default standalone stages).
- *  - EMPIRICAL  : EMP1 analytical calculation (WRC 537 / WRC 297 style local stress),
+ *  - EMPIRICAL  : EMP1 analytical calculation (WRC 537 local stress),
  *                 the same controller in ANALYTICAL_CALC presentation mode.
+ *  - STATUS     : known issues, planned improvements and the roadmap (src/app/status/).
  *
  * The EMPIRICAL view opens on the plain WRC 537 calculator; the full governed EMP.1
  * workflow stays available as an advanced sub-view.
@@ -20,6 +21,7 @@
 import './app.css';
 import '../lafea-app/app.css';
 import { mountWrcCalculator } from './wrc/wrc-panel.js';
+import { mountStatusView } from './status/status-panel.js';
 
 let lafeaModulesPromise = null;
 
@@ -164,7 +166,18 @@ export const APP_VIEWS = Object.freeze([
       initialStage: 'LAFEA.1',
     }),
   }),
+  Object.freeze({
+    id: 'STATUS',
+    label: 'Status & roadmap',
+    title: 'Known issues, planned improvements and the future roadmap',
+    options: Object.freeze({}),
+  }),
 ]);
+
+const VIEW_MOUNTERS = Object.freeze({
+  EMPIRICAL: (host) => mountEmpiricalView(host),
+  STATUS: (host) => mountStatusView(host),
+});
 
 const STORAGE_KEY = 'lafea-emp-app/active-view';
 
@@ -211,8 +224,9 @@ export function mountApp(root) {
       entry.button.setAttribute('aria-pressed', String(active));
     }
     if (!controllers.has(target.view.id)) {
-      controllers.set(target.view.id, target.view.id === 'EMPIRICAL'
-        ? mountEmpiricalView(target.host)
+      const mount = VIEW_MOUNTERS[target.view.id];
+      controllers.set(target.view.id, mount
+        ? mount(target.host)
         : mountLazyLafeaView(target.host, { ...target.view.options }));
     } else {
       // A lazy mount that finished loading while its view was hidden mounts now.

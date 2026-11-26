@@ -20,7 +20,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Lint (app code)
-        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-nozzle-fe-check.mjs scripts/wrc-nozzle-fe-shear-check.mjs scripts/bundle-size-check.mjs scripts/lafea-plate-form-check.mjs scripts/lafea-mesher-speed-check.mjs src/core/lafea-meshing/constrained-delaunay-t6.js src/core/shared-primitives/canonical-json-sha256.js e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js
+        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-nozzle-fe-check.mjs scripts/wrc-nozzle-fe-shear-check.mjs scripts/bundle-size-check.mjs scripts/lafea-plate-form-check.mjs scripts/lafea-mesher-speed-check.mjs src/core/lafea-meshing/constrained-delaunay-t6.js src/core/shared-primitives/canonical-json-sha256.js scripts/wrc-pvelite-wrc297-reference-check.mjs scripts/wrc-app-status-content-check.mjs e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js
       - name: Isolation checks
         run: npm run check:boundary
       - name: Build
@@ -53,8 +53,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: App browser tests (WRC calculator, LAFEA example and plate form)
-        run: npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js
+      - name: App browser tests (WRC calculator, LAFEA example and plate form, status page)
+        run: npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4

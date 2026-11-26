@@ -425,6 +425,20 @@ a thick nozzle (t = 85 mm). Our runs use the same thickness and diameter at each
 reference is still the CAESAR II case at γ = 48. 5.4 stays open for WRC 537 output from CAESAR II or
 PV Elite.
 
+**2026-11-26: Status & roadmap tab.** A third app tab shows, in the app itself:
+- the direction set by the owner: a universal canvas plus an empirical local-stress solver that reads
+  like a light FE app;
+- what works today;
+- 19 known issues (what happens, what to do today, fix status), filterable by area;
+- 6 planned improvements, starting with finishing the UI;
+- the roadmap in four stages (A canvas, B empirical solver on the canvas, C empirical and FE together,
+  D wider coverage) and the decisions only the owner can make.
+
+The content is plain data in `src/app/status/status-content.js`. `scripts/wrc-app-status-content-check.mjs`
+checks its structure and that the facts it states (tabulated γ rows, the KNOWN-check count, the PV Elite
+ratios) match their sources. `e2e/app-status.spec.js` checks the tab and its filter, and that it does not
+load the LAFEA workbench.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
