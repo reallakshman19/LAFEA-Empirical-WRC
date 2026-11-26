@@ -20,11 +20,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Lint (app code)
-        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-nozzle-fe-check.mjs e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js
+        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-nozzle-fe-check.mjs scripts/bundle-size-check.mjs e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js
       - name: Isolation checks
         run: npm run check:boundary
       - name: Build
         run: npm run build
+      - name: First-load bundle size (under 500 kB; LAFEA lazy-loaded)
+        run: npm run check:bundle-size
       - name: Build single-view LAFEA entry (needed by its artifact check)
         run: npm run build:lafea
       - name: Node checks (LAFEA / EMP1 / WRC)

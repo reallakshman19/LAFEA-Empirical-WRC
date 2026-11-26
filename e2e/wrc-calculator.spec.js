@@ -33,7 +33,42 @@ test('inputs survive reload and the advanced EMP.1 workflow still mounts', async
   await expect(page.locator('[data-empirical-subview="WRC"] [data-k="attachmentOutsideDiameter"]')).toHaveValue('250');
 
   await page.locator('[data-empirical-nav="WORKFLOW"]').click();
-  await expect(page.locator('[data-empirical-subview="WORKFLOW"]')).toContainText('EMP.1');
+  // Lazy-loaded on first open of the sub-tab.
+  await expect(page.locator('[data-empirical-subview="WORKFLOW"]')).toContainText('EMP.1', { timeout: 60000 });
+});
+
+test('the WRC calculator loads without the LAFEA workbench, which loads on first use', async ({ page }) => {
+  const controllerRequests = [];
+  page.on('request', (request) => {
+    if (/standalone-controller/.test(request.url())) controllerRequests.push(request.url());
+  });
+  await page.goto('/index.html#EMPIRICAL');
+  const calc = page.locator('[data-empirical-subview="WRC"]');
+  await calc.locator('[data-act="example"]').selectOption('GAMMA5_ORACLE');
+  await expect(calc.locator('.wrc__gov strong')).toHaveText('72.67 MPa');
+  expect(controllerRequests).toEqual([]);
+
+  await page.locator('[data-app-nav="LAFEA"]').click();
+  await page.evaluate(() => globalThis.LafeaEmpApp.whenReady('LAFEA'));
+  await expect(page.locator('[data-role="lafea-example-bar"]')).toBeVisible();
+  expect(controllerRequests.length).toBeGreaterThan(0);
+});
+
+test('a failed LAFEA load is explained and can be retried', async ({ page }) => {
+  let block = true;
+  await page.route(/standalone-controller/, (route) => (block ? route.abort() : route.continue()));
+  await page.goto('/index.html#EMPIRICAL');
+  await page.locator('[data-app-nav="LAFEA"]').click();
+  const lafea = page.locator('[data-app-view="LAFEA"]');
+  await expect(lafea.locator('[role="alert"]')).toContainText('Could not load LAFEA', { timeout: 30000 });
+  // The WRC calculator is unaffected.
+  await page.locator('[data-app-nav="EMPIRICAL"]').click();
+  await expect(page.locator('[data-empirical-subview="WRC"]')).toBeVisible();
+
+  block = false;
+  await page.locator('[data-app-nav="LAFEA"]').click();
+  await lafea.getByRole('button', { name: 'Try again' }).click();
+  await expect(lafea.locator('[data-role="lafea-example-bar"]')).toBeVisible({ timeout: 60000 });
 });
 
 test('load cases, pressure and the allowables check', async ({ page }) => {

@@ -11,12 +11,136 @@
  *
  * Each view's controller is created lazily on first activation so a hidden
  * root is never laid out by the workbench.
+ *
+ * Fast first load: the LAFEA workbench (standalone controller, about 1.9 MB) and the LAFEA view
+ * are fetched with a cached dynamic import() the first time the LAFEA tab or the
+ * "Full EMP.1 workflow (advanced)" sub-tab opens. The WRC calculator stays in the first load.
+ * scripts/bundle-size-check.mjs keeps the first-load JS under 500 kB.
  */
 import './app.css';
 import '../lafea-app/app.css';
-import { LafeaStandaloneController } from '../lafea-app/standalone-controller.js';
 import { mountWrcCalculator } from './wrc/wrc-panel.js';
-import { mountLafeaView } from './lafea/lafea-view.js';
+
+let lafeaModulesPromise = null;
+
+/** Loads the LAFEA workbench modules once; a failed load is forgotten so it can be retried. */
+export function loadLafeaModules() {
+  lafeaModulesPromise ??= Promise.all([
+    import('../lafea-app/standalone-controller.js'),
+    import('./lafea/lafea-view.js'),
+  ]).then(([controllerModule, viewModule]) => Object.freeze({
+    LafeaStandaloneController: controllerModule.LafeaStandaloneController,
+    mountLafeaView: viewModule.mountLafeaView,
+  })).catch((error) => {
+    lafeaModulesPromise = null;
+    throw error;
+  });
+  return lafeaModulesPromise;
+}
+
+function isShown(element) {
+  for (let node = element; node; node = node.parentElement) {
+    if (node.hidden) return false;
+  }
+  return element.isConnected;
+}
+
+/**
+ * Shows "Loading LAFEA…" in `host`, loads the LAFEA modules, then calls `mount(modules)` once the
+ * host is visible (so the workbench never lays out inside a hidden root). `refresh()` retries the
+ * mount after the host becomes visible. `whenReady()` resolves with the mounted instance.
+ */
+function deferLafeaMount(host, mount) {
+  const doc = host.ownerDocument;
+  let modules = null;
+  let instance = null;
+  let destroyed = false;
+  let waiters = [];
+
+  function settle(method, value) {
+    const pending = waiters;
+    waiters = [];
+    for (const waiter of pending) waiter[method](value);
+  }
+
+  function tryMount() {
+    if (destroyed || instance || !modules || !isShown(host)) return;
+    try {
+      instance = mount(modules);
+      settle('resolve', instance);
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  function showError(error) {
+    const box = doc.createElement('div');
+    box.className = 'app-loading app-loading--error';
+    box.dataset.role = 'lafea-loading';
+    box.setAttribute('role', 'alert');
+    const text = doc.createElement('p');
+    text.textContent = `Could not load LAFEA: ${error?.message ?? error}. Check the connection, then try again or reload the page.`;
+    const retry = doc.createElement('button');
+    retry.type = 'button';
+    retry.textContent = 'Try again';
+    retry.addEventListener('click', start);
+    box.append(text, retry);
+    host.replaceChildren(box);
+    settle('reject', error);
+  }
+
+  function start() {
+    const loading = doc.createElement('p');
+    loading.className = 'app-loading';
+    loading.dataset.role = 'lafea-loading';
+    loading.setAttribute('role', 'status');
+    loading.textContent = 'Loading LAFEA…';
+    host.replaceChildren(loading);
+    loadLafeaModules().then((loaded) => {
+      modules = loaded;
+      tryMount();
+    }, (error) => {
+      if (!destroyed) showError(error);
+    });
+  }
+
+  start();
+
+  return Object.freeze({
+    refresh: tryMount,
+    getInstance: () => instance,
+    whenReady() {
+      if (instance) return Promise.resolve(instance);
+      if (destroyed) return Promise.reject(new Error('The view was destroyed.'));
+      return new Promise((resolve, reject) => { waiters.push({ resolve, reject }); });
+    },
+    destroy() {
+      destroyed = true;
+      instance?.destroy();
+      instance = null;
+      settle('reject', new Error('The view was destroyed.'));
+      host.replaceChildren();
+    },
+  });
+}
+
+/**
+ * LAFEA tab: the workbench and example bar, mounted after the lazy load.
+ * The example methods are async because they wait for the load.
+ */
+function mountLazyLafeaView(host, options) {
+  const deferred = deferLafeaMount(host, ({ mountLafeaView }) => mountLafeaView(host, options));
+  return Object.freeze({
+    whenReady: () => deferred.whenReady(),
+    refresh: deferred.refresh,
+    isLoaded: () => deferred.getInstance() !== null,
+    getController: () => deferred.getInstance()?.getController() ?? null,
+    loadExample: async () => (await deferred.whenReady()).loadExample(),
+    solveExample: async () => (await deferred.whenReady()).solveExample(),
+    getState: async () => (await deferred.whenReady()).getState(),
+    destroy: deferred.destroy,
+  });
+}
 
 export const APP_VIEWS = Object.freeze([
   Object.freeze({
@@ -85,7 +209,10 @@ export function mountApp(root) {
     if (!controllers.has(target.view.id)) {
       controllers.set(target.view.id, target.view.id === 'EMPIRICAL'
         ? mountEmpiricalView(target.host)
-        : mountLafeaView(target.host, { ...target.view.options }));
+        : mountLazyLafeaView(target.host, { ...target.view.options }));
+    } else {
+      // A lazy mount that finished loading while its view was hidden mounts now.
+      controllers.get(target.view.id).refresh?.();
     }
     try { globalThis.localStorage?.setItem(STORAGE_KEY, target.view.id); } catch { /* storage optional */ }
     return target.view.id;
@@ -99,6 +226,12 @@ export function mountApp(root) {
   return Object.freeze({
     activate,
     getController: (viewId) => controllers.get(viewId) ?? null,
+    /** Resolves when the view's lazy-loaded part (if any) has mounted. */
+    whenReady: async (viewId) => {
+      const controller = controllers.get(viewId) ?? null;
+      if (controller?.whenReady) await controller.whenReady();
+      return controller;
+    },
     getActiveViewId: () => entries.find((e) => !e.host.hidden)?.view.id ?? null,
     destroy() {
       for (const controller of controllers.values()) controller.destroy();
@@ -148,8 +281,10 @@ export function mountEmpiricalView(host) {
       sub.panel.hidden = !active;
       buttons[index].setAttribute('aria-selected', String(active));
     });
-    if (target.id === 'WORKFLOW' && !workflow) {
-      workflow = new LafeaStandaloneController(workflowHost, { ...options }).init();
+    if (target.id === 'WORKFLOW') {
+      workflow ??= deferLafeaMount(workflowHost,
+        ({ LafeaStandaloneController }) => new LafeaStandaloneController(workflowHost, { ...options }).init());
+      workflow.refresh();
     }
     try { globalThis.localStorage?.setItem(EMPIRICAL_SUBVIEW_KEY, target.id); } catch { /* storage optional */ }
     return target.id;
@@ -162,7 +297,11 @@ export function mountEmpiricalView(host) {
   return Object.freeze({
     show,
     calculator,
-    getWorkflowController: () => workflow,
+    /** The EMP.1 workbench controller, or null until the advanced sub-tab has loaded and mounted. */
+    getWorkflowController: () => workflow?.getInstance() ?? null,
+    /** Resolves with the EMP.1 workbench controller (opens nothing by itself). */
+    whenWorkflowReady: () => (workflow ? workflow.whenReady() : Promise.resolve(null)),
+    refresh: () => workflow?.refresh(),
     destroy() {
       workflow?.destroy();
       calculator.destroy();

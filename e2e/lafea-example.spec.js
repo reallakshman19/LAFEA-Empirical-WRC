@@ -4,6 +4,9 @@ test.setTimeout(180000);
 
 test('LAFEA example: load → mesh → solve → convergence → results published', async ({ page }) => {
   await page.goto('/index.html#LAFEA');
+  // The workbench is lazy-loaded when the LAFEA tab opens: wait for the tab, not the page load.
+  await page.evaluate(() => globalThis.LafeaEmpApp.whenReady('LAFEA'));
+  await expect(page.locator('[data-app-view="LAFEA"] [data-role="lafea-loading"]')).toHaveCount(0);
   const bar = page.locator('[data-role="lafea-example-bar"]');
   await expect(bar.locator('[data-lafea-example="solve"]')).toBeDisabled();
   // Duplicate EMP.1 entry and unimplemented LAFEA.6 are hidden in this view

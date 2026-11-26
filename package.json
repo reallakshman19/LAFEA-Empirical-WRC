@@ -26,7 +26,8 @@
     "check:lafea-render-parity": "node scripts/lafea-render-parity-check.mjs",
     "check:lafea-canvas-performance": "node scripts/lafea-canvas-performance-check.mjs",
     "check:lafea-canvas-anti-drift": "node scripts/lafea-canvas-anti-drift-check.mjs",
-    "check:wrc": "node scripts/wrc-calculator-check.mjs"
+    "check:wrc": "node scripts/wrc-calculator-check.mjs",
+    "check:bundle-size": "node scripts/bundle-size-check.mjs"
   },
   "dependencies": {},
   "devDependencies": {
