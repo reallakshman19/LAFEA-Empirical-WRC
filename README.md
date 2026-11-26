@@ -14,6 +14,14 @@ upstream combined app uses for its `LAFEA` and `EMPIRICAL` tabs
 (`src/workspace/bootstrap.js` upstream). They run without the combined workspace,
 LFEA, pipe-model, event bus, mock data or benchmark panels.
 
+**First load.** Opening the app downloads only the WRC calculator (about 100 kB of JS).
+The LAFEA workbench (about 1.9 MB) is downloaded the first time you open the LAFEA tab or
+the "Full EMP.1 workflow (advanced)" sub-tab; "Loading LAFEA…" shows meanwhile. If that
+download fails, the tab says so and offers "Try again". `npm run check:bundle-size` fails
+the build in CI if the first-load JS grows past 500 kB. `globalThis.LafeaEmpApp` still works;
+`await LafeaEmpApp.whenReady('LAFEA')` waits for the workbench, and the LAFEA view's
+`loadExample`, `solveExample` and `getState` now return promises.
+
 ## LAFEA example
 
 The LAFEA tab has an example bar:
@@ -113,15 +121,17 @@ dependencies**.
 
 ## Tests
 
-Results at extraction time, on Windows with Node 22 and Chrome:
+Results after Phase 5.1 (2026-11-26), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
 | Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **278 pass**, 0 fail, 128 skipped as KNOWN |
-| Browser e2e (20 specs, 46 tests) | `npx playwright test` | **38 pass**, 8 fail. The 8 also fail upstream, and all run on the original `lafea.html` entry, not the app. The new WRC calculator and LAFEA example tests pass. |
+| Browser e2e (20 specs, 48 tests) | `npx playwright test` | **40 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
+| App e2e (WRC calculator, LAFEA example) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js` | **8 pass**, on the dev server and on the production build (`vite preview`) |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 99.8 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 128 KNOWN checks, each with the
 reason:

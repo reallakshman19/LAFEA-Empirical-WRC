@@ -122,6 +122,11 @@ body {
 .app-examplebar__status[data-tone='warn'] { color: #e0b955; }
 .app-examplebar__status[data-tone='bad'] { color: #f08a87; }
 
+/* Shown while the LAFEA workbench is fetched on first use. */
+.app-loading { margin: 0; padding: 24px 16px; color: #8ea2c0; }
+.app-loading--error { color: #f08a87; }
+.app-loading--error p { margin: 0 0 8px; }
+
 /* The EMP.1 workflow has its own Empirical tab, and LAFEA.6 (weld profile) is not implemented. */
 .app-view[data-app-view='LAFEA'] .lafea-workbench__stages [data-stage-id='LAFEA.6'],
 .app-view[data-app-view='LAFEA'] .lafea-workbench__stages [data-product-id='EMP.1'],

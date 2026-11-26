@@ -190,6 +190,31 @@ Shell core tolerances: the Jacobi-PCG solve of a thin shell cannot meet the core
 equilibrium tolerances. The cross-check model therefore uses 0.5 N / 1e-6 for forces and 1e-5 for
 moments. The core is unchanged.
 
+**2026-11-26: Phase 5.1, fast first load.** The LAFEA workbench is now loaded only when it is needed.
+
+- `src/app/main.js` no longer imports the standalone controller or `lafea-view.js` statically. A single
+  cached `import()` (`loadLafeaModules`) fetches both the first time someone opens the LAFEA tab or the
+  "Full EMP.1 workflow (advanced)" sub-tab. "Loading LAFEA…" shows meanwhile. A failed load shows the
+  reason and a "Try again" button, and it does not affect the WRC calculator.
+- The workbench mounts only once its tab is visible, as before, so it never lays out in a hidden root.
+- `globalThis.LafeaEmpApp` keeps the same methods. `whenReady(viewId)` is new. The LAFEA view's
+  `loadExample`, `solveExample` and `getState` now return promises, and `getController()` is null until
+  the workbench has mounted.
+- `scripts/bundle-size-check.mjs` (`npm run check:bundle-size`) walks the static imports of `index.html`
+  in `dist/.vite/manifest.json`. It fails if they total more than 500 kB, or if the standalone controller
+  is among them. CI runs it after `build`.
+
+| First-load JS | Before | After |
+|---|---|---|
+| `main-*.js` (app and WRC calculator) | 48.5 kB | 43.6 kB |
+| EMP1 WRC 537 table chunk (shared with LAFEA) | in the controller | 56.2 kB |
+| `standalone-controller-*.js` | 1,942.7 kB | not loaded (1,886.7 kB, lazy) |
+| **Total** | **1,991 kB** (gzip about 529 kB) | **99.8 kB** (gzip 38.6 kB) |
+
+Verification: see the README test table. New e2e tests check that the Empirical tab loads without
+requesting the controller, that it is requested when the LAFEA tab opens, and that a failed load can be
+retried. The app e2e specs pass on both the dev server and the production build (`vite preview`).
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
