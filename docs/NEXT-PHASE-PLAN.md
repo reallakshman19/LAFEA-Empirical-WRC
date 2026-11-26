@@ -36,7 +36,7 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 - Done when: all six loads are cross-checked, the check script is extended, and the contour is
   visible in the report.
 
-### 5.3 LAFEA input form (M)
+### 5.3 LAFEA input form (M): done 2026-11-26 (Kt = 3.047 against 3.025; needed three mesher speed fixes, see the AUDIT-AND-ROADMAP progress entry)
 - A plain form for a rectangular or holed plate, like the WRC form:
   - dimensions, thickness and material;
   - edge restraints and tractions;

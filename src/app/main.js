@@ -137,6 +137,10 @@ function mountLazyLafeaView(host, options) {
     getController: () => deferred.getInstance()?.getController() ?? null,
     loadExample: async () => (await deferred.whenReady()).loadExample(),
     solveExample: async () => (await deferred.whenReady()).solveExample(),
+    /** Build the plate form's model (optionally from new raw form values). */
+    loadPlate: async (raw) => (await deferred.whenReady()).loadPlate(raw),
+    solvePlate: async () => (await deferred.whenReady()).solvePlate(),
+    getPlateInput: async () => (await deferred.whenReady()).getPlateInput(),
     getState: async () => (await deferred.whenReady()).getState(),
     destroy: deferred.destroy,
   });

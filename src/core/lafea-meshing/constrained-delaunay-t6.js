@@ -129,37 +129,137 @@ function inCircle(a, b, c, d) {
  */
 export function lawsonFlip(points, triangleTriples, boundaryEdgeKeys) {
   const triangles = triangleTriples.map((t) => [...t]);
-  // One flip per pass: a flip mutates two triangle-array slots, which would
-  // invalidate the edge->triangle index for any other edge in the same pass
-  // that touches either slot. Rebuilding the index after every single flip
-  // is the safe, simple fix (a stale-index bug here previously produced
-  // overlapping, invalid triangles that inflated total meshed area).
+  // Each pass flips exactly one edge: the first edge, in sorted edge-key order,
+  // that violates the in-circle condition (with a convex quad). The result is
+  // defined by that order, so it must not change.
+  //
+  // The edge->triangle index (owners kept in ascending triangle order, as a
+  // full rebuild would give) and a min-heap of candidate edge keys are updated
+  // incrementally: a flip changes only the two triangles it touches, so only
+  // their edges can change their violation status. Every violating edge is
+  // always in the heap; keys that no longer violate are dropped when popped.
+  // This gives the same flips in the same order as rebuilding and re-sorting
+  // the whole index after every flip, without the O(n^2 log n) cost.
+  //
+  // Cycle guard: in exact arithmetic a Lawson flip never re-creates an edge
+  // that an earlier flip removed (the lifted surface only moves down). With
+  // floating point, a nearly cocircular quad can pass the in-circle test for
+  // both diagonals (the 1e-12 threshold is absolute, and the determinant
+  // scales with coordinates to the fourth power), and the two flips then
+  // alternate until the pass cap (max(200, n^2) passes; on the small
+  // sub-triangulations of interior refinement the cap is reached after a few
+  // thousand flips, and which diagonal survives depends on the cap's parity).
+  // An edge is therefore blocked from coming back once it has been flipped
+  // away CYCLE_FLIP_LIMIT times. Both diagonals of such a quad are equally
+  // Delaunay. Runs without a cycle make exactly the same flips as before.
   const maxPasses = Math.max(200, triangles.length * triangles.length);
+  const edgeToTriangles = buildEdgeToTriangleIndex(triangles);
+  const removedCount = new Map();
+  const violation = (key) => {
+    if (boundaryEdgeKeys.has(key)) return null;
+    const owners = edgeToTriangles.get(key);
+    if (!owners || owners.length !== 2) return null;
+    const [tA, tB] = owners;
+    const shared = key.split(':').map(Number);
+    const apexA = triangles[tA].find((v) => !shared.includes(v));
+    const apexB = triangles[tB].find((v) => !shared.includes(v));
+    const [s0, s1] = orderSharedForTriangle(triangles[tA], shared);
+    if (!inCircle(points[s0], points[s1], points[apexA], points[apexB])) return null;
+    if (!isConvexQuad(points[s0], points[apexA], points[s1], points[apexB])) return null;
+    if ((removedCount.get(edgeKey(apexA, apexB)) ?? 0) >= CYCLE_FLIP_LIMIT) return null;
+    return { tA, tB, s0, s1, apexA, apexB, key };
+  };
+  const heap = createKeyHeap();
+  for (const key of edgeToTriangles.keys()) if (violation(key)) heap.push(key);
   for (let pass = 0; pass < maxPasses; pass += 1) {
-    const edgeToTriangles = buildEdgeToTriangleIndex(triangles);
-    const edgeKeysInOrder = [...edgeToTriangles.keys()].sort();
-    let flipped = false;
-    for (const key of edgeKeysInOrder) {
-      if (boundaryEdgeKeys.has(key)) continue;
-      const owners = edgeToTriangles.get(key);
-      if (owners.length !== 2) continue;
-      const [tA, tB] = owners;
-      const shared = key.split(':').map(Number);
-      const apexA = triangles[tA].find((v) => !shared.includes(v));
-      const apexB = triangles[tB].find((v) => !shared.includes(v));
-      const [s0, s1] = orderSharedForTriangle(triangles[tA], shared);
-      if (!inCircle(points[s0], points[s1], points[apexA], points[apexB])) continue;
-      if (!isConvexQuad(points[s0], points[apexA], points[s1], points[apexB])) continue;
-      triangles[tA] = [s0, apexA, apexB];
-      triangles[tB] = [apexB, apexA, s1];
-      normalizeOrientation(triangles[tA], points);
-      normalizeOrientation(triangles[tB], points);
-      flipped = true;
-      break;
+    let flip = null;
+    while (heap.size() > 0 && !flip) flip = violation(heap.pop());
+    if (!flip) break;
+    const { tA, tB, s0, s1, apexA, apexB, key: flippedKey } = flip;
+    removedCount.set(flippedKey, (removedCount.get(flippedKey) ?? 0) + 1);
+    removeTriangleEdges(edgeToTriangles, triangles[tA], tA);
+    removeTriangleEdges(edgeToTriangles, triangles[tB], tB);
+    triangles[tA] = [s0, apexA, apexB];
+    triangles[tB] = [apexB, apexA, s1];
+    normalizeOrientation(triangles[tA], points);
+    normalizeOrientation(triangles[tB], points);
+    addTriangleEdges(edgeToTriangles, triangles[tA], tA);
+    addTriangleEdges(edgeToTriangles, triangles[tB], tB);
+    for (const t of [tA, tB]) {
+      for (let i = 0; i < 3; i += 1) {
+        const key = edgeKey(triangles[t][i], triangles[t][(i + 1) % 3]);
+        if (violation(key)) heap.push(key);
+      }
     }
-    if (!flipped) break;
   }
   return triangles;
+}
+
+/** Times an edge may be flipped away before re-creating it counts as a numerical cycle (see lawsonFlip). */
+const CYCLE_FLIP_LIMIT = 3;
+
+function removeTriangleEdges(index, triangle, triangleIndex) {
+  for (let i = 0; i < 3; i += 1) {
+    const key = edgeKey(triangle[i], triangle[(i + 1) % 3]);
+    const owners = index.get(key);
+    if (!owners) continue;
+    const at = owners.indexOf(triangleIndex);
+    if (at >= 0) owners.splice(at, 1);
+    if (owners.length === 0) index.delete(key);
+  }
+}
+
+function addTriangleEdges(index, triangle, triangleIndex) {
+  for (let i = 0; i < 3; i += 1) {
+    const key = edgeKey(triangle[i], triangle[(i + 1) % 3]);
+    if (!index.has(key)) index.set(key, []);
+    const owners = index.get(key);
+    // Keep owners in ascending triangle order, the order a full rebuild produces.
+    let at = owners.length;
+    while (at > 0 && owners[at - 1] > triangleIndex) at -= 1;
+    owners.splice(at, 0, triangleIndex);
+  }
+}
+
+/** Min-heap of edge keys in default string sort order (UTF-16 code units, as Array#sort). */
+function createKeyHeap() {
+  const items = [];
+  const queued = new Set();
+  return {
+    size: () => items.length,
+    push(key) {
+      if (queued.has(key)) return;
+      queued.add(key);
+      items.push(key);
+      let i = items.length - 1;
+      while (i > 0) {
+        const parent = (i - 1) >> 1;
+        if (!(items[i] < items[parent])) break;
+        [items[i], items[parent]] = [items[parent], items[i]];
+        i = parent;
+      }
+    },
+    pop() {
+      const top = items[0];
+      const last = items.pop();
+      if (items.length > 0) {
+        items[0] = last;
+        let i = 0;
+        for (;;) {
+          const l = 2 * i + 1;
+          const r = l + 1;
+          let m = i;
+          if (l < items.length && items[l] < items[m]) m = l;
+          if (r < items.length && items[r] < items[m]) m = r;
+          if (m === i) break;
+          [items[i], items[m]] = [items[m], items[i]];
+          i = m;
+        }
+      }
+      queued.delete(top);
+      return top;
+    },
+  };
 }
 
 function orderSharedForTriangle(triangle, shared) {

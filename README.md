@@ -36,6 +36,39 @@ The LAFEA tab has an example bar:
 
 You can also use the workbench's own Run and Convergence steps after loading.
 
+## LAFEA plate form
+
+"Set up a plate", under the example bar, builds your own plane-stress plate without writing JSON:
+
+- **Shape:** a rectangular plate, or a plate with a central round hole.
+- **Inputs:** length, height, thickness, hole diameter, E and ν.
+- **Each edge:** a support (free, fixed, or a roller in x or y) and a uniform normal stress (+ = tension)
+  and shear stress.
+- **Mesh size h:** the convergence study solves h, h/2 and h/4. Near a hole the mesh is finer
+  automatically.
+- **Checks:** it explains any input it can't use. For example, supports that let the plate slide or
+  rotate, a load on a fixed edge, a hole that is too big, or a mesh that would take too long.
+- **Saving:** the inputs are remembered in the browser.
+
+It uses the same domain-first route as the example. "Solve + convergence study" then reports:
+
+- **The convergence study,** on the total displacement at the middle of the most loaded edge, or on a
+  point and quantity you choose. When it passes, the workbench publishes the results.
+- **For a hole, Kt:** the peak principal stress just inside the hole edge, 90° from the load, divided
+  by the applied stress. It is read on the finest and coarsest mesh, and compared with the
+  finite-width reference for uniaxial tension (3.0 for an infinite plate).
+
+**Kt check (the default):** a 400 × 200 × 10 mm plate with a 20 mm hole (d/W = 0.1), fixed on the left,
+with 100 MPa on the right.
+- The study passes (MONOTONIC_CONVERGING), and Kt = 3.047, against 3.025 from the reference (+0.7%).
+- The peak moves 1% between the 40 mm and 10 mm meshes.
+- It takes about 30 s in the browser.
+
+**Why Kt is not the study's result point:** the hole edge is meshed by its curvature (15° segments) at
+every level, so the stress there wobbles by 1–2% between meshes instead of following a trend. The
+governed study correctly refuses to call that convergence. See
+[docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
+
 ## WRC 537 calculator
 
 This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** at a
@@ -128,14 +161,15 @@ dependencies**.
 
 ## Tests
 
-Results after Phase 5.2 (2026-11-26), on Windows with Node 22 and Chrome:
+Results after Phase 5.3 (2026-11-26), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **279 pass**, 0 fail, 128 skipped as KNOWN |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **281 pass**, 0 fail, 128 skipped as KNOWN |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field) | pass, about 1 min each |
-| Browser e2e (20 specs, 48 tests) | `npx playwright test` | **40 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, LAFEA example) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js` | **8 pass**, on the dev server and on the production build (`vite preview`) |
+| Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
+| Browser e2e (21 specs, 49 tests) | `npx playwright test` (dev server) | **41 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
+| App e2e (WRC calculator, LAFEA example, plate form) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js` | **9 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
