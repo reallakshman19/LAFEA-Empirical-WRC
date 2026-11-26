@@ -3,6 +3,7 @@
  * Accepts a load-case batch (calculateWrc537Cases) or a single result (calculateWrc537).
  */
 import { WRC_BENDING_CLASS, WRC_TIER_TEXT, fmt } from './wrc-calc.js';
+import { FE_CONTOUR_CAPTION, FE_METHOD_NOTE, buildFeContourHtml } from './fe-contour.js';
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -10,7 +11,29 @@ const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
 const LOAD_KEYS = ['P', 'Vc', 'Vl', 'Mc', 'Ml', 'Mt'];
 const passText = (item) => `<span class="${item.pass ? 'pass' : 'fail'}">${fmt(item.ratio, 3)} ${item.pass ? 'pass' : 'FAIL'}</span>`;
 
-export function buildWrcReportHtml(run, { generatedAt = new Date(), appVersion = '' } = {}) {
+/**
+ * `fe` (optional): a shell-FE cross-check run on the current inputs,
+ * { caseName, reference: WRC result without pressure or Kn/Kb, result: crossCheckWrc537 output }.
+ */
+function feSection(fe, number) {
+  const r = fe.result;
+  const ref = fe.reference;
+  const wrcGov = ref.governing;
+  return `<h2>${number}. Shell FE cross-check (LAFEA shell solver)</h2>
+<div class="muted">Case "${esc(fe.caseName)}": all six loads, without pressure or K<sub>n</sub>/K<sub>b</sub>. Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·R<sub>m</sub>) was assumed.` : ''}</div>
+<table>
+<tr><th>Point</th><th class="n">WRC 537 SI</th><th class="n">Shell FE SI</th><th class="n">FE / WRC</th><th class="n">FE σ<sub>φ</sub></th><th class="n">FE σ<sub>x</sub></th><th class="n">FE τ</th></tr>
+${r.rows.map((row, index) => {
+    const w = ref.rows[index].stressIntensity;
+    return `<tr${row.location === r.feGoverning.location ? ' class="gov"' : ''}><td>${row.location}</td><td class="n">${fmt(w, 3)}</td><td class="n">${fmt(row.fe, 3)}</td><td class="n">${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td><td class="n">${fmt(row.feCircumferential, 3)}</td><td class="n">${fmt(row.feLongitudinal, 3)}</td><td class="n">${fmt(row.feShear, 3)}</td></tr>`;
+  }).join('')}
+</table>
+<p><b>Governing: WRC ${fmt(wrcGov.stressIntensity, 3)} MPa at ${wrcGov.location}; FE ${fmt(r.feGoverning.fe, 3)} MPa at ${r.feGoverning.location} (FE / WRC = ${fmt(r.feGoverning.fe / wrcGov.stressIntensity, 2)}).</b></p>
+${r.field ? `<div class="contour">${buildFeContourHtml(r.field, { caption: esc(FE_CONTOUR_CAPTION) })}</div>` : ''}
+<p class="muted">${esc(FE_METHOD_NOTE)}</p>`;
+}
+
+export function buildWrcReportHtml(run, { generatedAt = new Date(), appVersion = '', fe = null } = {}) {
   const batch = run.cases ? run : { cases: [{ name: 'Case 1', result: run }], governing: null, codeCheck: null };
   const first = batch.cases[0].result;
   const ref = batch.cases.find((c) => c.result.ok)?.result ?? first; // geometry and curves are the same for every case
@@ -57,6 +80,7 @@ ${cc.items.map((x) => `<tr><td>${esc(x.label)}</td><td>${esc(x.location)}</td><t
   .gov{font-weight:700;background:#fff3c4} .muted{color:#555} ul{margin:4px 0 4px 18px;padding:0}
   .pass{color:#13703f;font-weight:600} .fail{color:#b3261e;font-weight:700}
   .sign{display:flex;gap:40px;margin-top:28px} .sign div{flex:1;border-top:1px solid #333;padding-top:4px}
+  .contour{margin:8px 0;break-inside:avoid} .contour svg{max-width:100%;height:auto}
   @media print{body{margin:10mm} h3{break-after:avoid} table{break-inside:avoid}}
 </style></head><body>
 <h1>WRC 537 local stress: ${esc(i.title || 'Attachment on cylindrical shell')}</h1>
@@ -102,6 +126,8 @@ ${caseSections}
 ${ref.ok ? `<h2>${multi ? '5' : '4'}. WRC curve values used</h2>
 <div class="muted">Original curves, γ = ${fmt(g.gamma, 3)}, β = ${fmt(g.beta, 4)}. The M<sub>L</sub> bending curves are 1B/2B (eight-point axis values).${ref.tier === 'INTERPOLATED' ? ` Interpolated between γ = ${ref.gammaClass.lower} and ${ref.gammaClass.upper} (${ref.coordinate === 'LINEAR_GAMMA' ? 'linear in γ' : 'log γ'}).` : ''}</div>
 <table><tr><th>Family</th><th>Term</th><th>Figure</th><th class="n">|ordinate|</th><th>Source</th></tr>${ordinateRows}</table>` : ''}
+
+${fe?.result ? feSection(fe, ref.ok ? (multi ? '6' : '5') : (multi ? '5' : '4')) : ''}
 
 ${warnings.length ? `<h2>Notes</h2><ul>${warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
 

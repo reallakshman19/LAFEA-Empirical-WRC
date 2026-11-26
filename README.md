@@ -14,7 +14,7 @@ upstream combined app uses for its `LAFEA` and `EMPIRICAL` tabs
 (`src/workspace/bootstrap.js` upstream). They run without the combined workspace,
 LFEA, pipe-model, event bus, mock data or benchmark panels.
 
-**First load.** Opening the app downloads only the WRC calculator (about 100 kB of JS).
+**First load.** Opening the app downloads only the WRC calculator (about 110 kB of JS).
 The LAFEA workbench (about 1.9 MB) is downloaded the first time you open the LAFEA tab or
 the "Full EMP.1 workflow (advanced)" sub-tab; "Loading LAFEA…" shows meanwhile. If that
 download fails, the tab says so and offers "Try again". `npm run check:bundle-size` fails
@@ -77,9 +77,16 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   use `*.wrc.json` files.
 - **Shell FE cross-check:** "Run shell FE cross-check" solves the same geometry with LAFEA's shell
   solver in the background, taking about 30 s. The model is a rigid round attachment on a clamped cylinder,
-  using P, Mc and Ml only. The table shows WRC and FE stress intensity at the 8 points. On the CAESAR II
-  case, FE/WRC is 0.95 for Ml, 1.40 for Mc and 1.28 for P, and the result is mesh-independent within 2%.
-  It is a reason to look closer, not a pass or fail. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
+  with all six loads (P, Vc, Vl, Mc, Ml, Mt), but not pressure or Kn/Kb. The table shows WRC and FE stress intensity at the 8
+  points. Below it, a **stress-intensity contour** of the shell around the attachment (outside and inside
+  surface, with a hover readout) shows where the FE peak really is. A downloaded or printed report includes
+  the FE table and the contour, as long as the run matches the current inputs.
+  On the CAESAR II case, FE/WRC (one load at a time) is:
+  - Ml 0.95, Mc 1.40, P 1.28 and Mt 1.16, mesh-independent within 2%;
+  - Vc 1.27 and Vl 0.37. WRC 537 treats both as pure shear, but FE also finds bearing stress on the loaded
+    side, and for Vc, shell bending at C/D. The Vc value moves by up to 14% with how the attachment is modelled.
+
+  A large ratio is a reason to look closer, not a pass or fail. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
 - **Not covered:** spherical shells and rectangular attachments (the extracted EMP1 core has
   no WRC 537 data for them), pressure stress concentration at the opening, and fatigue. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
 
@@ -121,17 +128,18 @@ dependencies**.
 
 ## Tests
 
-Results after Phase 5.1 (2026-11-26), on Windows with Node 22 and Chrome:
+Results after Phase 5.2 (2026-11-26), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **278 pass**, 0 fail, 128 skipped as KNOWN |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **279 pass**, 0 fail, 128 skipped as KNOWN |
+| Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field) | pass, about 1 min each |
 | Browser e2e (20 specs, 48 tests) | `npx playwright test` | **40 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
 | App e2e (WRC calculator, LAFEA example) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js` | **8 pass**, on the dev server and on the production build (`vite preview`) |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
-| First-load size | `npm run check:bundle-size` (after `build`) | pass: 99.8 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 107.7 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 128 KNOWN checks, each with the
 reason:
