@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint (app code)
+        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-nozzle-fe-check.mjs e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js
+      - name: Isolation checks
+        run: npm run check:boundary
+      - name: Build
+        run: npm run build
+      - name: Node checks (LAFEA / EMP1 / WRC)
+        run: npm run check:all
+      - name: Upload check summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checks-summary
+          path: reports/checks-summary.json
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: App browser tests (WRC calculator and LAFEA example)
+        run: npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
