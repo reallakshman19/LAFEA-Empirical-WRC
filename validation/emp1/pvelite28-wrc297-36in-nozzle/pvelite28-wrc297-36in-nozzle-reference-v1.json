@@ -1,0 +1,120 @@
+{
+  "schema": "emp1-external-method-reference/v1",
+  "referenceId": "PVELITE28_WRC297_36IN_NOZZLE_V1",
+  "role": "DIFFERENT_METHOD_REFERENCE_NOT_A_WRC537_BENCHMARK",
+  "note": "PV Elite evaluated this nozzle with WRC 297, not WRC 537. The numbers are used for checks that do not depend on the method (stress intensity, load sign convention, shear) and to record how far WRC 297 and our WRC 537 are apart. They are not a pass/fail benchmark for WRC 537 stresses.",
+  "source": {
+    "program": "PV Elite 28",
+    "method": "WRC 297 vessel and nozzle stresses, ASME VIII-2 stress summation",
+    "document": "Owner-supplied PV Elite nozzle report for a fractionation column, nozzle A. The PDF is not retained in the repository (validation/**/*.pdf is ignored).",
+    "rawPdfSha256": "cabb4bb4b89f01574ff41f966a8523fc97d5f47e92c85f20d06d7100ee24a4ce",
+    "pages": [12, 13, 14, 15, 16, 17, 18, 19, 20],
+    "transcribed": "2026-11-26, by hand from the printed tables"
+  },
+  "units": { "length": "mm", "force": "N", "moment": "N·m", "pressure": "kPa", "stress": "kPa" },
+  "input": {
+    "shellInsideDiameter": 2111,
+    "shellThickness": 25,
+    "shellCorrosionAllowance": 0,
+    "shellStressConcentrationFactor": 1.2,
+    "nozzleOutsideDiameter": 914.4,
+    "nozzleThickness": 10,
+    "nozzleStressConcentrationFactor": 1.0,
+    "padDiameter": 1064.4,
+    "padThickness": 25,
+    "designPressure": 523.70,
+    "loads": { "P": -25926.99, "Vc": 22115.01, "Vl": 69592.96, "Mc": -45209.96, "Ml": 78037.98, "Mt": 101000.95 },
+    "loadConvention": "WRC 107/537",
+    "loadCategory": "SUSTAINED",
+    "includeAxialPressureThrust": false,
+    "includeDiv2PressureStressIndices": false
+  },
+  "locations": ["Au", "Al", "Bu", "Bl", "Cu", "Cl", "Du", "Dl"],
+  "tableConvention": "Each row lists the 8 locations in the order above. 'outplane' is the stress normal to the plane of the location (hoop at A/B, longitudinal at C/D); 'inplane' is the stress parallel to it (longitudinal at A/B, hoop at C/D). Mc rows are zero at A/B and Ml rows are zero at C/D because PV Elite prints them that way.",
+  "cases": [
+    {
+      "caseId": "JUNCTION",
+      "description": "Vessel stresses at the nozzle-to-shell junction. PV Elite adds the pad to the shell thickness here (T = 25 + 25 = 50 mm).",
+      "wrc297CurveAccess": { "vesselMeanDiameter": 2161, "nozzleOutsideDiameter": 914.4, "vesselThickness": 50, "nozzleThickness": 10, "lambda": 2.782 },
+      "coefficients": {
+        "Nr/P": 0.019, "Mr/P": 0.019, "M0/P": 0.043, "N0/P": 0.229,
+        "MrD/Mc": 0.059, "NrDL/Mc": 0.049, "M0d/Mc": 0.166, "N0DL/Mc": 0.503,
+        "MrD/Ml": 0.031, "NrDL/Ml": 0.027, "M0D/Ml": 0.060, "N0DL/Ml": 0.528
+      },
+      "vessel": {
+        "outplane": {
+          "Pmem": [2847, 2847, 2847, 2847, 2847, 2847, 2847, 2847],
+          "Pbend": [3212, -3212, 3212, -3212, 3212, -3212, 3212, -3212],
+          "Mcmem": [0, 0, 0, 0, 11934, 11934, -11934, -11934],
+          "Mcbend": [0, 0, 0, 0, 23682, -23682, -23682, 23682],
+          "Mlmem": [-21600, -21600, 21600, 21600, 0, 0, 0, 0],
+          "Mlbend": [-14788, 14788, 14788, -14788, 0, 0, 0, 0],
+          "pressure": [10796, 11320, 10796, 11320, 5398, 5398, 5398, 5398],
+          "summary": [-19532, 4143, 53246, 17767, 47076, -6715, -24158, 16781]
+        },
+        "inplane": {
+          "Pmem": [227, 227, 227, 227, 227, 227, 227, 227],
+          "Pbend": [1413, -1413, 1413, -1413, 1413, -1413, 1413, -1413],
+          "Mcmem": [0, 0, 0, 0, 1165, 1165, -1165, -1165],
+          "Mcbend": [0, 0, 0, 0, 8425, -8425, -8425, 8425],
+          "Mlmem": [-1082, -1082, 1082, 1082, 0, 0, 0, 0],
+          "Mlbend": [-7708, 7708, 7708, -7708, 0, 0, 0, 0],
+          "pressure": [5398, 5398, 5398, 5398, 10796, 11320, 10796, 11320],
+          "summary": [-1751, 10838, 15830, -2413, 22028, 2875, 2847, 17395]
+        },
+        "shear": {
+          "Vc": [303, 303, -303, -303, 0, 0, 0, 0],
+          "Vl": [0, 0, 0, 0, -965, -965, 965, 965],
+          "Mt": [1530, 1530, 1530, 1530, 1530, 1530, 1530, 1530],
+          "summary": [1833, 1833, 1227, 1227, 565, 565, 2495, 2495]
+        },
+        "stressIntensity": [19718, 11307, 53281, 20325, 47083, 9652, 27461, 19601]
+      },
+      "nozzle": {
+        "hoopSummary": [12168, 12796, 48158, 48786, 40105, 40733, 20221, 20849],
+        "axialSummary": [-75061, 80122, 134961, -80811, 139588, -95765, -79687, 95076],
+        "shearSummary": [9218, 9218, 6143, 6143, 2840, 2840, 12520, 12520],
+        "stressIntensity": [89154, 81356, 135389, 130176, 139663, 136616, 102998, 97131]
+      }
+    },
+    {
+      "caseId": "PAD_EDGE",
+      "description": "Vessel stresses at the edge of the reinforcing pad (T = 25 mm shell). PV Elite models the pad as part of the nozzle here (d = pad diameter, t = 85 mm).",
+      "wrc297CurveAccess": { "vesselMeanDiameter": 2136, "nozzleOutsideDiameter": 1064.4, "vesselThickness": 25, "nozzleThickness": 85, "lambda": 4.606 },
+      "coefficients": {
+        "Nr/P": 0.047, "Mr/P": 0.073, "M0/P": 0.024, "N0/P": 0.064,
+        "MrD/Mc": 0.250, "NrDL/Mc": 0.084, "M0d/Mc": 0.076, "N0DL/Mc": 0.086,
+        "MrD/Ml": 0.066, "NrDL/Ml": 0.041, "M0D/Ml": 0.021, "N0DL/Ml": 0.064
+      },
+      "vessel": {
+        "outplane": {
+          "Pmem": [3157, 3157, 3157, 3157, 3157, 3157, 3157, 3157],
+          "Pbend": [7211, -7211, 7211, -7211, 7211, -7211, 7211, -7211],
+          "Mcmem": [0, 0, 0, 0, 6991, 6991, -6991, -6991],
+          "Mcbend": [0, 0, 0, 0, 36941, -36941, -36941, 36941],
+          "Mlmem": [-9059, -9059, 9059, 9059, 0, 0, 0, 0],
+          "Mlbend": [-17312, 17312, 17312, -17312, 0, 0, 0, 0],
+          "pressure": [21848, 22372, 21848, 22372, 10921, 10921, 10921, 10921],
+          "summary": [5846, 26571, 58590, 10066, 65222, -23083, -22641, 36817]
+        },
+        "inplane": {
+          "Pmem": [2357, 2357, 2357, 2357, 2357, 2357, 2357, 2357],
+          "Pbend": [21904, -21904, 21904, -21904, 21904, -21904, 21904, -21904],
+          "Mcmem": [0, 0, 0, 0, 6867, 6867, -6867, -6867],
+          "Mcbend": [0, 0, 0, 0, 122434, -122434, -122434, 122434],
+          "Mlmem": [-5715, -5715, 5715, 5715, 0, 0, 0, 0],
+          "Mlbend": [-55570, 55570, 55570, -55570, 0, 0, 0, 0],
+          "pressure": [10921, 10921, 10921, 10921, 21848, 22372, 21848, 22372],
+          "summary": [-26102, 41229, 96469, -58479, 175412, -112740, -83190, 118394]
+        },
+        "shear": {
+          "Vc": [523, 523, -523, -523, 0, 0, 0, 0],
+          "Vl": [0, 0, 0, 0, -1661, -1661, 1661, 1661],
+          "Mt": [2268, 2268, 2268, 2268, 2268, 2268, 2268, 2268],
+          "summary": [2792, 2792, 1744, 1744, 606, 606, 3929, 3929]
+        },
+        "stressIntensity": [32432, 41739, 96545, 68628, 175412, 112740, 83438, 118580]
+      }
+    }
+  ]
+}

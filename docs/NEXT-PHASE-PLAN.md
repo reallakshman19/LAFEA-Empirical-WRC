@@ -46,10 +46,16 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 - Done when: an engineer can set up a plate-with-hole stress-concentration check (Kt ≈ 3)
   without writing JSON, and it converges.
 
-### 5.4 Benchmarks (S per case, **needs your data**)
+### 5.4 Benchmarks (S per case, **needs your data**): partly done 2026-11-26
 - Add at least 3 more CAESAR II or PV Elite WRC 537 outputs across γ 10–300 and β 0.05–0.5, as
   frozen checks.
 - This is what turns "interpolated γ" from engineering judgement into evidence.
+- Done: one PV Elite 28 report (36-inch nozzle, γ 21.6 and 42.7) is frozen as a **different-method
+  reference**, because PV Elite used WRC 297. It confirms stress intensity, load signs and shear, and
+  records that WRC 297 gives 1.39× (junction) and 1.78× (pad edge) our governing load stress. See the
+  AUDIT-AND-ROADMAP progress entry.
+- Still open: WRC 537 output from CAESAR II or PV Elite. Rerunning the same nozzle with the local-load
+  method set to WRC 537 would add two interpolated-γ cases at once.
 
 ### 5.5 Clean up inherited checks (M): done 2026-11-26 for the checks (128 KNOWN → 13, see the AUDIT-AND-ROADMAP progress entry); `lafea.html` kept (owner decision, 2026-11-26)
 - Fix, update or delete each of the 90 stale upstream checks, so `check:all` reflects real risk.

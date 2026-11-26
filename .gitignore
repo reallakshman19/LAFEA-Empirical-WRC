@@ -13,3 +13,5 @@ artifacts/
 
 # third-party copyrighted source documents (kept only in the upstream repo)
 docs/emp1/*.pdf
+# owner-supplied program reports (CAESAR II, PV Elite): only the extracted numbers are committed
+validation/**/*.pdf
