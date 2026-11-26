@@ -278,6 +278,85 @@ renderer is part of the lazy-loaded LAFEA chunk (5.1), and the report needs stat
 `e2e/wrc-calculator.spec.js` checks the six-load comparison, both contour plots, the hover readout and
 the FE section in the downloaded report.
 
+**2026-11-26: Phase 5.3, LAFEA plate form.** The LAFEA tab has a "Set up a plate" form
+(`src/app/lafea/lafea-plate.js`, `lafea-view.js`):
+
+- a rectangular plate, or one with a central round hole;
+- dimensions, E and ν;
+- each edge's support (free, fixed, roller in x or y) and uniform normal and shear stress;
+- the mesh size.
+
+It builds the same domain-first model as the worked example. The hole is a HOLE loop of four clockwise
+arcs, which the general mesher already supports. Inputs it cannot use are refused with a plain reason:
+
+- supports that let the plate slide or rotate;
+- a load on a fixed edge;
+- a hole leaving under 5% of the plate;
+- a result point outside the material;
+- a mesh whose finest level would exceed about 4,000 elements.
+
+**The mesher was too slow, so three core fixes were needed.** Meshing the plate with a hole took
+9.5 s at 1,094 elements, and at h = 10 mm (1,960 elements) it ran for 376 s.
+
+1. **`lawsonFlip` (`src/core/lafea-meshing/constrained-delaunay-t6.js`).**
+   - *Problem:* it did one flip per pass, then rebuilt and re-sorted the whole edge index (about
+     O(n² log n)).
+   - *Fix:* the index and a heap of candidate edges are now kept up to date incrementally. It makes the
+     same flips in the same order: the first violating edge in sorted key order.
+   - *Evidence:* the meshes of 8 test cases are byte-identical, and 20 random triangulations match a
+     copy of the original algorithm.
+2. **Flip cycle guard (same file).**
+   - *Problem:* the in-circle test uses an absolute 1e-12 threshold on a determinant of about 10⁶ here.
+     On a nearly cocircular quad, both diagonals pass in floating point, and the flips alternate until
+     the n² pass cap. On the small sub-meshes of interior refinement that cap is only a few thousand,
+     so in one h = 14 mesh one edge was flipped 3,496 times, and which diagonal survived depended on the
+     cap's parity.
+   - *Fix:* an edge that has been flipped away 3 times can no longer come back. In exact arithmetic,
+     a Lawson flip never brings back a removed edge.
+   - *Effect:* the h = 10 mesh now takes 1.4 s instead of 376 s. Meshes without a cycle are unchanged.
+     The h = 14 plate mesh changed, because its old result was a cap-parity artifact; both diagonals
+     there are equally Delaunay.
+3. **SHA-256 (`src/core/shared-primitives/canonical-json-sha256.js`).** Mesh custody hashes every
+   artifact.
+   - *Fix:* the hash now uses int32 arithmetic with hoisted constants, and the canonical-JSON writer
+     builds its error-path strings only when it throws.
+   - *Evidence:* identical to `node:crypto` on 700+ inputs, with the same error messages.
+
+Together: mesh generation is 3–15× faster, and a solve plus a 3-level study of the plate with a hole
+takes about 30 s. `check:all` still passes everything it passed before, so no frozen upstream mesh or
+hash moved. `scripts/lafea-mesher-speed-check.mjs` keeps all of this.
+
+**Kt result.** The default case is a 400 × 200 × 10 mm plate, d = 20 mm (d/W = 0.1), fixed on the left,
+100 MPa on the right, mesh 40 / 20 / 10 mm.
+
+| | FE | Reference | Difference |
+|---|---|---|---|
+| Kt (finest mesh) | 3.047 | 3.025, finite-width plate in tension (the cubic fit given in Roark's Formulas), gross section | +0.7% |
+| Peak σ1 at the hole edge, h = 40 → 10 mm | 307.7 → 304.7 MPa | — | 1.0% change |
+| End displacement (study point) | 0.20063 → 0.20070 → 0.20072 mm, MONOTONIC_CONVERGING | σL/E = 0.200 mm | +0.4% (the hole adds compliance) |
+
+With mesh sizes 32 and 28, Kt was 3.023 and 3.052, and the studies passed.
+
+**Finding: the study's result point cannot be the peak stress.**
+- *What happens:* the hole edge is meshed by its curvature (15° arcs) at every level, not by h. Direct
+  element stresses at or near the edge therefore move up and down by 1–2% between meshes.
+- *Tried and dropped:* points at 1.002a, 1.25a and 1.5a passed the governed study on some ladders and
+  were OSCILLATORY or DIVERGENT on others.
+- *Plain plate:* the stress is exact on every mesh, so a stress point shows only rounding changes,
+  which the study also calls OSCILLATORY.
+- *Decision:* the automatic study point is the displacement at the most loaded edge, which converges
+  steadily. Kt is read from the peak on the coarsest and finest mesh and compared with the reference.
+  The strict classifier was not loosened.
+- *Possible follow-up:* a mesh-profile option that ties the arc resolution to h would let a point at
+  the hole edge itself go through the study.
+
+**Checks:**
+- `scripts/lafea-plate-form-check.mjs` (about 65 s) covers validation, the Kt case end to end and the
+  plain plate against σL/E.
+- `scripts/lafea-mesher-speed-check.mjs` covers the three core fixes.
+- `e2e/lafea-plate.spec.js` drives the form in the browser, from validation through build and solve to
+  Kt, and checks that the inputs are remembered.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
