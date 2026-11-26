@@ -7,12 +7,17 @@
  *    square of half-size a, graded fine towards r0;
  *  - a rigid plug inside r0: the same rings shrinking to the centre, with thickness × plugFactor;
  *  - a graded structured grid over the rest of the full circumference (periodic seam) and length.
- * Cylinder ends are clamped. Loads go in at the plug centre node: P radial (+ outward),
- * Mc about the cylinder axis, Ml about the circumferential direction, Vc/Vl/Mt not modelled.
+ * Cylinder ends are clamped. P (radial, + outward), Mc (about the cylinder axis) and Ml (about
+ * the circumferential direction) go in at the plug centre node. Vc, Vl (in-plane shear forces) and
+ * Mt (torsion, as a couple of tangential forces, since the shell has no drilling rotation) go in on
+ * a plug ring at 0.75·r0, so the plug carries them out to the attachment edge.
  *
  * Stresses at the WRC points (A/B on the longitudinal axis, C/D on the circumferential axis,
  * u = outside, l = inside) are taken from the first two element rings outside r0 and linearly
- * extrapolated to r = r0.
+ * extrapolated to r = r0. Shear is reported in the WRC 537 point convention: the (s, x) shear
+ * component at A/B, and its negative at C/D (WRC's torsion shear has the same sign at all 8 points).
+ * With `field: true` the element-average stress intensity of every ring element is returned too,
+ * for a contour plot.
  *
  * Pure: no DOM.
  */
@@ -32,6 +37,7 @@ export const NOZZLE_FE_DEFAULTS = Object.freeze({
   rings: 10, // rings between r0 and the square
   ringGrading: 1.7, // ring radius t^grading: > 1 puts rings closer to r0
   plugRings: 3,
+  loadRing: 1, // plug ring (1 = outermost inside r0, at 0.75·r0) that carries Vc, Vl and Mt
   plugFactor: 20, // plug thickness = plugFactor · T (near-rigid attachment)
   outerGrowth: 1.35, // element growth ratio away from the patch
   maxOuterElement: 400, // mm
@@ -169,10 +175,46 @@ export function buildNozzleShellSource(geometry, loads, options = {}) {
       constraintId: `FIX-${node.nodeId}-${dof}`, nodeId: node.nodeId, dof, value: 0, sourceReference: 'CLAMPED_END',
     })));
 
+  // In-plane loads (Vc, Vl, Mt) go onto a plug ring rather than the centre node: an in-plane point
+  // load is singular in a membrane, and the shell has no drilling rotation to take a torsion.
+  // Each ring node carries the share of the ring's angle around it (weights sum to 1). The ring is
+  // 4-fold symmetric, so the Mt couple has no net force.
+  const ring = plugIds[Math.min(o.loadRing, o.plugRings)];
+  const ringRadius = r0 * (1 - Math.min(o.loadRing, o.plugRings) / (o.plugRings + 1));
+  const ringWeights = angles.map((_, q) => {
+    const span = (from, to) => ((to - from) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    return (span(angles[(q - 1 + m) % m], angles[q]) + span(angles[q], angles[(q + 1) % m])) / (4 * Math.PI);
+  });
+  const ringLoads = (loadCaseId, l) => {
+    const Vc = l.Vc ?? 0;
+    const Vl = l.Vl ?? 0;
+    const Mt = l.Mt ?? 0;
+    if (Vc === 0 && Vl === 0 && Mt === 0) return [];
+    return ring.map((nodeId, q) => {
+      const node = pos.get(nodeId);
+      const theta = Math.atan2(node.position[1], node.position[2]);
+      const circDir = [0, Math.cos(theta), -Math.sin(theta)];
+      const longDir = [1, 0, 0];
+      // Tangent of the ring, counter-clockwise in (s, x): (−sin, cos)
+      const ts = -Math.sin(angles[q]);
+      const tx = Math.cos(angles[q]);
+      const w = ringWeights[q];
+      const fs = Vc * w + (Mt * w / ringRadius) * ts;
+      const fx = Vl * w + (Mt * w / ringRadius) * tx;
+      const f = [0, 1, 2].map((axis) => fs * circDir[axis] + fx * longDir[axis]);
+      return { loadId: `${loadCaseId}-R${q}`, nodeId, fx: f[0], fy: f[1], fz: f[2], m1: 0, m2: 0, sourceReference: loadCaseId };
+    });
+  };
+
   const loadCases = Object.entries(loads).map(([loadCaseId, l]) => ({
     loadCaseId,
     // At the plug centre (θ = 0): +z is radial outward, basis1 = cylinder axis (x), basis2 = circumferential (y).
-    nodalLoads: [{ loadId: `${loadCaseId}-L`, nodeId: 'CENTRE', fx: 0, fy: 0, fz: l.P ?? 0, m1: l.Mc ?? 0, m2: l.Ml ?? 0, sourceReference: loadCaseId }],
+    // In the load map: Vc is a force along +s (circumferential), Vl along +x (axial), and Mt a
+    // counter-clockwise couple in the (s, x) plane.
+    nodalLoads: [
+      { loadId: `${loadCaseId}-L`, nodeId: 'CENTRE', fx: 0, fy: 0, fz: l.P ?? 0, m1: l.Mc ?? 0, m2: l.Ml ?? 0, sourceReference: loadCaseId },
+      ...ringLoads(loadCaseId, l),
+    ],
     pressureLoads: [],
     sourceReference: loadCaseId,
   }));
@@ -213,9 +255,39 @@ export function solveNozzleShell(geometry, loads, options = {}) {
   const elementNodes = new Map(source.elements.map((e) => [e.elementId, e.nodeIds]));
   const cases = result.loadCaseResults.map((lc) => {
     const byElement = new Map(lc.elementResults.map((e) => [e.elementId, e]));
-    return { loadCaseId: lc.loadCaseId, points: wrcPoints(mesh, frames, byElement, positions, elementNodes), solver: lc.solverEvidence?.method };
+    return {
+      loadCaseId: lc.loadCaseId,
+      points: wrcPoints(mesh, frames, byElement, positions, elementNodes),
+      field: options.field ? stressIntensityField(mesh, source.elements, byElement, positions) : undefined,
+      solver: lc.solverEvidence?.method,
+    };
   });
   return { mesh: { nodeCount: mesh.nodeCount, elementCount: mesh.elementCount, dofs: mesh.nodeCount * 5 }, cases };
+}
+
+/**
+ * Element-average stress intensity (Tresca) on the outside (TOP) and inside (BOTTOM) surfaces of the
+ * ring elements between r0 and the patch square, in unrolled coordinates (s, x − station) in mm.
+ * Coordinates are rounded to 0.1 mm and stresses to 0.01 MPa to keep the payload small.
+ */
+function stressIntensityField(mesh, elements, byElement, positions) {
+  const round = (value, digits) => Math.round(value * 10 ** digits) / 10 ** digits;
+  const triangles = [];
+  for (const element of elements) {
+    if (!element.elementId.startsWith('RQ')) continue;
+    const res = byElement.get(element.elementId);
+    const vertices = element.nodeIds.flatMap((id) => {
+      const [x, y, z] = positions.get(id);
+      return [round(mesh.R * Math.atan2(y, z), 1), round(x - mesh.xc, 1)];
+    });
+    const si = (surface) => {
+      const s = averageSurfaceStress(res, surface);
+      // Tresca is frame-invariant, so the element's own in-plane axes can be used directly.
+      return round(tresca(s.sigmaX, s.sigmaY, s.tauXY), 2);
+    };
+    triangles.push({ v: vertices, u: si('TOP'), l: si('BOTTOM') });
+  }
+  return { attachmentRadius: mesh.r0, halfSize: mesh.a, triangles };
 }
 
 function wrcPoints(mesh, frames, byElement, positions, elementNodes) {
@@ -256,7 +328,8 @@ function wrcPoints(mesh, frames, byElement, positions, elementNodes) {
       const ex = (k) => v1[k] + f * (v2[k] - v1[k]);
       const circ = ex('circ');
       const long = ex('long');
-      const shear = ex('shear');
+      // WRC 537 point convention for shear: flips between the longitudinal (A/B) and circumferential (C/D) axes.
+      const shear = (label === 'C' || label === 'D' ? -1 : 1) * ex('shear');
       out[`${label}${suffix}`] = { circumferential: circ, longitudinal: long, shear, stressIntensity: tresca(circ, long, shear) };
     }
   }
@@ -323,9 +396,25 @@ function qualificationProfile() {
  * The FE model's +z is radially outward, m1 is about the cylinder axis and m2 about the
  * circumferential direction. These sign maps were fixed by requiring each single load to give
  * the same stress sign as WRC 537 at every WRC point it loads (scripts/wrc-nozzle-fe-check.mjs).
+ *
+ * Vc, Vl and Mt: in the shell model Vc acts along +s (circumferential), Vl along +x (axial) and Mt
+ * counter-clockwise in the (s, x) plane. WRC 537 gives only shear stress for these loads, and its
+ * sign table fixes how they combine: Vc and Mt shear add at A and subtract at B, and Vl and Mt shear
+ * subtract at C and add at D. That holds only if all three map with the same sign, and +1 makes FE
+ * and WRC shear agree in sign at every loaded point (scripts/wrc-nozzle-fe-shear-check.mjs).
+ * WRC has no normal stress from Vc or Vl, so the direction of Vc and Vl relative to P, Mc and Ml
+ * cannot be checked against WRC. It only affects how FE's extra bearing and bending stresses from
+ * shear combine with the others.
  */
 export function wrcLoadsToShell(loads) {
-  return { P: -(loads.P ?? 0), Mc: loads.Mc ?? 0, Ml: -(loads.Ml ?? 0) };
+  return {
+    P: -(loads.P ?? 0),
+    Mc: loads.Mc ?? 0,
+    Ml: -(loads.Ml ?? 0),
+    Vc: loads.Vc ?? 0,
+    Vl: loads.Vl ?? 0,
+    Mt: loads.Mt ?? 0,
+  };
 }
 
 /** Run the shell model for one WRC result (ok === true) and compare point by point. */
@@ -336,13 +425,14 @@ export function crossCheckWrc537(wrcResult, options = {}) {
   const station = Number.isFinite(g.x) && g.L > 0 ? g.x : L / 2;
   const geometry = { meanRadius: g.Rm, thickness: g.T, attachmentRadius: g.r0, length: L, station };
   const started = Date.now();
-  const fe = solveNozzleShell(geometry, { WRC: wrcLoadsToShell(wrcResult.loadsBase) }, options);
+  const fe = solveNozzleShell(geometry, { WRC: wrcLoadsToShell(wrcResult.loadsBase) }, { field: true, ...options });
   const fePoints = fe.cases[0].points;
   const rows = fePoints.map((p) => ({
     location: p.location,
     fe: p.stressIntensity,
     feCircumferential: p.circumferential,
     feLongitudinal: p.longitudinal,
+    feShear: p.shear,
   }));
   return {
     geometry,
@@ -351,5 +441,6 @@ export function crossCheckWrc537(wrcResult, options = {}) {
     milliseconds: Date.now() - started,
     rows,
     feGoverning: rows.reduce((a, b) => (b.fe > a.fe ? b : a)),
+    field: fe.cases[0].field,
   };
 }

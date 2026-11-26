@@ -7,6 +7,7 @@ import {
   WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537, calculateWrc537Cases, fmt,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
+import { FE_CONTOUR_CAPTION, FE_METHOD_NOTE, buildFeContourHtml, triangleAt } from './fe-contour.js';
 
 const STORAGE_KEY = 'lafea-emp-app/wrc-case';
 const CASE_SCHEMA = 'lafea-emp-app/wrc537-case/v1';
@@ -97,7 +98,7 @@ export function mountWrcCalculator(host) {
         <div data-slot="check"></div>
         <section class="wrc__fe" data-slot="fe">
           <h3 class="wrc__h">Shell FE cross-check <small>(LAFEA shell solver)</small></h3>
-          <p class="wrc__help">Solves this geometry with a thin-shell FE model: a rigid round attachment on a cylinder with clamped ends, about 10 000 DOF. It uses this case's P, Mc and Ml only (not Vc, Vl, Mt or pressure) and compares stress intensity at the 8 WRC points. It takes about 1–2 minutes and runs in the background.</p>
+          <p class="wrc__help">Solves this geometry with a thin-shell FE model: a rigid round attachment on a cylinder with clamped ends, about 10 000 DOF. It uses all six of this case's loads (P, Vc, Vl, Mc, Ml, Mt), but not pressure or Kn/Kb. It compares stress intensity at the 8 WRC points and draws the FE stress around the attachment. It takes about 1–2 minutes and runs in the background.</p>
           <button type="button" data-act="runFe">Run shell FE cross-check</button>
           <div data-slot="feResult" aria-live="polite"></div>
         </section>
@@ -217,20 +218,21 @@ export function mountWrcCalculator(host) {
     const c = state.loadCases[state.activeCase];
     return calculateWrc537({
       ...state,
-      loads: { ...c.loads, Vc: 0, Vl: 0, Mt: 0 },
+      loads: { ...c.loads },
       designPressure: 0, Kn: 1, Kb: 1, allowableS: '',
     });
   }
   function feKey() {
     const c = state.loadCases[state.activeCase];
     return JSON.stringify([state.shellOutsideDiameter, state.shellThickness, state.corrosionAllowance, state.attachmentOutsideDiameter,
-      state.cylinderLength, state.attachmentStation, state.forceUnit, state.momentUnit, state.coordinate, c.loads.P, c.loads.Mc, c.loads.Ml]);
+      state.cylinderLength, state.attachmentStation, state.forceUnit, state.momentUnit, state.coordinate,
+      ...LOADS.map((l) => c.loads[l.key])]);
   }
   function runFe() {
     const reference = feReference();
     if (!reference.ok) { fe = { key: feKey(), status: 'error', error: 'The WRC calculation for this case is blocked, so there is nothing to compare.' }; renderFe(); return; }
-    if (!(reference.loadsBase.P || reference.loadsBase.Mc || reference.loadsBase.Ml)) {
-      fe = { key: feKey(), status: 'error', error: 'This case has no P, Mc or Ml load, so there is nothing to compare.' }; renderFe(); return;
+    if (!LOADS.some((l) => reference.loadsBase[l.key])) {
+      fe = { key: feKey(), status: 'error', error: 'This case has no loads, so there is nothing to compare.' }; renderFe(); return;
     }
     let worker;
     try {
@@ -281,9 +283,36 @@ export function mountWrcCalculator(host) {
         const w = ref.rows[i].stressIntensity;
         return `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${fmt(w, 2)}</td><td><b>${fmt(row.fe, 2)}</b></td><td>${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td></tr>`;
       }).join('')}</tbody>
-      <caption>MPa, loads P, Mc and Ml of case "${escapeHtml(state.loadCases[state.activeCase].name)}" only. Governing: WRC ${fmt(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
+      <caption>MPa, all six loads of case "${escapeHtml(state.loadCases[state.activeCase].name)}", without pressure or Kn/Kb. Governing: WRC ${fmt(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
       Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF, solved in ${fmt(r.milliseconds / 1000, 0)} s.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·Rm) was assumed.` : ''}</caption></table>
-      <p class="wrc__help">FE: CST/DKT thin-shell triangles, attachment modelled as a near-rigid plug, stresses extrapolated to the attachment edge. On the CAESAR II check case, FE/WRC is 0.95 for Ml, 1.40 for Mc and 1.28 for P, and is mesh-independent within 2%. Differences of this size between WRC 537 and FE are normal. Treat a large FE/WRC ratio as a reason to look closer, not as a pass or fail.</p>`;
+      ${r.field ? buildFeContourHtml(r.field, { caption: FE_CONTOUR_CAPTION }) : ''}
+      <p class="wrc__help">${FE_METHOD_NOTE}</p>`;
+    const contour = slot.querySelector('.fe-contour');
+    if (contour && r.field) attachContourHover(contour, r.field);
+  }
+
+  function attachContourHover(contour, field) {
+    const readout = contour.querySelector('[data-role="fe-contour-readout"]');
+    const idle = 'Point at a plot to read the stress intensity there.';
+    readout.textContent = idle;
+    for (const svg of contour.querySelectorAll('svg[data-surface]')) {
+      const surface = svg.dataset.surface;
+      svg.addEventListener('mousemove', (event) => {
+        const matrix = svg.getScreenCTM();
+        if (!matrix) return;
+        const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+        const s = point.x;
+        const x = -point.y;
+        const hit = triangleAt(field, s, x);
+        const r = Math.hypot(s, x);
+        if (hit) {
+          readout.textContent = `${surface === 'u' ? 'Outside' : 'Inside'} surface: ${hit[surface].toFixed(2)} MPa at s = ${Math.round(s)} mm, x = ${Math.round(x)} mm (element average).`;
+        } else {
+          readout.textContent = r < field.attachmentRadius ? 'Inside the attachment: not part of the shell result.' : idle;
+        }
+      });
+      svg.addEventListener('mouseleave', () => { readout.textContent = idle; });
+    }
   }
 
   function renderCheck() {
@@ -353,7 +382,11 @@ export function mountWrcCalculator(host) {
   render();
 
   function reportHtml(r) {
-    return buildWrcReportHtml(r, { appVersion: typeof __BUILD_TIME__ === 'string' ? `build ${__BUILD_TIME__}` : '' });
+    // Include the FE cross-check only when it was run on the current inputs.
+    const currentFe = fe?.status === 'done' && fe.key === feKey()
+      ? { caseName: activeCase().name, reference: fe.reference, result: fe.result }
+      : null;
+    return buildWrcReportHtml(r, { appVersion: typeof __BUILD_TIME__ === 'string' ? `build ${__BUILD_TIME__}` : '', fe: currentFe });
   }
   function printReport(r) {
     const win = doc.defaultView.open('', '_blank');

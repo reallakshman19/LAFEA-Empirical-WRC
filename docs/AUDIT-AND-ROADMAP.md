@@ -215,6 +215,69 @@ Verification: see the README test table. New e2e tests check that the Empirical 
 requesting the controller, that it is requested when the LAFEA tab opens, and that a failed load can be
 retried. The app e2e specs pass on both the dev server and the production build (`vite preview`).
 
+**2026-11-26: Phase 5.2, FE cross-check of all six loads, plus a stress contour.** The shell-FE
+cross-check (`src/app/lafea/nozzle-shell.js`) now takes Vc, Vl and Mt as well as P, Mc and Ml.
+
+- **How they are applied:**
+  - Vc and Vl are in-plane forces. Mt is a couple of tangential forces, because the shell elements have
+    no drilling rotation.
+  - All three are spread over the plug ring at 0.75·r0, weighted by the angle each node covers. That
+    avoids an in-plane point load, which is singular in a membrane.
+- **Signs:**
+  - FE shear is reported in WRC's point convention: the (s, x) shear at A/B and its negative at C/D.
+  - With Vc, Vl and Mt all mapped with sign +1, FE and WRC shear agree in sign at every loaded point.
+    That also reproduces WRC's pattern (Vc and Mt add at A and subtract at B; Vl and Mt subtract at C
+    and add at D).
+  - WRC gives no normal stress for Vc or Vl, so their direction relative to P, Mc and Ml cannot be
+    checked against WRC.
+
+CAESAR II nozzle (γ 48, β 0.155), per unit load, maximum stress intensity, MPa:
+
+| Load | Shell FE | WRC 537 | FE / WRC | FE shear / WRC shear at the WRC points | Finer mesh (16 330 DOF) | Plug 8 × T | Loaded at 0.5·r0 |
+|---|---|---|---|---|---|---|---|
+| Mt 10 kN·m | 7.38 (Dl) | 6.39 | 1.16 | 0.78–1.15 | 7.37 | 7.38 | 7.39 |
+| Vc 10 kN | 2.63 (Cl) | 2.07 | 1.27 | 0.69–0.72 | 2.71 | 2.58 | 2.99 |
+| Vl 10 kN | 0.76 (Du) | 2.07 | 0.37 | 0.35–0.37 | 0.77 | 0.79 | 0.75 |
+
+What the FE shows:
+
+- **Mt:** for a rigid round attachment, the WRC torsion formula τ = Mt/(2π·r0²·T) is exact. FE averages
+  within a few percent of it. Shell curvature makes it about 20% lower at A/B and 15% higher at C/D.
+- **Vl (axial shear):** WRC assumes all of the load is carried by shear, τ = Vl/(π·r0·T). FE splits it
+  into bearing stress on the loaded side (A/B, about 0.63 of WRC's τ) and shear on the flanks (C/D, 0.37).
+  Classical elasticity for a rigid circular inclusion loaded in a flat plate splits the load the same way
+  (more as bearing than as shear). So WRC overstates the stress intensity for Vl, here by about 2.7 times,
+  which is conservative.
+- **Vc (circumferential shear):** the shear at A/B is 0.7 of WRC's. A tangential load also bends the
+  curved shell, giving ±2.3 MPa of bending stress at C/D, which WRC 537 does not include at all. The
+  governing point moves from A/B (WRC) to C/D (FE). This bending depends on how the attachment carries
+  the load (up to 14% between the modelling choices above), so it is reported, not frozen tightly.
+
+The original plan assumed that "the shear-stress formulas are exact, so they should agree closely". That
+holds for Mt only. The Vc/Vl differences are differences in kind, and the panel and the report say so.
+
+**Contour:** the FE result now includes the element-average stress intensity of every ring element
+between r0 and 2.5·r0. `src/app/wrc/fe-contour.js` draws it as SVG:
+
+- two plots (outside and inside surface) with one sequential 8-band blue scale;
+- the 8 WRC points marked, and a hover readout in the app;
+- the same markup in the printed or downloaded report. The report now has an FE section (the 8-point
+  table with FE σφ, σx and τ, plus the contour) whenever the FE run matches the current inputs.
+
+It is drawn as a small SVG of its own, not with the workbench canvas renderer the plan suggested. That
+renderer is part of the lazy-loaded LAFEA chunk (5.1), and the report needs static markup that prints.
+
+**Checks:** the new `scripts/wrc-nozzle-fe-shear-check.mjs` (in `check:all`, about 2 min) checks:
+
+- the solve is accepted;
+- shear signs and shear-size bands at every WRC point;
+- frozen maxima (±1%) and FE/WRC bands;
+- superposition through the app path with all three loads together;
+- the contour field.
+
+`e2e/wrc-calculator.spec.js` checks the six-load comparison, both contour plots, the hover readout and
+the FE section in the downloaded report.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

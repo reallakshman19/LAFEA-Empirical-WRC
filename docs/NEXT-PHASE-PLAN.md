@@ -11,7 +11,7 @@ Written 2026-11-26, after:
 | Area | State |
 |---|---|
 | WRC 537 calculator | Usable on real jobs. Cylinders with round attachments, γ 5–300, 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report. Checked against the γ = 5 hand calculation (exact) and CAESAR II (2%). |
-| Shell-FE cross-check | Works (≈30 s, in the background). Covers P, Mc and Ml. FE/WRC is 0.95–1.40 on the CAESAR II case, and the FE answer is mesh-independent. |
+| Shell-FE cross-check | Works (≈30 s, in the background). Covers all six loads, with a stress contour, since 5.2. On the CAESAR II case, FE/WRC is 0.95–1.40 for P, Mc, Ml and Mt, 1.27 for Vc and 0.37 for Vl. |
 | LAFEA | One worked example goes load → mesh → solve → convergence → published results, and matches beam theory. There is no way yet to enter your own geometry except by importing JSON. |
 | Hosting / CI | GitHub Pages and CI on every push. |
 | Debt | A 1.9 MB first load. 128 inherited checks are skipped (90 of them are stale upstream assertions). The custody/authority text is noisy. |
@@ -20,13 +20,13 @@ Written 2026-11-26, after:
 
 Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 
-### 5.1 Fast first load (S–M)
+### 5.1 Fast first load (S–M): done 2026-11-26 (first load 1,991 kB → about 110 kB)
 - Load the LAFEA workbench, solver and three.js only when the LAFEA tab or the advanced EMP.1 view
   opens (dynamic `import()`).
 - Target: the Empirical tab loads in under 500 kB.
 - Done when: the build report shows a small main chunk, and CI and the e2e tests still pass.
 
-### 5.2 Complete the FE cross-check (M)
+### 5.2 Complete the FE cross-check (M): done 2026-11-26 (see the AUDIT-AND-ROADMAP progress entry; Vc and Vl turned out *not* to agree closely with WRC, for physical reasons)
 - Add Vc, Vl and Mt:
   - shear forces on the plug centre;
   - torsion through a drilling-free couple on the plug rim.

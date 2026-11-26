@@ -106,7 +106,34 @@ test('shell FE cross-check runs in the background and agrees on the governing po
   await calc.locator('[data-act="runFe"]').click();
   await expect(calc.locator('[data-act="runFe"]')).toBeDisabled();
   await expect(calc.locator('.wrc__fetable')).toBeVisible({ timeout: 200000 });
-  await expect(calc.locator('.wrc__fetable caption')).toContainText('WRC 1.52 at Du, FE 2.13 at Du');
+  // All six loads go into the FE model (the CAESAR case has Vc, Vl and Mt too)
+  await expect(calc.locator('.wrc__fetable caption')).toContainText('all six loads');
+  await expect(calc.locator('.wrc__fetable caption')).toContainText('WRC 1.78 at Du, FE 2.16 at Du');
+
+  // Stress-intensity contour: outside and inside surface plots, a legend, and a hover readout
+  const contour = calc.locator('.fe-contour');
+  await expect(contour.locator('svg[data-surface]')).toHaveCount(2);
+  await expect(contour).toContainText('Stress intensity (MPa)');
+  const readout = contour.locator('[data-role="fe-contour-readout"]');
+  await expect(readout).toContainText('Point at a plot');
+  const outside = contour.locator('svg[data-surface="u"]');
+  await outside.scrollIntoViewIfNeeded();
+  const target = await outside.evaluate((svg) => {
+    // A point just outside the attachment, on the D side (s = 1.2·r0, x = 0)
+    const r0 = Number(svg.querySelector('circle').getAttribute('r'));
+    const m = svg.getScreenCTM();
+    const p = new DOMPoint(1.2 * r0, 0).matrixTransform(m);
+    return { x: p.x, y: p.y };
+  });
+  await page.mouse.move(target.x, target.y);
+  await expect(readout).toContainText(/Outside surface: \d+\.\d\d MPa at s = \d+ mm, x = -?\d+ mm/);
+
+  // The downloaded report carries the FE section and the contour while the run is current
+  const [download] = await Promise.all([page.waitForEvent('download'), calc.locator('[data-act="download"]').click()]);
+  const report = await (await import('node:fs/promises')).readFile(await download.path(), 'utf8');
+  expect(report).toContain('Shell FE cross-check (LAFEA shell solver)');
+  expect(report).toContain('data-surface="l"');
+
   await calc.locator('[data-load="Ml"]').fill('40000');
   await expect(calc.locator('[data-slot="feResult"]')).toContainText('Inputs have changed');
 });
