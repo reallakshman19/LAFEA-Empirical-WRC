@@ -25,6 +25,8 @@ jobs:
         run: npm run check:boundary
       - name: Build
         run: npm run build
+      - name: Build single-view LAFEA entry (needed by its artifact check)
+        run: npm run build:lafea
       - name: Node checks (LAFEA / EMP1 / WRC)
         run: npm run check:all
       - name: Upload check summary

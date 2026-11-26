@@ -1,0 +1,3 @@
+# The EMP1 independent oracle hashes excerpts of these source transcriptions. The frozen hashes
+# were taken from CRLF working copies, so keep CRLF on every platform (CI runs on Linux).
+docs/emp1/*.md text eol=crlf
