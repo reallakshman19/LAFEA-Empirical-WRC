@@ -57,13 +57,15 @@ assert.equal(value(currentView.convergence.rows, 'Observed order'), '2');
 assert.equal(value(currentView.convergence.rows, 'Richardson extrapolation (MPa)'), '10');
 assert.notEqual(value(currentView.convergence.rows, 'Fine-grid GCI'), 'N/A');
 assert.equal(currentView.meshQuality.extendedGeometryEvidenceAvailable, false);
-assert.match(currentView.meshQuality.note, /Area, curved perimeter, boundary deviation/u);
+assert.match(currentView.meshQuality.note, /area, curved perimeter, boundary deviation/u);
 assert.match(value(currentView.meshQuality.rows, 'ASPECT_RATIO'), /OK/u);
 assert.match(value(currentView.meshQuality.rows, 'SCALED_JACOBIAN'), /OK/u);
 
 const nearZeroEvidence = evaluateLafeaBucket01Convergence({
   ...baseInput,
-  observations: [4e-12, 1e-12, 0.25e-12],
+  // "Near zero" is relative to the largest observation (RELATIVE_ZERO_THRESHOLD), so the finest
+  // value must be tiny compared with the coarser levels, not merely tiny in absolute terms.
+  observations: [3, 1, 1e-13],
 });
 assert.equal(nearZeroEvidence.status, 'BLOCKED');
 assert.ok(nearZeroEvidence.reasons.includes('FINE_OBSERVATION_NEAR_ZERO_FOR_RELATIVE_GCI'));

@@ -76,13 +76,13 @@ assert.deepEqual(continuum.composition.benchmarkManifestIds, [
   'CONT-PATCH-01', 'CONT-CYL-01', 'CONT-HOLE-01',
 ]);
 const shell = requireLafeaStageRegistryEntry('LAFEA.4');
-assert.equal(shell.authority, 'CST_DKT_TRI3_THIN_SHELL_V1');
+assert.equal(shell.authority, 'CST_DKT_TRI3_V1_PLUS_MITC4_QUAD4_MITC3_TRI3_PRODUCTION_DISPATCH');
 assert.equal(shell.enginePackage, 'local-shell');
 assert.deepEqual(shell.composition.benchmarkManifestIds, [
-  'SHELL-PATCH-01', 'SHELL-BEND-01',
+  'SHELL-PATCH-01', 'SHELL-BEND-01', 'LAFEA4-CYL-01', 'LAFEA4-PRESS-01', 'LAFEA4-COMB-01',
 ]);
-assert.match(shell.purpose, /Legacy five-DOF triangular CST\+DKT/u);
-assert.ok(shell.limitations.some((value) => /No production MITC4\/MITC3 claim/u.test(value)));
+assert.match(shell.purpose, /legacy CST\+DKT TRI3/u);
+assert.ok(shell.limitations.some((value) => /MITC release qualification remains pending/u.test(value)));
 
 const weld = requireLafeaStageRegistryEntry('LAFEA.6');
 assert.equal(weld.engineState, 'ENGINE_NOT_IMPLEMENTED');

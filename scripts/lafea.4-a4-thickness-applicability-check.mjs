@@ -199,7 +199,7 @@ function runLevel(family, tOverL) {
     totalEnergyRelativeError,
     analyticalShearEnergyFraction: independent.shearEnergyFraction,
     productionShearEnergyFraction: productionShearFraction,
-    shearEnergyFractionAbsoluteError,
+    shearEnergyFractionAbsoluteError: shearFractionAbsoluteError,
     forceEquilibriumAccepted: true,
     momentEquilibriumAccepted: true,
     energyQualificationAccepted: true,
@@ -362,10 +362,15 @@ function solveProduction(source) {
 
 function solverSnapshot(evidence) {
   assert.ok(evidence && typeof evidence.method === 'string' && evidence.method.length > 0, 'solver method required');
-  assert.equal(evidence.accepted, true, `solver ${evidence.method} must be accepted`);
+  // PCG evidence carries its own `accepted` flag. Dense Cholesky evidence has none: the solver throws
+  // on any pivot at or below tolerance, so a returned dense solve is accepted when its pivots clear it.
+  const accepted = evidence.method === 'DETERMINISTIC_DENSE_CHOLESKY'
+    ? evidence.minimumPivot > evidence.pivotTolerance
+    : evidence.accepted === true;
+  assert.equal(accepted, true, `solver ${evidence.method} must be accepted`);
   const row = {
     method: evidence.method,
-    accepted: evidence.accepted,
+    accepted,
     algorithmRevision: evidence.algorithmRevision ?? null,
     preconditioner: evidence.preconditioner ?? null,
     minimumPivot: evidence.minimumPivot ?? null,

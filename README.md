@@ -161,11 +161,11 @@ dependencies**.
 
 ## Tests
 
-Results after Phase 5.3 (2026-11-26), on Windows with Node 22 and Chrome:
+Results after Phase 5.5 (2026-11-26), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **281 pass**, 0 fail, 128 skipped as KNOWN |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **302 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
 | Browser e2e (21 specs, 49 tests) | `npx playwright test` (dev server) | **41 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
@@ -175,19 +175,23 @@ Results after Phase 5.3 (2026-11-26), on Windows with Node 22 and Chrome:
 | Build | `npm run build`, `npm run build:lafea` | pass |
 | First-load size | `npm run check:bundle-size` (after `build`) | pass: 107.7 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
-`scripts/known-upstream-failures.json` lists the 128 KNOWN checks, each with the
-reason:
+`scripts/known-upstream-failures.json` lists the 13 KNOWN checks that `check:all`
+skips, each with a plain reason:
 
-- **90 (`FAIL` / `TIMEOUT_120S`)** also fail or time out in upstream
-  `Advanced_Analysis` at the extraction commit. These are stale assertions, such
-  as line-count guards on files that have grown, and heavy qualification runs.
-- **38 (`PASS` upstream, `OUT_OF_SCOPE`)** need parts that are not in this app,
-  or upstream's git history:
-  - parts: the combined-app `lafea-workbench.js` facade, `lafea-templates/`,
-    LFEA, the pipe model, and the combined-app e2e specs;
-  - git history: pinned baseline commits.
+- **10 `REAL_GAP`**: real upstream limitations, with what each means for the app.
+  Examples: the Jacobi-PCG solver stalls on a slender fine-mesh cantilever; the
+  LAFEA.4 shell mesher fails on shells with holes (not used by the app).
+- **2 `SLOW`**: the full B02D production runs, too long for `check:all`.
+- **1 `HELPER`**: a script another check runs with arguments.
 
-Run them anyway with `node scripts/run-all-checks.mjs --include-known`.
+Phase 5.5 triaged the 128 checks that used to be listed here: 18 were fixed (stale
+tests, correct code), 92 were deleted (they could not run outside upstream, or only
+asserted upstream source shape), and the rest run again. See the Phase 5.5 entry in
+`docs/AUDIT-AND-ROADMAP.md`.
+
+The B01 route checks need `python3` for their mesh generator. CI has it; where it is
+missing, `check:all` reports them as SKIPPED. Run the KNOWN checks anyway with
+`node scripts/run-all-checks.mjs --include-known`.
 
 For e2e, Playwright uses its bundled Chromium. Install it with
 `npx playwright install chromium`, or set `PLAYWRIGHT_BROWSER_CHANNEL=chrome`

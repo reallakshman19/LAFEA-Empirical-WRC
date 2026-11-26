@@ -48,7 +48,7 @@ const panel = buildMeshQualityPanel(blocked.gateResults, {
 });
 assert.equal(panel.blocksAdvance, true);
 assert.equal(panel.rows.find((row) => row.metric === 'ADJACENT_SIZE_RATIO')?.threshold,
-  'maximum=1.5');
+  'max 1.5');
 assert.equal(panel.rows.find((row) => row.metric === 'MINIMUM_ANGLE_DEGREES')?.unit, 'deg');
 
 const accepted = qualifyLafeaAnalysisMesh('LAFEA.4', meshWithSecondHeight(Math.sqrt(3) / 2), profile);

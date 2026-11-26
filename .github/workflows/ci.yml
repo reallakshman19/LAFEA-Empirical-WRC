@@ -33,7 +33,8 @@ jobs:
         run: env -u GITHUB_ACTIONS npm run check:all
         # With GITHUB_ACTIONS set, the inherited EMP1 import-firewall check also runs upstream's
         # exact-head release requalification against upstream's authority documents. That gate
-        # belongs to Advanced_Analysis, and its observation check is already a KNOWN upstream failure.
+        # belongs to Advanced_Analysis, and its observation script is a HELPER in known-upstream-failures.json.
+        # The B01 route checks need python3, which ubuntu-latest has (they are SKIPPED where it is missing).
       - name: Upload check summary
         if: always()
         uses: actions/upload-artifact@v4

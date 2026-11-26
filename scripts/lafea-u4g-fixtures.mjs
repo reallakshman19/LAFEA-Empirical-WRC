@@ -194,6 +194,15 @@ export class FakeElement {
     });
   }
   replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
+  get parentElement() { return this.parentNode; }
+  replaceWith(node) {
+    const parent = this.parentNode;
+    if (!parent) return;
+    const index = parent.children.indexOf(this);
+    node.parentNode = parent;
+    parent.children.splice(index, 1, node);
+    this.parentNode = null;
+  }
   remove() {
     if (!this.parentNode) return;
     this.parentNode.children = this.parentNode.children.filter((node) => node !== this);

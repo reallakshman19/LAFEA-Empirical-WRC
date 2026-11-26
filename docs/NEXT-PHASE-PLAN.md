@@ -51,7 +51,7 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
   frozen checks.
 - This is what turns "interpolated γ" from engineering judgement into evidence.
 
-### 5.5 Clean up inherited checks (M)
+### 5.5 Clean up inherited checks (M): done 2026-11-26 for the checks (128 KNOWN → 13, see the AUDIT-AND-ROADMAP progress entry); `lafea.html` waits for your decision
 - Fix, update or delete each of the 90 stale upstream checks, so `check:all` reflects real risk.
 - Delete `lafea.html` and the specs that only test it, if you don't need the single-view entry.
 
