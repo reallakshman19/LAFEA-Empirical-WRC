@@ -75,6 +75,8 @@ const screeningRequest = createLocalAttachmentScreeningRequest({
     mechanicalTerms: [{ loadCaseId: 'LC-SYN', factor: 1 }],
     pressureDefinitionId: 'P-CLOSED',
     pressureFactor: 1,
+    // The mechanical axial resultant is a hand-calculation input without pressure thrust.
+    axialPressureThrustBasis: 'EXCLUDES_PRESSURE_THRUST',
     sourceReference: 'SYNTHETIC-HAND-CALC/CASE-SYN',
   }],
   evaluationLocations: [{

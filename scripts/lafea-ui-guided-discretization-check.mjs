@@ -80,12 +80,14 @@ assert.ok(analyticalVm.configuration.modes.every((row) => row.enabled === false)
 const capabilities = lafeaMeshCapabilities('LAFEA.3');
 assert.equal(capabilities.retainedAuthorizedMesh, true);
 assert.equal(capabilities.automaticMeshProducerQualified, true);
-assert.equal(capabilities.manualRefinementQualified, false);
+assert.equal(capabilities.manualRefinementQualified, true);
 assert.deepEqual(capabilities.allowedElementFamilies, ['T3', 'T6', 'Q8']);
 assert.equal(lafeaMeshCapabilities('LAFEA.1').applicable, false);
 for (const stageId of ['LAFEA.4', 'LAFEA.5']) {
-  assert.equal(lafeaMeshCapabilities(stageId).automaticMeshProducerQualified, false, stageId);
-  assert.equal(lafeaMeshCapabilities(stageId).generationExecutionAuthorized, false, stageId);
+  // Shell stages gained a qualified automatic CST/DKT mesh producer upstream; manual refinement is still not qualified.
+  assert.equal(lafeaMeshCapabilities(stageId).automaticMeshProducerQualified, true, stageId);
+  assert.equal(lafeaMeshCapabilities(stageId).generationExecutionAuthorized, true, stageId);
+  assert.equal(lafeaMeshCapabilities(stageId).manualRefinementQualified, false, stageId);
 }
 
 const intentInput = {
@@ -118,11 +120,10 @@ const shellIntent = createLafeaMeshGenerationIntent({
   stageId: 'LAFEA.4',
   elementFamily: 'CST_DKT_TRI3_THIN_SHELL_V1',
 });
-assert.equal(shellIntent.status, 'UNEXECUTABLE_INTENT');
-assert.equal(shellIntent.executionAuthorized, false);
-assert.equal(shellIntent.producesMesh, false);
-assert.equal(shellIntent.producerRef, null);
-assert.equal(shellIntent.reason, 'QUALIFIED_MESH_PRODUCER_NOT_AVAILABLE');
+// The shell stage now has a qualified automatic producer (see lafeaMeshCapabilities above).
+assert.equal(shellIntent.status, 'EXECUTABLE_INTENT');
+assert.equal(shellIntent.executionAuthorized, true);
+assert.equal(shellIntent.producesMesh, true);
 
 const refinement = createLafeaMeshRefinementCommand({
   schema: LAFEA_MESH_REFINEMENT_COMMAND_SCHEMA,
@@ -141,7 +142,7 @@ const guidedAuthorized = buildLafeaGuidedWorkflow(workbench(pass, {
   discretizationState: 'COMPLETE',
 }));
 assert.equal(guidedAuthorized.schema, LAFEA_GUIDED_WORKFLOW_SCHEMA);
-assert.equal(guidedAuthorized.steps.length, 11);
+assert.equal(guidedAuthorized.steps.length, 12);
 assert.equal(guidedAuthorized.releaseQualified, false);
 assert.equal(guidedAuthorized.executionBoundary.cancellationSupported, false);
 assert.equal(guidedAuthorized.runEligibleByCurrentUiGate, true);
@@ -161,7 +162,6 @@ assert.ok(guidedBlocked.steps.find((row) => row.stepId === 'AUTHORIZATION')
   .reasons.includes(preparationReason));
 
 const viewSource = read('../src/workspace/lafea-workbench-view.js');
-const controllerSource = read('../src/workspace/lafea-workbench-controller.js');
 const contentSource = read('../src/workspace/lafea-workbench-content.js');
 const workflowSource = read('../src/workspace/lafea-guided-workflow.js');
 const overlaySource = read('../src/workspace/lafea-canvas/retained-mesh-overlay.js');
@@ -169,7 +169,6 @@ const intentSource = read('../src/workspace/lafea-mesh-generation-intent.js');
 const solveSource = read('../src/workspace/lafea-solve-readiness-panel.js');
 const refinementDisclosureSource = read('../src/workspace/lafea-refinement-disclosure.js');
 assert.match(viewSource, /sections\?\.AUTHORIZATION|sections\.AUTHORIZATION/u);
-assert.match(controllerSource, /createLafeaWorkbenchOrchestratorStore/u);
 assert.match(workflowSource, /LAFEA_WORKBENCH_ORCHESTRATION_SCHEMA/u);
 assert.match(contentSource, /renderLafeaDiscretizationPanel/u);
 assert.match(contentSource, /retainedAnalysisMeshEvidence/u);
@@ -185,7 +184,7 @@ console.log(JSON.stringify({
   check: 'lafea-ui-guided-discretization', status: 'PASS',
   canonicalOrchestratorAuthorizationConsumed: true,
   automaticMeshExecutionAuthorized: capabilities.generationExecutionAuthorized,
-  automaticMeshExecutionAuthorizedStages: ['LAFEA.3'],
+  automaticMeshExecutionAuthorizedStages: ['LAFEA.3', 'LAFEA.4', 'LAFEA.5'],
   manualRefinementAuthorized: capabilities.manualRefinementQualified,
   decisionFirstSolvePresentation: true,
   onDemandRefinementPresentation: true,

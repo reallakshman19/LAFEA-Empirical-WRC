@@ -28,7 +28,7 @@ assert.equal(invalid.innerRadius, 100);
 assert.equal(invalid.outerRadius, 120);
 assert.deepEqual(invalid.invalidRequestedRadii.map((row) => row.value), [90]);
 assert.match(invalid.message, /90 mm lies outside the current pipe wall \(100–120 mm\)/u);
-assert.match(invalid.recoveryAction, /Use Undo/u);
+assert.match(invalid.recoveryAction, /Undo restores the previous geometry/u);
 assert.deepEqual(
   invalidDocument.resultRequests.pressure[0].requestedRadii.map((row) => row.value),
   retainedRequestedRadii,
@@ -49,7 +49,7 @@ const blockedStageRun = store.run();
 assert.equal(blockedStageRun.status, 'FAILED');
 assert.equal(blockedStageRun.stages['LAFEA.1'].execution, null);
 assert.equal(blockedStageRun.diagnostics[0]?.code, LAFEA1_PRESSURE_RADIUS_OUTSIDE_WALL);
-assert.match(blockedStageRun.diagnostics[0]?.message ?? '', /Use Undo/u);
+assert.match(blockedStageRun.diagnostics[0]?.message ?? '', /Set radii to current wall/u);
 assert.deepEqual(blockedStageRun.stages['LAFEA.1'].document, beforeRun,
   'stage preflight must not mutate the source document');
 

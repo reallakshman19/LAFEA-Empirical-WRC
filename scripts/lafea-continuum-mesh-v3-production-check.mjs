@@ -214,7 +214,7 @@ function meshProfile(continuumElement, globalTargetSize) {
       shellElement: 'CST_DKT_TRI3_THIN_SHELL_V1',
       globalTargetSize,
       adjacentSizeRatioMax: 1.5,
-      aspectRatioWarn: 5,
+      aspectRatioWarn: 3,
       aspectRatioBlock: 10,
       scaledJacobianWarn: 0.6,
       scaledJacobianBlock: 0.2,

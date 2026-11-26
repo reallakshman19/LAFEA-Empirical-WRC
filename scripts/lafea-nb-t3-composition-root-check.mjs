@@ -111,7 +111,7 @@ assert.deepEqual(requireLafeaStageComposition('LAFEA.3').benchmarkManifestIds, [
   'CONT-PATCH-01', 'CONT-CYL-01', 'CONT-HOLE-01',
 ]);
 assert.deepEqual(requireLafeaStageComposition('LAFEA.4').benchmarkManifestIds, [
-  'SHELL-PATCH-01', 'SHELL-BEND-01',
+  'SHELL-PATCH-01', 'SHELL-BEND-01', 'LAFEA4-CYL-01', 'LAFEA4-PRESS-01', 'LAFEA4-COMB-01',
 ]);
 for (const stageId of ['LAFEA.5', 'LAFEA.6']) {
   const composition = requireLafeaStageComposition(stageId);
@@ -134,7 +134,7 @@ console.log(JSON.stringify({
     'LAFEA.1': requireLafeaStageComposition('LAFEA.1').benchmarkManifestIds,
     'LAFEA.2': requireLafeaStageComposition('LAFEA.2').benchmarkManifestIds,
     'LAFEA.3': ['CONT-PATCH-01', 'CONT-CYL-01', 'CONT-HOLE-01'],
-    'LAFEA.4': ['SHELL-PATCH-01', 'SHELL-BEND-01'],
+    'LAFEA.4': requireLafeaStageComposition('LAFEA.4').benchmarkManifestIds,
   },
   releaseStateBinding: 'RELEASE_NOT_QUALIFIED',
   duplicateRuntimeDispatchMaps: false,

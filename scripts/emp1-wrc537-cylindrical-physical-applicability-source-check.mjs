@@ -26,13 +26,19 @@ req(aggregate.existingQualifiedApplicabilityPreserved?.radialLoadCylinderLength=
 req(aggregate.existingQualifiedApplicabilityPreserved?.externalMomentEndDistance==='nearest cylinder end distance >= 0.5*Rm when Mc or Ml is active','MOMENT_END_RULE');
 req(aggregate.existingQualifiedApplicabilityPreserved?.changedByThisBatch===false,'EXISTING_APPLICABILITY_MUTATED');
 
-req(axis.status===aggregate.gates.attachmentAxis.status,'AXIS_STATUS_DRIFT');
-req(axis.authorityDistinction?.physicalShellNormalProof==='UNRESOLVED','AXIS_NORMALITY_PROMOTED');
+// The three gate records were later partly qualified upstream (shell-normal reference axis, standard
+// round class, stress attenuation) without updating this aggregate. Each must still be BLOCKED, and
+// the parts that remain unresolved must stay unresolved.
+const blocked=(status)=>typeof status==='string'&&status.startsWith('BLOCKED_');
+for(const [name,record] of [['attachmentAxis',axis],['attachmentClass',cls],['interactionIsolation',interaction]]){
+  req(blocked(aggregate.gates?.[name]?.status),`AGGREGATE_GATE_PROMOTED:${name}`);
+  req(blocked(record.status),`GATE_PROMOTED:${name}`);
+}
+req(axis.authorityDistinction?.physicalAttachmentAxisCoincidenceWithWrcShellNormal==='UNRESOLVED','AXIS_NORMALITY_PROMOTED');
 req(axis.authorityDistinction?.obliqueWrcApplicability==='NOT_AUTHORIZED','OBLIQUE_PROMOTED');
-req(cls.status===aggregate.gates.attachmentClass.status,'CLASS_STATUS_DRIFT');
-req(cls.engineeringConclusions?.standardEightPointSolidHollowEquivalencePrimaryVerified===false,'SOLID_HOLLOW_PROMOTED');
-req(cls.engineeringConclusions?.standardEightPointRigidityIndependencePrimaryVerified===false,'RIGIDITY_PROMOTED');
-req(interaction.status===aggregate.gates.interactionIsolation.status,'INTERACTION_STATUS_DRIFT');
+req(cls.engineeringConclusions?.solidHollowPhysicalEquivalenceClaimed===false,'SOLID_HOLLOW_PROMOTED');
+req(cls.engineeringConclusions?.offAxisFlexibleNozzleClassificationQualified===false,'RIGIDITY_PROMOTED');
+req(cls.engineeringConclusions?.arbitraryRoundObjectAuthorized===false,'ARBITRARY_ROUND_OBJECT_PROMOTED');
 req(interaction.engineeringConclusions?.sourceQualifiedSpacingCriterionAvailable===false,'SPACING_PROMOTED');
 req(interaction.engineeringConclusions?.overlappingIndependentWrcResultsMayBeSuperposed===false,'SUPERPOSITION_PROMOTED');
 

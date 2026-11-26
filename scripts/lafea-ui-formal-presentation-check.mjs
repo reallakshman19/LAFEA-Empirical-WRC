@@ -47,8 +47,8 @@ const unknown = lafeaUiStatusPresentation('FUTURE_INTERNAL_STATE');
 assert.equal(unknown.label, 'Unknown state');
 assert.equal(unknown.canonical, 'FUTURE_INTERNAL_STATE');
 assert.deepEqual(
-  ['MODEL', 'MESH', 'SOLVE', 'RESULTS'].map(lafeaWorkflowAreaIconId),
-  ['model', 'mesh', 'solve', 'results'],
+  ['MODEL', 'MESH', 'SOLVE', 'CONVERGENCE', 'RESULTS'].map(lafeaWorkflowAreaIconId),
+  ['model', 'mesh', 'solve', 'convergence', 'results'],
 );
 
 const workflow = Object.freeze({
@@ -64,13 +64,14 @@ const workflow = Object.freeze({
     step('NUMERICAL_PREFLIGHT', 'WARNING', ['PREFLIGHT_REVIEW_REQUIRED']),
     step('AUTHORIZATION', 'READY'),
     step('RUN', 'BLOCKED', ['RUN_NOT_AUTHORIZED']),
+    step('CONVERGENCE', 'NOT_STARTED'),
     step('RESULTS_EVIDENCE', 'NOT_STARTED'),
   ]),
 });
 
 const areas = buildLafeaWorkflowAreaPresentation(workflow);
-assert.deepEqual(areas.map((area) => area.areaId), ['MODEL', 'MESH', 'SOLVE', 'RESULTS']);
-assert.deepEqual(areas.map((area) => area.label), ['Model', 'Mesh', 'Solve', 'Results']);
+assert.deepEqual(areas.map((area) => area.areaId), ['MODEL', 'MESH', 'SOLVE', 'CONVERGENCE', 'RESULTS']);
+assert.deepEqual(areas.map((area) => area.label), ['Model', 'Mesh', 'Solve', 'Convergence', 'Results']);
 assert.equal(areas[0].steps.length, 6);
 assert.equal(areas[0].status, 'BLOCKED');
 assert.equal(areas[0].targetStep.stepId, 'SOURCE_IDENTITY');

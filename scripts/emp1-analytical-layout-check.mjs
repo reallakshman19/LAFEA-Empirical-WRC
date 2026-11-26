@@ -118,7 +118,7 @@ const workflowLabels = {
   REVIEW_EVIDENCE: 'Review & Evidence',
 };
 const inputGroupIds = [
-  'PIPE_GEOMETRY', 'THICKNESS', 'PRESSURE', 'LOAD_CASES', 'REFERENCE_POINTS',
+  'PIPE_GEOMETRY', 'THICKNESS', 'PRESSURE', 'PRESSURE_RADII', 'LOAD_CASES', 'REFERENCE_POINTS',
   'SCREENING_CASES', 'EVALUATION_LOCATIONS',
 ];
 
@@ -159,7 +159,7 @@ assert.deepEqual(EMP1_TASK_SHELL_TASK_SURFACES.GEOMETRY, ['source', 'runConfigur
 assert.deepEqual(EMP1_TASK_SHELL_TASK_SURFACES.REVIEW_EVIDENCE, [],
   'Review & Evidence must not expose a backing-stage card as the active presentation task');
 assert.deepEqual(EMP1_TASK_SHELL_INPUT_GROUPS.GEOMETRY, ['PIPE_GEOMETRY', 'THICKNESS']);
-assert.deepEqual(EMP1_TASK_SHELL_INPUT_GROUPS.LOADS, ['PRESSURE', 'LOAD_CASES']);
+assert.deepEqual(EMP1_TASK_SHELL_INPUT_GROUPS.LOADS, ['PRESSURE', 'PRESSURE_RADII', 'LOAD_CASES']);
 assert.deepEqual(EMP1_TASK_SHELL_INPUT_GROUPS.LOAD_TRANSFER, ['REFERENCE_POINTS']);
 assert.deepEqual(EMP1_TASK_SHELL_INPUT_GROUPS.SECTION_SCREENING, ['SCREENING_CASES', 'EVALUATION_LOCATIONS']);
 
@@ -216,8 +216,8 @@ layout.selectTask('LOADS');
 assert.equal(surfaces.route.hidden, true);
 assert.equal(surfaces.source.hidden, false);
 assert.equal(surfaces.runConfiguration.hidden, true);
-assert.deepEqual(visibleInputGroups(surfaces.source), ['PRESSURE', 'LOAD_CASES']);
-assert.equal(surfaces.source.dataset.emp1TaskInputGroupCount, '2');
+assert.deepEqual(visibleInputGroups(surfaces.source), ['PRESSURE', 'PRESSURE_RADII', 'LOAD_CASES']);
+assert.equal(surfaces.source.dataset.emp1TaskInputGroupCount, '3');
 assert.deepEqual(visibleInspector(surfaces), ['engineeringEvidence']);
 assert.equal(layout.selectInspector('boundedCorrelation'), false,
   'Loads must not permit EMP.1.C route authority as task-default context');
@@ -271,7 +271,7 @@ composeEmp1AnalyticalLayout(bAfterExplicit.shell, bAfterExplicit.surfaces,
   { selectionHost: explicitSelectionHost });
 assert.equal(bAfterExplicit.shell.dataset.emp1ProfessionalTask, 'LOADS',
   'backing B rerender must not replace an explicitly selected Loads presentation task');
-assert.deepEqual(visibleInputGroups(bAfterExplicit.surfaces.source), ['PRESSURE', 'LOAD_CASES']);
+assert.deepEqual(visibleInputGroups(bAfterExplicit.surfaces.source), ['PRESSURE', 'PRESSURE_RADII', 'LOAD_CASES']);
 const aReturn = fixture('A', explicitSelectionHost);
 composeEmp1AnalyticalLayout(aReturn.shell, aReturn.surfaces,
   { selectionHost: explicitSelectionHost });

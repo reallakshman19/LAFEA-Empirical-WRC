@@ -15,6 +15,7 @@ const steps = Object.freeze([
   step('NUMERICAL_PREFLIGHT', 'Numerical preflight', 'BLOCKED', ['STAGE_ENGINE_NOT_IMPLEMENTED']),
   step('AUTHORIZATION', 'Authorization', 'BLOCKED', ['STAGE_ENGINE_NOT_IMPLEMENTED']),
   step('RUN', 'Run', 'BLOCKED', ['UNSUPPORTED_STAGE_ENGINE_NOT_IMPLEMENTED']),
+  step('CONVERGENCE', 'Convergence', 'BLOCKED', ['EXECUTION_REQUIRED']),
   step('RESULTS_EVIDENCE', 'Results and evidence', 'BLOCKED', ['EXECUTION_REQUIRED']),
 ]);
 
@@ -30,6 +31,7 @@ const unsupportedAreas = byArea(buildLafeaWorkflowAreaPresentation(unsupported))
 assert.equal(unsupportedAreas.MESH.status, 'NOT_APPLICABLE');
 assert.equal(unsupportedAreas.SOLVE.status, 'NOT_APPLICABLE');
 assert.equal(unsupportedAreas.RESULTS.status, 'NOT_APPLICABLE');
+assert.equal(unsupportedAreas.CONVERGENCE.status, 'NOT_APPLICABLE');
 assert.deepEqual(unsupportedAreas.MESH.reasons, []);
 assert.deepEqual(unsupportedAreas.SOLVE.reasons, []);
 assert.deepEqual(unsupportedAreas.RESULTS.reasons, []);

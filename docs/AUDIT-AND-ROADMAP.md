@@ -357,6 +357,32 @@ With mesh sizes 32 and 28, Kt was 3.023 and 3.052, and the studies passed.
 - `e2e/lafea-plate.spec.js` drives the form in the browser, from validation through build and solve to
   Kt, and checks that the inputs are remembered.
 
+**2026-11-26: Phase 5.5, inherited checks triaged (closes A3 and roadmap item 21).** All 128 checks that
+`check:all` skipped as KNOWN were run again and sorted one by one. 13 remain on the list, each with a
+plain reason in `scripts/known-upstream-failures.json`.
+
+| What happened | Count | Examples |
+|---|---|---|
+| Fixed: the test was stale, the code was right | 18 | New `PRESSURE_RADII` input group and Undo wording (EMP1 layout, issue 1743); WRC 537 gate records that moved on upstream but stay BLOCKED; a mesh-quality fixture weaker than the tightened policy (aspect-ratio warning 5 vs 3); the new Convergence workflow step; closed-end pressure cases that must now say whether the axial load includes pressure thrust; a near-zero GCI fixture that no longer counts as near zero under the relative rule; a fake DOM missing `replaceWith` |
+| Already pass, or pass with python3 | 5 | B01 registered route (54 runs) and metamorphic route (270 runs) need `python3` for their mesh generator: CI has it, and `check:all` reports them as SKIPPED where it is missing |
+| Deleted | 92 | 75 cannot run here: they need modules, data or scripts that were not extracted (the combined-app facade, templates, LFEA, oracle data), upstream exact-head or clean-checkout gates, or `--base <sha>` arguments. 13 only assert upstream source shape (line-count ceilings, regexes on source text). 3 are aggregates whose parts run on their own. 1 tests the superseded V1 B02D polar mesh, which upstream replaced with V2 because V1 blocks T3/T6 quality by design |
+| Kept as KNOWN | 13 | 10 real gaps (below); 2 too slow (the full B02D production runs: they timed out upstream and did not finish in 30 minutes here, so pass or fail is not established); 1 helper |
+
+Another 16 files went with them: the source guard and benchmark-custody check that only read deleted
+scripts, upstream runner scripts that only call deleted checks, and diagnostics nothing else uses. Four npm
+scripts that ran deleted checks were removed. `lafea.4-contract-check` no longer imports the MITC
+aggregate, so the CST/DKT shell contracts that the WRC FE cross-check relies on are checked again.
+
+**Real gaps found (all upstream, none caused by this repo):**
+
+| Gap | Affects the app? |
+|---|---|
+| **Jacobi-PCG stall.** On the slender fine-mesh cantilever (bucket-01) the sparse solver ends at residual 1.2e-8 against a 1.1e-10 target after 34,816 iterations; the plane-strain B-bar thick cylinder stalls the same way. | Possibly: a very slender plate in the plate form uses the same solver. The default and tested plates converge. |
+| **B01 negative inputs accepted.** The direct LAFEA.3 route accepts an inverted T3 element and misplaced T6/Q8 midside nodes, and keeps a result accepted after its source changes (4 of 16 negative cases). | Not for app meshes: they come from the mesher, which has its own quality gate. A hand-imported mesh would get through. |
+| **LAFEA.4 shell mesher with holes.** Quality blocks for flat and curved shells with holes; the curved-hole contract rejects its own point keys (4 checks). | No: only the full LAFEA.4 workbench uses it. The WRC FE cross-check builds its own nozzle mesh. |
+| **Experimental MITC4 at t/L = 0.001** fails its own recovery-energy check (2 checks). | No: the shell FE uses CST+DKT. |
+| **B02A definition drift.** The frozen B02A benchmark file was edited upstream after its freeze. | No. |
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

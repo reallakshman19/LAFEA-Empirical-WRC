@@ -76,7 +76,11 @@ assert.equal(projected.schema, EMP1_BENCHMARK_EVIDENCE_SCHEMA);
 assert.equal(projected.benchmarkId, 'CAUX_2017_WRC01F_PP24_31_REFERENCE_V1');
 assert.equal(projected.sourceEvidence.semanticHash,
   '887b231028cd187c63d7cb29aedbc7db182b31d404623f9981f36a21987c2bf3');
-assert.equal(projected.sourceEvidence.directObservationState, 'PASS');
+// The projection reports the benchmark record's own (historical) observation status first; the
+// workspace shows it as "historicalComparisonObservationState". The later page re-observation (PASS)
+// lives in the qualification record.
+assert.equal(projected.sourceEvidence.directObservationState, 'NOT_RUN_EXECUTION_ENVIRONMENT');
+assert.equal(qualification.source.directPdfPageReobservation, 'PASS');
 assert.equal(
   projected.sourceEvidence.qualificationState,
   'PASS_FINAL_CAUX_SOURCE_QUALIFICATION_GAMMA_RADIUS_RECONCILED_REFERENCE_FREEZE_PRESERVED',
