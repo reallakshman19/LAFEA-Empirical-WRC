@@ -151,7 +151,9 @@ const batch = calculateWrc537Cases({
 });
 assert.equal(batch.cases.length, 2);
 assert.equal(batch.allCalculated, true);
-batch.cases[0].result.rows.forEach((row, i) => assert.ok(near(row.stressIntensity, caux.rows[i].stressIntensity)));
+assert.equal(batch.cases[0].result.padded, false);
+assert.equal(batch.cases[0].result.locations.length, 1);
+batch.cases[0].result.locations[0].result.rows.forEach((row, i) => assert.ok(near(row.stressIntensity, caux.rows[i].stressIntensity)));
 assert.equal(batch.governing.name, 'Operating x3');
 assert.ok(near(batch.governing.stressIntensity, 3 * caux.governing.stressIntensity));
 assert.equal(batch.codeCheck.worstCase, 'Operating x3');

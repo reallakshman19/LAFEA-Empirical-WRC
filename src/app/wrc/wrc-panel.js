@@ -4,7 +4,8 @@
 import './wrc.css';
 import {
   DEFAULT_CASE, EXAMPLE_CASES, FORCE_UNITS, MOMENT_UNITS, WRC_BETA_RANGE, WRC_COORDINATES,
-  WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537, calculateWrc537Cases, fmt,
+  WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases, calculateWrcAttachment,
+  classifyGamma, deriveWrcGeometry, fmt, hasPad,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
 import { FE_CONTOUR_CAPTION, FE_METHOD_NOTE, buildFeContourHtml, triangleAt } from './fe-contour.js';
@@ -18,6 +19,8 @@ const FIELDS = [
   { group: 'Shell (cylinder)', key: 'shellThickness', label: 'Nominal thickness', unit: 'mm' },
   { group: 'Shell (cylinder)', key: 'corrosionAllowance', label: 'Corrosion allowance', unit: 'mm' },
   { group: 'Attachment', key: 'attachmentOutsideDiameter', label: 'Outside diameter at shell', unit: 'mm' },
+  { group: 'Reinforcing pad (optional)', key: 'padOutsideDiameter', label: 'Pad outside diameter', unit: 'mm', optional: true },
+  { group: 'Reinforcing pad (optional)', key: 'padThickness', label: 'Pad thickness', unit: 'mm', optional: true },
   { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'cylinderLength', label: 'Length between heads or stiffeners', unit: 'mm', optional: true },
   { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'attachmentStation', label: 'Attachment position from one end', unit: 'mm', optional: true },
   { group: 'Pressure and stress concentration', key: 'designPressure', label: 'Design pressure (internal +)', unit: 'MPa', signed: true },
@@ -36,6 +39,8 @@ const LOADS = [
   { key: 'Mt', label: 'Mt', hint: 'torsion' },
 ];
 
+const SHORT_LOCATION = Object.freeze({ ATTACHMENT: '', JUNCTION: 'shell + pad', PAD_EDGE: 'pad edge' });
+
 export function mountWrcCalculator(host) {
   const doc = host.ownerDocument;
   let state = loadSaved() ?? normalizeCase(DEFAULT_CASE);
@@ -52,6 +57,7 @@ export function mountWrcCalculator(host) {
         <option value="DEFAULT">Blank nozzle-on-cylinder (starting point)</option>
         <option value="GAMMA5_ORACLE">Check case: γ = 5, hand calc</option>
         <option value="CAESAR_GAMMA48">Check case: CAESAR II, γ = 48</option>
+        <option value="PAD_36IN">36-inch nozzle with reinforcing pad</option>
       </select>
       <span class="wrc__spacer"></span>
       <button type="button" data-act="open">Open case…</button>
@@ -99,6 +105,7 @@ export function mountWrcCalculator(host) {
         <section class="wrc__fe" data-slot="fe">
           <h3 class="wrc__h">Shell FE cross-check <small>(LAFEA shell solver)</small></h3>
           <p class="wrc__help">Solves this geometry with a thin-shell FE model: a rigid round attachment on a cylinder with clamped ends, about 10 000 DOF. It uses all six of this case's loads (P, Vc, Vl, Mc, Ml, Mt), but not pressure or Kn/Kb. It compares stress intensity at the 8 WRC points and draws the FE stress around the attachment. It takes about 1–2 minutes and runs in the background.</p>
+          <p class="wrc__help" data-slot="feScope"></p>
           <button type="button" data-act="runFe">Run shell FE cross-check</button>
           <div data-slot="feResult" aria-live="polite"></div>
         </section>
@@ -155,34 +162,45 @@ export function mountWrcCalculator(host) {
 
   function render() {
     batch = calculateWrc537Cases(state);
-    result = batch.cases[state.activeCase].result;
-    const g = result.geometry;
+    result = batch.cases[state.activeCase].result; // calculateWrcAttachment: one location, or two with a pad
     for (const l of LOADS) {
       host.querySelector(`[data-unit="${l.key}"]`).textContent = ['P', 'Vc', 'Vl'].includes(l.key) ? state.forceUnit : state.momentUnit;
     }
-    const gammaOk = result.gammaClass?.tier && result.gammaClass.tier !== WRC_TIER.BLOCKED;
-    const betaOk = g.beta >= WRC_BETA_RANGE.minimum && g.beta <= WRC_BETA_RANGE.maximum;
-    $('[data-slot="derived"]').innerHTML = `
-      ${chip('T (corroded)', `${fmt(g.T, 2)} mm`)}
-      ${chip('Rm', `${fmt(g.Rm, 1)} mm`)}
-      ${chip('γ = Rm/T', fmt(g.gamma, 2), Number.isFinite(g.gamma) ? (gammaOk ? (result.gammaClass.tier === WRC_TIER.SOURCE_QUALIFIED || result.gammaClass.tier === WRC_TIER.TABULATED_ROW ? 'ok' : 'warn') : 'bad') : '', `Allowed ${WRC_GAMMA_GRID[0]}–${WRC_GAMMA_GRID.at(-1)}`)}
-      ${chip('β = 0.875·r0/Rm', fmt(g.beta, 3), Number.isFinite(g.beta) ? (betaOk ? 'ok' : 'bad') : '', 'Allowed 0.05–0.5')}`;
+    const chipSets = result.locations.length
+      ? result.locations.map((l) => ({ id: l.id, label: result.padded ? l.label : '', g: l.result.geometry }))
+      : [{ id: 'ATTACHMENT', label: '', g: deriveWrcGeometry(state) }];
+    $('[data-slot="derived"]').innerHTML = chipSets.map(({ id, label, g }) => {
+      const tier = Number.isFinite(g.gamma) ? classifyGamma(g.gamma).tier : WRC_TIER.BLOCKED;
+      const gammaTone = Number.isFinite(g.gamma) ? ({ SOURCE_QUALIFIED: 'ok', TABULATED_ROW: 'ok', INTERPOLATED: 'warn' }[tier] ?? 'bad') : '';
+      const betaOk = g.beta >= WRC_BETA_RANGE.minimum && g.beta <= WRC_BETA_RANGE.maximum;
+      return `<div class="wrc__derived-set" data-location="${id}">
+        ${label ? `<span class="wrc__derived-label">${escapeHtml(label)}</span>` : ''}
+        ${chip(id === 'JUNCTION' ? 'T, shell + pad' : 'T (corroded)', `${fmt(g.T, 2)} mm`)}
+        ${chip('Rm', `${fmt(g.Rm, 1)} mm`)}
+        ${chip('γ = Rm/T', fmt(g.gamma, 2), gammaTone, `Allowed ${WRC_GAMMA_GRID[0]}–${WRC_GAMMA_GRID.at(-1)}`)}
+        ${chip('β = 0.875·r0/Rm', fmt(g.beta, 3), Number.isFinite(g.beta) ? (betaOk ? 'ok' : 'bad') : '', 'Allowed 0.05–0.5')}</div>`;
+    }).join('');
 
     renderEnvelope();
     renderCheck();
     renderFe();
     const tierClass = { SOURCE_QUALIFIED: 'ok', TABULATED_ROW: 'ok', INTERPOLATED: 'warn', BLOCKED: 'bad' }[result.tier];
     if (result.ok) {
+      const gov = result.governing;
       $('[data-slot="status"]').innerHTML = `
         <div class="wrc__tier wrc__tier--${tierClass}">${WRC_TIER_TEXT[result.tier]}</div>
         <div class="wrc__gov"><span>Governing stress intensity</span>
-          <strong>${fmt(result.governing.stressIntensity, 2)} <small>MPa</small></strong>
-          <span>at point <b>${result.governing.location}</b>. This is the maximum over the 8 WRC points only.</span></div>`;
-      $('[data-slot="table"]').innerHTML = `
-        <table class="wrc__table"><thead><tr><th>Point</th><th>σφ circ.</th><th>σx long.</th><th>τ shear</th><th>Stress intensity</th></tr></thead>
-        <tbody>${result.rows.map((r) => `<tr${r.location === result.governing.location ? ' class="is-gov"' : ''}>
-          <td>${r.location}</td><td>${fmt(r.circumferential, 2)}</td><td>${fmt(r.longitudinal, 2)}</td><td>${fmt(r.shear, 2)}</td><td><b>${fmt(r.stressIntensity, 2)}</b></td></tr>`).join('')}
-        </tbody><caption>MPa (N/mm²). u = outside surface, l = inside surface. A, B on the longitudinal axis; C, D on the circumferential axis.</caption></table>`;
+          <strong>${fmt(gov.stressIntensity, 2)} <small>MPa</small></strong>
+          <span>at point <b>${gov.location}</b>${result.padded ? `, ${escapeHtml(gov.label.toLowerCase())}` : ''}. This is the maximum over the 8 WRC points${result.padded ? ' at each location' : ''} only.</span></div>`;
+      $('[data-slot="table"]').innerHTML = result.locations.map((l) => {
+        const r = l.result;
+        const isGovLocation = l.id === gov.locationId;
+        return `${result.padded ? `<h3 class="wrc__h" data-location="${l.id}">${escapeHtml(l.label)} <small>${fmt(r.governing.stressIntensity, 2)} MPa at ${r.governing.location}</small></h3>` : ''}
+        <table class="wrc__table wrc__points" data-location="${l.id}"><thead><tr><th>Point</th><th>σφ circ.</th><th>σx long.</th><th>τ shear</th><th>Stress intensity</th></tr></thead>
+        <tbody>${r.rows.map((row) => `<tr${isGovLocation && row.location === gov.location ? ' class="is-gov"' : ''}>
+          <td>${row.location}</td><td>${fmt(row.circumferential, 2)}</td><td>${fmt(row.longitudinal, 2)}</td><td>${fmt(row.shear, 2)}</td><td><b>${fmt(row.stressIntensity, 2)}</b></td></tr>`).join('')}
+        </tbody><caption>MPa (N/mm²). u = outside surface, l = inside surface. A, B on the longitudinal axis; C, D on the circumferential axis.${result.padded ? ` T = ${fmt(r.geometry.T, 2)} mm, attachment diameter ${fmt(2 * r.geometry.r0, 1)} mm.` : ''}</caption></table>`;
+      }).join('');
     } else {
       $('[data-slot="status"]').innerHTML = `
         <div class="wrc__tier wrc__tier--bad">Not calculated</div>
@@ -191,7 +209,7 @@ export function mountWrcCalculator(host) {
     }
     $('[data-slot="notes"]').innerHTML = `
       ${result.warnings.length ? `<ul class="wrc__notes">${result.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>` : ''}
-      <p class="wrc__help">Only stress in the shell at the attachment is calculated, not in the attachment or nozzle. Pressure adds the thin-shell membrane stress only.</p>`;
+      <p class="wrc__help">Only stress in the shell at the attachment${hasPad(state) ? ' and at the pad edge' : ''} is calculated, not in the attachment, nozzle${hasPad(state) ? ', pad or its welds' : ''}. Pressure adds the thin-shell membrane stress only.</p>`;
     save(state);
   }
 
@@ -203,28 +221,37 @@ export function mountWrcCalculator(host) {
       <table class="wrc__table wrc__envelope"><thead><tr><th>Load case</th><th>Governing SI</th><th>Point</th><th>PL</th>${hasCheck ? '<th>Worst ratio</th>' : ''}</tr></thead>
       <tbody>${batch.cases.map((c, i) => {
         const r = c.result;
-        const pl = r.ok ? Math.max(...r.rows.map((row) => row.membraneIntensity)) : NaN;
+        const pl = r.ok ? Math.max(...r.locations.flatMap((l) => l.result.rows.map((row) => row.membraneIntensity))) : NaN;
         const gov = r.ok && batch.governing && batch.governing.name === c.name && r.governing.stressIntensity === batch.governing.stressIntensity;
         return `<tr data-case="${i}" class="${i === state.activeCase ? 'is-active' : ''}${gov ? ' is-gov' : ''}">
           <td>${escapeHtml(c.name)}</td>
           <td>${r.ok ? `<b>${fmt(r.governing.stressIntensity, 2)}</b>` : '<span class="wrc__bad">not calculated</span>'}</td>
-          <td>${r.ok ? r.governing.location : '—'}</td><td>${fmt(pl, 2)}</td>
+          <td>${r.ok ? `${r.governing.location}${r.padded ? ` <small>${SHORT_LOCATION[r.governing.locationId]}</small>` : ''}` : '—'}</td><td>${fmt(pl, 2)}</td>
           ${hasCheck ? `<td>${r.codeCheck ? ratioCell(r.codeCheck.worst) : '—'}</td>` : ''}</tr>`;
       }).join('')}</tbody>
-      <caption>All load cases, MPa. Click a case to see its detail. ${batch.governing ? `Envelope: ${escapeHtml(batch.governing.name)}, ${fmt(batch.governing.stressIntensity, 2)} MPa at ${batch.governing.location}.` : ''}${batch.codeCheck ? ` Code check: <b class="${batch.codeCheck.pass ? 'wrc__ok' : 'wrc__bad'}">${batch.codeCheck.pass ? 'all cases pass' : 'fails'}</b> (worst: ${escapeHtml(batch.codeCheck.worstCase)}).` : ''}</caption></table>`;
+      <caption>All load cases, MPa. Click a case to see its detail. ${batch.governing ? `Envelope: ${escapeHtml(batch.governing.name)}, ${fmt(batch.governing.stressIntensity, 2)} MPa at ${batch.governing.location}${batch.governing.locationId === 'ATTACHMENT' ? '' : ` ${SHORT_LOCATION[batch.governing.locationId]}`}.` : ''}${batch.codeCheck ? ` Code check: <b class="${batch.codeCheck.pass ? 'wrc__ok' : 'wrc__bad'}">${batch.codeCheck.pass ? 'all cases pass' : 'fails'}</b> (worst: ${escapeHtml(batch.codeCheck.worstCase)}).` : ''}</caption></table>`;
   }
 
+  /**
+   * The WRC result the FE model is compared with: the active case without pressure or Kn/Kb.
+   * With a pad, the FE model is a rigid attachment of the pad diameter on the bare shell, so it is
+   * compared with the pad-edge check. The check at the attachment (shell + pad) has no FE counterpart.
+   */
   function feReference() {
     const c = state.loadCases[state.activeCase];
-    return calculateWrc537({
+    const attachment = calculateWrcAttachment({
       ...state,
       loads: { ...c.loads },
       designPressure: 0, Kn: 1, Kb: 1, allowableS: '',
     });
+    if (!attachment.ok) return { ok: false };
+    const location = attachment.locations.find((l) => l.id === 'PAD_EDGE') ?? attachment.locations[0];
+    return { ...location.result, feLocation: { id: location.id, label: location.label } };
   }
   function feKey() {
     const c = state.loadCases[state.activeCase];
     return JSON.stringify([state.shellOutsideDiameter, state.shellThickness, state.corrosionAllowance, state.attachmentOutsideDiameter,
+      state.padOutsideDiameter, state.padThickness,
       state.cylinderLength, state.attachmentStation, state.forceUnit, state.momentUnit, state.coordinate,
       ...LOADS.map((l) => c.loads[l.key])]);
   }
@@ -265,6 +292,9 @@ export function mountWrcCalculator(host) {
     const slot = $('[data-slot="feResult"]');
     const button = $('[data-act="runFe"]');
     button.disabled = fe?.status === 'running';
+    $('[data-slot="feScope"]').textContent = hasPad(state)
+      ? 'With a pad, the FE model checks the pad edge: the pad is the rigid attachment on the bare shell. The check at the attachment (shell + pad) is not cross-checked.'
+      : '';
     if (!fe) { slot.innerHTML = ''; return; }
     const stale = fe.key !== feKey();
     if (fe.status === 'running') {
@@ -283,7 +313,7 @@ export function mountWrcCalculator(host) {
         const w = ref.rows[i].stressIntensity;
         return `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${fmt(w, 2)}</td><td><b>${fmt(row.fe, 2)}</b></td><td>${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td></tr>`;
       }).join('')}</tbody>
-      <caption>MPa, all six loads of case "${escapeHtml(state.loadCases[state.activeCase].name)}", without pressure or Kn/Kb. Governing: WRC ${fmt(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
+      <caption>MPa, all six loads of case "${escapeHtml(state.loadCases[state.activeCase].name)}", without pressure or Kn/Kb.${ref.feLocation?.id === 'PAD_EDGE' ? ' Compared at the pad edge (shell only).' : ''} Governing: WRC ${fmt(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
       Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF, solved in ${fmt(r.milliseconds / 1000, 0)} s.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·Rm) was assumed.` : ''}</caption></table>
       ${r.field ? buildFeContourHtml(r.field, { caption: FE_CONTOUR_CAPTION }) : ''}
       <p class="wrc__help">${FE_METHOD_NOTE}</p>`;
@@ -319,11 +349,13 @@ export function mountWrcCalculator(host) {
     const slot = $('[data-slot="check"]');
     const cc = result.ok ? result.codeCheck : null;
     if (!cc) { slot.innerHTML = ''; return; }
+    const first = result.locations[0].result.codeCheck;
+    const rows = result.locations.flatMap((l) => l.result.codeCheck.items.map((i) => `<tr${result.padded ? ` data-location="${l.id}"` : ''}><td>${escapeHtml(i.label)}</td>${result.padded ? `<td>${SHORT_LOCATION[l.id]}</td>` : ''}<td>${i.location}</td><td>${fmt(i.value, 2)}</td><td>${fmt(i.limit, 1)} <small>(${i.limitText})</small></td><td>${ratioCell(i)}</td></tr>`));
     slot.innerHTML = `
       <h3 class="wrc__h">Code check: <span class="${cc.pass ? 'wrc__ok' : 'wrc__bad'}">${cc.pass ? 'PASS' : 'FAIL'}</span></h3>
-      <table class="wrc__table wrc__check"><thead><tr><th>Category</th><th>Point</th><th>Stress</th><th>Limit</th><th>Ratio</th></tr></thead>
-      <tbody>${cc.items.map((i) => `<tr><td>${escapeHtml(i.label)}</td><td>${i.location}</td><td>${fmt(i.value, 2)}</td><td>${fmt(i.limit, 1)} <small>(${i.limitText})</small></td><td>${ratioCell(i)}</td></tr>`).join('')}</tbody>
-      <caption>MPa. S = ${fmt(cc.S, 1)}, SPS = ${fmt(cc.Sps, 1)}. Stress intensity (Tresca). PL is the membrane part: pressure, WRC membrane and shear. A screening check with your allowables, not a full code assessment.</caption></table>`;
+      <table class="wrc__table wrc__check"><thead><tr><th>Category</th>${result.padded ? '<th>Location</th>' : ''}<th>Point</th><th>Stress</th><th>Limit</th><th>Ratio</th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+      <caption>MPa. S = ${fmt(first.S, 1)}, SPS = ${fmt(first.Sps, 1)}. Stress intensity (Tresca). PL is the membrane part: pressure, WRC membrane and shear.${result.padded ? ' Pm uses the wall at each location.' : ''} A screening check with your allowables, not a full code assessment.</caption></table>`;
   }
 
   function setCase(next) {

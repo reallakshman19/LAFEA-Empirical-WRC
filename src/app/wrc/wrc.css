@@ -43,7 +43,11 @@
 .wrc__loads label { display: grid; grid-template-columns: 1fr 130px 44px; gap: 8px; align-items: center; margin: 4px 0; }
 .wrc__help { color: var(--wrc-muted); font-size: 12px; margin: 6px 0 0; }
 
-.wrc__derived { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.wrc__derived { display: grid; gap: 8px; margin-bottom: 10px; }
+.wrc__derived-set { display: flex; flex-wrap: wrap; gap: 8px; }
+.wrc__derived-label { width: 100%; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.wrc__h small { color: var(--wrc-muted); font-weight: 400; }
+.wrc__points { margin-bottom: 6px; }
 .wrc__chip { border: 1px solid var(--wrc-line); border-radius: 8px; padding: 6px 10px; background: var(--wrc-panel); min-width: 110px; }
 .wrc__chip span { display: block; color: var(--wrc-muted); font-size: 12px; }
 .wrc__chip b { font-size: 16px; font-variant-numeric: tabular-nums; }

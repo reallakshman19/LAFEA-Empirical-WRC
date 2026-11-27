@@ -26,8 +26,15 @@ The app is meant to become a **mini empirical solver**, not only a nozzle-load c
 
 **Focus on production.** The first canvas and solver scope is **cylindrical shells** with **round
 attachments** (nozzles, trunnions) and **rectangular plate attachments** (lugs). Spheres and heads come
-later. Lugs need the WRC 537 rectangular-attachment curves from the licensed bulletin; until those are
-digitised and validated, lugs can only be solved with FE.
+later. The lug rules are confirmed from the licensed bulletin (2026-11-27): Tables 6–8 as extracted in
+`docs/emp1`, and equations 28–30 and 50–51 from the PDF.
+
+Production steps (owner, 2026-11-27: pads first):
+1. **Reinforcing pads** on round attachments (M): done 2026-11-27, checked at the attachment
+   (shell + pad) and at the pad edge. See the AUDIT-AND-ROADMAP progress entry.
+2. **Lugs** in the WRC calculator (M): next, needs your go.
+3. **Trunnions** as round attachments, solid or hollow (S–M).
+4. **Finish the UI**, then the canvas (L).
 
 The next work is to finish the UI. The app's **Status & roadmap** tab (`src/app/status/status-content.js`)
 holds the known issues, the planned improvements and the staged roadmap (A: canvas, B: empirical solver on
@@ -87,7 +94,8 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 1. **Benchmarks:** can you supply CAESAR II or PV Elite WRC outputs (inputs and the 8-point stress
    table) for 3 or more nozzles?
 2. **Spheres and rectangular attachments:** *decided 2026-11-26: lugs (rectangular attachments on
-   cylinders) now, spheres later.* Can you supply the rectangular-attachment curves from the licensed bulletin?
+   cylinders) now, spheres later.* *Resolved 2026-11-27: the curves are in `docs/emp1` and confirmed against the
+   PDF; pads go first, then lugs.*
 3. **`lafea.html`:** *decided 2026-11-26: keep it.* Keep the original single-view LAFEA page, or remove it with its upstream-only
    tests?
 

@@ -1,6 +1,10 @@
 /**
  * Plain WRC 537 (2013) cylindrical-shell local stress calculator.
  *
+ * calculateWrc537 checks one shell location. calculateWrcAttachment adds the optional reinforcing
+ * pad (two locations: at the attachment with shell + pad, and at the pad edge), and
+ * calculateWrc537Cases runs every load case through it.
+ *
  * A thin, engineer-facing wrapper over the verified EMP1 numerics:
  *  - curve ordinates: buildEmp1Wrc537InterpolatedTable5Ordinates (exact γ rows delegate
  *    to the source-qualified selector; other γ are blended between bracket rows)
@@ -57,12 +61,26 @@ export const WRC_BENDING_CLASS = Object.freeze({
   PB: 'Primary Pb, PL+Pb ≤ 1.5S (conservative)',
 });
 
+/** Where the shell is checked. Without a pad there is one location; with a pad there are two. */
+export const WRC_LOCATION_TEXT = Object.freeze({
+  ATTACHMENT: 'At the attachment',
+  JUNCTION: 'At the attachment (shell + pad)',
+  PAD_EDGE: 'At the pad edge (shell only)',
+});
+
+export const WRC_PAD_METHOD_TEXT = 'Reinforcing pad: WRC 537 itself has no pad rule (it lists pad guidance as future work). '
+  + 'The shell is checked twice, as PV Elite and similar programs do: at the attachment with the shell and pad '
+  + 'thicknesses added, and at the pad edge with the shell alone and the pad diameter as the attachment. '
+  + 'This assumes the pad is fully welded and acts with the shell. It is common practice, not a WRC rule.';
+
 export const DEFAULT_CASE = Object.freeze({
   title: 'Nozzle on cylinder',
   shellOutsideDiameter: 1000,
   shellThickness: 12,
   corrosionAllowance: 0,
   attachmentOutsideDiameter: 219.1,
+  padOutsideDiameter: '',
+  padThickness: '',
   cylinderLength: 3000,
   attachmentStation: 1500,
   forceUnit: 'N',
@@ -104,6 +122,24 @@ export const EXAMPLE_CASES = Object.freeze({
     momentUnit: 'N·mm',
     loads: Object.freeze({ P: -161, Vc: -53, Vl: -2109, Mc: 121000, Ml: 33000, Mt: -775000 }),
     coordinate: 'LINEAR_GAMMA',
+  }),
+  PAD_36IN: Object.freeze({
+    title: '36-inch nozzle with reinforcing pad (geometry of the PV Elite WRC 297 reference)',
+    shellOutsideDiameter: 2161,
+    shellThickness: 25,
+    corrosionAllowance: 0,
+    attachmentOutsideDiameter: 914.4,
+    padOutsideDiameter: 1064.4,
+    padThickness: 25,
+    cylinderLength: '',
+    attachmentStation: '',
+    forceUnit: 'N',
+    momentUnit: 'N·m',
+    loads: Object.freeze({ P: -25926.99, Vc: 22115.01, Vl: 69592.96, Mc: -45209.96, Ml: 78037.98, Mt: 101000.95 }),
+    coordinate: 'LINEAR_GAMMA',
+    designPressure: 0.5237,
+    Kn: 1.2,
+    Kb: 1.2,
   }),
 });
 
@@ -318,9 +354,93 @@ function buildCodeCheck(rows, governing, { pressure, g, input }) {
   return { S, Sps, bendingClass, items, pass: items.every((i) => i.pass), worst };
 }
 
+/** True when either pad field holds a non-zero value. Blank or 0 in both means no pad. */
+export function hasPad(input) {
+  return [input.padOutsideDiameter, input.padThickness].some((v) => !(v === '' || v == null || Number(v) === 0));
+}
+
+/**
+ * The shell locations to check, each as an equivalent plain WRC 537 input.
+ *  - no pad:   ATTACHMENT, the input itself.
+ *  - with pad: JUNCTION, the wall thickened by the pad on the outside (OD + 2·tp, t + tp), round attachment as given;
+ *              PAD_EDGE, the shell alone with the pad diameter as the attachment.
+ * Corrosion stays on the inside of the shell, so the junction wall is T = t − CA + tp and
+ * Rm = (OD − T + tp)/2: the mean radius of the combined wall (PV Elite: D = 2161 for ID 2111, T 25 + pad 25).
+ */
+export function wrcLocationInputs(input) {
+  if (!hasPad(input)) return [{ id: 'ATTACHMENT', label: WRC_LOCATION_TEXT.ATTACHMENT, input }];
+  const tp = num(input.padThickness);
+  return [
+    {
+      id: 'JUNCTION',
+      label: WRC_LOCATION_TEXT.JUNCTION,
+      input: { ...input, shellOutsideDiameter: num(input.shellOutsideDiameter) + 2 * tp, shellThickness: num(input.shellThickness) + tp },
+    },
+    { id: 'PAD_EDGE', label: WRC_LOCATION_TEXT.PAD_EDGE, input: { ...input, attachmentOutsideDiameter: num(input.padOutsideDiameter) } },
+  ];
+}
+
+function padReasons(input) {
+  if (!hasPad(input)) return [];
+  const dp = num(input.padOutsideDiameter);
+  const tp = num(input.padThickness);
+  const dA = num(input.attachmentOutsideDiameter);
+  const out = [];
+  if (!(dp > 0)) out.push(reason('PAD', 'Pad outside diameter must be a positive number.', 'Enter both pad fields, or leave both blank for no pad.'));
+  if (!(tp > 0)) out.push(reason('PAD', 'Pad thickness must be a positive number.', 'Enter both pad fields, or leave both blank for no pad.'));
+  if (dp > 0 && dA > 0 && !(dp > dA)) {
+    out.push(reason('PAD', `The pad (${fmt(dp, 1)} mm) must be larger than the attachment (${fmt(dA, 1)} mm).`, 'Check the pad outside diameter.'));
+  }
+  return out;
+}
+
+const TIER_ORDER = [WRC_TIER.SOURCE_QUALIFIED, WRC_TIER.TABULATED_ROW, WRC_TIER.INTERPOLATED, WRC_TIER.BLOCKED];
+
+/**
+ * One attachment, one load case: the shell is checked at every location from wrcLocationInputs.
+ * `governing` and `codeCheck` are the worst over the locations; each location keeps its full result.
+ */
+export function calculateWrcAttachment(input) {
+  const padded = hasPad(input);
+  const pad = padded
+    ? { outsideDiameter: num(input.padOutsideDiameter), thickness: num(input.padThickness), width: (num(input.padOutsideDiameter) - num(input.attachmentOutsideDiameter)) / 2 }
+    : null;
+  const invalid = padReasons(input);
+  if (invalid.length) {
+    return {
+      input: structuredCloneSafe(input), padded, pad, locations: [], ok: false, tier: WRC_TIER.BLOCKED,
+      reasons: invalid, warnings: [], governing: null, codeCheck: null,
+    };
+  }
+  const locations = wrcLocationInputs(input).map((spec) => ({ id: spec.id, label: spec.label, result: calculateWrc537(spec.input) }));
+  const prefix = (label, text) => (padded ? `${label}: ${text}` : text);
+  // At the pad edge the "attachment" is the pad, so say so in the suggested fix.
+  const fixFor = (l, r) => (l.id === 'PAD_EDGE' ? r.fix.replace(/^Attachment OD/u, 'Pad OD') : r.fix);
+  const reasons = locations.flatMap((l) => l.result.reasons.map((r) => ({ ...r, text: prefix(l.label, r.text), fix: fixFor(l, r), locationId: l.id })));
+  const warnings = [...(padded ? [WRC_PAD_METHOD_TEXT] : []),
+    ...new Set(locations.flatMap((l) => l.result.warnings.map((w) => prefix(l.label, w))))];
+  const ok = locations.every((l) => l.result.ok);
+  const tier = locations.map((l) => l.result.tier).reduce((a, b) => (TIER_ORDER.indexOf(b) > TIER_ORDER.indexOf(a) ? b : a));
+  let governing = null;
+  let codeCheck = null;
+  if (ok) {
+    const gov = locations.reduce((a, b) => (b.result.governing.stressIntensity > a.result.governing.stressIntensity ? b : a));
+    governing = { locationId: gov.id, label: gov.label, location: gov.result.governing.location, stressIntensity: gov.result.governing.stressIntensity };
+    if (locations.every((l) => l.result.codeCheck)) {
+      const worst = locations.reduce((a, b) => (b.result.codeCheck.worst.ratio > a.result.codeCheck.worst.ratio ? b : a));
+      codeCheck = {
+        pass: locations.every((l) => l.result.codeCheck.pass),
+        worst: { ...worst.result.codeCheck.worst, locationId: worst.id, locationLabel: worst.label },
+      };
+    }
+  }
+  return { input: structuredCloneSafe(input), padded, pad, locations, ok, tier: ok ? tier : WRC_TIER.BLOCKED, reasons, warnings, governing, codeCheck };
+}
+
 /**
  * Run several load cases on one geometry. `input.loadCases` = [{ name, loads }]; when absent,
- * `input.loads` is the only case. Returns each case's result plus an envelope.
+ * `input.loads` is the only case. Each case's result comes from calculateWrcAttachment (one or two
+ * shell locations); the envelope is the worst over cases and locations.
  */
 export function calculateWrc537Cases(input) {
   const list = Array.isArray(input.loadCases) && input.loadCases.length
@@ -328,7 +448,7 @@ export function calculateWrc537Cases(input) {
     : [{ name: 'Case 1', loads: input.loads }];
   const cases = list.map((c, index) => ({
     name: String(c?.name || `Case ${index + 1}`),
-    result: calculateWrc537({ ...input, loads: c?.loads ?? {} }),
+    result: calculateWrcAttachment({ ...input, loads: c?.loads ?? {} }),
   }));
   const ok = cases.filter((c) => c.result.ok);
   const governing = ok.reduce((best, c) => (best && best.result.governing.stressIntensity >= c.result.governing.stressIntensity ? best : c), null);
@@ -338,7 +458,7 @@ export function calculateWrc537Cases(input) {
     cases,
     allCalculated: ok.length === cases.length,
     governing: governing
-      ? { name: governing.name, location: governing.result.governing.location, stressIntensity: governing.result.governing.stressIntensity }
+      ? { name: governing.name, ...governing.result.governing }
       : null,
     codeCheck: worstCheck
       ? { pass: checked.length === cases.length && checked.every((c) => c.result.codeCheck.pass), worstCase: worstCheck.name, worst: worstCheck.result.codeCheck.worst }

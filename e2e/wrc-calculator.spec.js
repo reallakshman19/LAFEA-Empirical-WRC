@@ -99,6 +99,29 @@ test('load cases, pressure and the allowables check', async ({ page }) => {
   await expect(page.locator('.wrc__envelope tbody tr')).toHaveCount(2);
 });
 
+test('a reinforcing pad is checked at the attachment and at the pad edge', async ({ page }) => {
+  const calc = page.locator('[data-empirical-subview="WRC"]');
+  await calc.locator('[data-act="example"]').selectOption('PAD_36IN');
+  await expect(calc.locator('[data-slot="derived"] [data-location]')).toHaveCount(2);
+  await expect(calc.locator('.wrc__points')).toHaveCount(2);
+  await expect(calc.locator('.wrc__gov strong')).toHaveText('108.78 MPa');
+  await expect(calc.locator('.wrc__gov b')).toHaveText('Cu');
+  await expect(calc.locator('.wrc__gov')).toContainText('at the pad edge (shell only)');
+  await expect(calc.locator('.wrc__notes')).toContainText('WRC 537 itself has no pad rule');
+  await expect(calc.locator('[data-slot="feScope"]')).toContainText('checks the pad edge');
+
+  const [download] = await Promise.all([page.waitForEvent('download'), calc.locator('[data-act="download"]').click()]);
+  const report = await (await import('node:fs/promises')).readFile(await download.path(), 'utf8');
+  expect(report).toContain('At the attachment (shell + pad)');
+  expect(report).toContain('At the pad edge (shell only)');
+
+  await calc.locator('[data-k="padThickness"]').fill('');
+  await expect(calc.locator('.wrc__reasons')).toContainText('Pad thickness must be a positive number');
+  await calc.locator('[data-k="padOutsideDiameter"]').fill('');
+  await expect(calc.locator('.wrc__points')).toHaveCount(1);
+  await expect(calc.locator('[data-slot="feScope"]')).toBeEmpty();
+});
+
 test('shell FE cross-check runs in the background and agrees on the governing point', async ({ page }) => {
   test.setTimeout(240000);
   const calc = page.locator('[data-empirical-subview="WRC"]');

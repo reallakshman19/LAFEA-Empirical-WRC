@@ -22,7 +22,7 @@
     "check:lafea-canvas-contract": "node scripts/lafea-canvas-contract-check.mjs",
     "check:lafea-render-parity": "node scripts/lafea-render-parity-check.mjs",
     "check:lafea-canvas-performance": "node scripts/lafea-canvas-performance-check.mjs",
-    "check:wrc": "node scripts/wrc-calculator-check.mjs && node scripts/wrc-pvelite-wrc297-reference-check.mjs",
+    "check:wrc": "node scripts/wrc-calculator-check.mjs && node scripts/wrc-pvelite-wrc297-reference-check.mjs && node scripts/wrc-pad-check.mjs",
     "check:bundle-size": "node scripts/bundle-size-check.mjs"
   },
   "dependencies": {},
