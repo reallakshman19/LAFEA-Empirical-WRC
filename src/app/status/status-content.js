@@ -39,7 +39,7 @@ export const STATUS_VISION = Object.freeze({
 
 /** What can be used today, one line per area. */
 export const STATUS_TODAY = Object.freeze([
-  Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments, γ 5–300, β 0.05–0.5, six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases.' }),
+  Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments (γ 5–300, β 0.05–0.5) and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases.' }),
   Object.freeze({ area: 'Shell-FE cross-check', state: 'USABLE', text: 'Solves the same nozzle with LAFEA shell elements in about 30 s, compares the 8 points and draws a stress-intensity contour. Reports a ratio, not a pass/fail.' }),
   Object.freeze({ area: 'LAFEA plate form', state: 'USABLE', text: 'Plane-stress rectangular plate, with or without a central round hole: edge supports and loads, automatic mesh, convergence study, Kt.' }),
   Object.freeze({ area: 'LAFEA workbench', state: 'PARTIAL', text: 'Worked cantilever example and the plate form go end to end. Other geometry needs stage JSON. Shell and trunnion stages are not wired to a form.' }),
@@ -73,13 +73,16 @@ export const KNOWN_ISSUES = Object.freeze([
     'WRC 537 prints the β range 0.05–0.5 only for γ = 5. For other γ the same range is assumed.',
     'Be cautious near β = 0.05 or 0.5 at high γ.',
     'Open: needs the licensed bulletin to confirm.'),
-  issue('KI-03', 'WRC calculator', 'HIGH', 'Cylinders with round attachments only',
-    'No spherical shells or heads, no rectangular attachments (lugs, saddles) and no WRC 297 '
-    + '(which accounts for nozzle flexibility). PV Elite results using WRC 297 will differ: on a 36-inch nozzle '
-    + 'its governing load stress was 1.39× (junction) and 1.78× (pad edge) of ours.',
+  issue('KI-03', 'WRC calculator', 'HIGH', 'Cylinders only; lugs within the WRC 537 limits',
+    'No spherical shells or heads, no saddles and no WRC 297 (which accounts for nozzle flexibility). PV Elite '
+    + 'results using WRC 297 will differ: on a 36-inch nozzle its governing load stress was 1.39× (junction) and '
+    + '1.78× (pad edge) of ours. Lugs (rectangular attachments) follow WRC 537 §4.2.2: torsion on a lug has no WRC '
+    + 'method and is blocked; the footprint must have β1/β2 between 0.25 and 4, so a thin plate welded straight to '
+    + 'the shell is blocked; moments on a non-square lug need γ ≥ 15. Table 7/8 factors between printed rows are '
+    + 'interpolated (judgement), and some printed rows are approximate.',
     'Use your licensed program or LAFEA FE for these cases.',
-    'Lugs are next (PL-02): the rectangular-attachment rules (Tables 6–8, equations 28–30 and 50–51) are confirmed '
-    + 'from the licensed bulletin. Spheres come later.'),
+    'Lugs added 2026-11-27 (hand-checked against the bulletin equations). The FE cross-check for a rectangular '
+    + 'footprint is planned (PL-02). Spheres come later.'),
   issue('KI-04', 'WRC calculator', 'MEDIUM', 'Reinforcing pads use the two-location method',
     'WRC 537 has no pad rule. The calculator checks the shell twice, as PV Elite does: at the attachment with '
     + 'shell + pad thickness, and at the pad edge with the shell alone and the pad diameter. This assumes the pad '
@@ -173,11 +176,10 @@ export const PLANNED_IMPROVEMENTS = Object.freeze([
     ['Custody and authority text moved into a "Technical details" drawer', 'Plain example defaults in the advanced workflow',
       'Help text on every input', 'Inch/lbf/psi units', 'Layout that works on a laptop screen and a tablet',
       'Keyboard and screen-reader checks']),
-  plan('PL-02', 'Lugs (rectangular attachments) in the WRC calculator', 'M', 'Your go to start',
-    'Lugs are the other common attachment in the production scope. The WRC 537 rules are confirmed from your bulletin.',
-    ['Attachment type round or rectangular, with length and width', 'β for each load and stress component (equations 28–30, Tables 6–8)',
-      'Shear from equations 50–51', 'Plain blocks: torsion on a lug (WRC 537 gives no method), β1/β2 outside 0.25–4, γ below 15 for moments',
-      'Hand-calculation check and a shell-FE cross-check with a rectangular footprint']),
+  plan('PL-02', 'Trunnions, and FE for lugs', 'M', 'Your go to start',
+    'Completes the first production scope: nozzles, trunnions and lugs on cylinders, each with an FE check.',
+    ['Trunnion as a round attachment, solid or hollow, labelled in inputs and report', 'Shell-FE cross-check with a rectangular footprint, so lugs get the same FE comparison as nozzles',
+      'FE route for lugs that WRC 537 blocks (thin plates, torsion)', 'Frozen FE/WRC ratios for a few lug shapes as evidence for the Table 7/8 interpolation']),
   plan('PL-03', 'Evidence for interpolated γ', 'M', 'Optional: WRC 537 output from your program',
     'Turns interpolated γ from judgement into evidence (Phase 5.4).',
     ['Shell-FE sweep across γ 15–100 at two or three β values, checking that the FE/WRC ratio moves smoothly between tabulated rows',
@@ -235,7 +237,7 @@ export const ROADMAP = Object.freeze([
 /** Decisions only the owner can make, kept on the page so they are not lost. */
 export const OPEN_DECISIONS = Object.freeze([
   'Benchmarks: can you supply WRC 537 output (inputs and the 8-point table) from CAESAR II or PV Elite for more nozzles?',
-  'Lugs: start lugs in the WRC calculator next (PL-02)? Thin lugs welded straight to the shell are often outside the WRC 537 shape range (β1/β2 0.25–4) and would go to FE.',
+  'Next: trunnions and an FE cross-check for lugs (PL-02), or finish the UI (PL-01) first?',
 ]);
 
 /** Decisions already made, with their date. */
@@ -245,6 +247,7 @@ export const DECISIONS_MADE = Object.freeze([
   '2026-11-26: keep the original single-view LAFEA page (lafea.html).',
   '2026-11-27: lug data comes from the licensed WRC 537 bulletin: Tables 6–8 as extracted in docs/emp1, the equations from the PDF.',
   '2026-11-27: reinforcing pads before lugs.',
+  '2026-11-27: lugs in the WRC calculator, within the WRC 537 rules; cases outside them are blocked and sent to FE.',
 ]);
 
 function issue(id, area, severity, title, what, workaround, status) {

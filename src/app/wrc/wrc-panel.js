@@ -4,8 +4,8 @@
 import './wrc.css';
 import {
   DEFAULT_CASE, EXAMPLE_CASES, FORCE_UNITS, MOMENT_UNITS, WRC_BETA_RANGE, WRC_COORDINATES,
-  WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases, calculateWrcAttachment,
-  classifyGamma, deriveWrcGeometry, fmt, hasPad,
+  WRC_ATTACHMENT_TYPES, WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases, calculateWrcAttachment,
+  classifyGamma, deriveWrcGeometry, fmt, hasPad, isRectangular,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
 import { FE_CONTOUR_CAPTION, FE_METHOD_NOTE, buildFeContourHtml, triangleAt } from './fe-contour.js';
@@ -18,8 +18,13 @@ const FIELDS = [
   { group: 'Shell (cylinder)', key: 'shellOutsideDiameter', label: 'Outside diameter', unit: 'mm' },
   { group: 'Shell (cylinder)', key: 'shellThickness', label: 'Nominal thickness', unit: 'mm' },
   { group: 'Shell (cylinder)', key: 'corrosionAllowance', label: 'Corrosion allowance', unit: 'mm' },
-  { group: 'Attachment', key: 'attachmentOutsideDiameter', label: 'Outside diameter at shell', unit: 'mm' },
-  { group: 'Reinforcing pad (optional)', key: 'padOutsideDiameter', label: 'Pad outside diameter', unit: 'mm', optional: true },
+  { group: 'Attachment', key: 'attachmentType', label: 'Type', select: WRC_ATTACHMENT_TYPES },
+  { group: 'Attachment', key: 'attachmentOutsideDiameter', label: 'Outside diameter at shell', unit: 'mm', only: 'ROUND' },
+  { group: 'Attachment', key: 'attachmentLength', label: 'Length along the shell (2·c2)', unit: 'mm', only: 'RECTANGULAR' },
+  { group: 'Attachment', key: 'attachmentWidth', label: 'Width around the shell (2·c1)', unit: 'mm', only: 'RECTANGULAR' },
+  { group: 'Reinforcing pad (optional)', key: 'padOutsideDiameter', label: 'Pad outside diameter', unit: 'mm', optional: true, only: 'ROUND' },
+  { group: 'Reinforcing pad (optional)', key: 'padLength', label: 'Pad length along the shell', unit: 'mm', optional: true, only: 'RECTANGULAR' },
+  { group: 'Reinforcing pad (optional)', key: 'padWidth', label: 'Pad width around the shell', unit: 'mm', optional: true, only: 'RECTANGULAR' },
   { group: 'Reinforcing pad (optional)', key: 'padThickness', label: 'Pad thickness', unit: 'mm', optional: true },
   { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'cylinderLength', label: 'Length between heads or stiffeners', unit: 'mm', optional: true },
   { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'attachmentStation', label: 'Attachment position from one end', unit: 'mm', optional: true },
@@ -58,6 +63,7 @@ export function mountWrcCalculator(host) {
         <option value="GAMMA5_ORACLE">Check case: γ = 5, hand calc</option>
         <option value="CAESAR_GAMMA48">Check case: CAESAR II, γ = 48</option>
         <option value="PAD_36IN">36-inch nozzle with reinforcing pad</option>
+        <option value="LUG_200X100">Lug, 200 × 100 mm footprint</option>
       </select>
       <span class="wrc__spacer"></span>
       <button type="button" data-act="open">Open case…</button>
@@ -120,9 +126,11 @@ export function mountWrcCalculator(host) {
     groups.get(f.group).push(f);
   }
   host.querySelector('[data-slot="fields"]').innerHTML = [...groups].map(([group, fields]) => `
-    <fieldset class="wrc__group"><legend>${group}</legend>${fields.map((f) => `
-      <label class="wrc__row"><span>${f.label}${f.optional ? ' <small>(optional)</small>' : ''}</span>
-        <input data-k="${f.key}" type="number" step="any"${f.signed ? '' : ' min="0"'} inputmode="decimal"><em>${f.unit}</em></label>`).join('')}
+    <fieldset class="wrc__group"><legend>${group}</legend>${fields.map((f) => (f.select ? `
+      <label class="wrc__row"><span>${f.label}</span>
+        <select data-k="${f.key}">${Object.entries(f.select).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>` : `
+      <label class="wrc__row"${f.only ? ` data-only="${f.only}"` : ''}><span>${f.label}${f.optional ? ' <small>(optional)</small>' : ''}</span>
+        <input data-k="${f.key}" type="number" step="any"${f.signed ? '' : ' min="0"'} inputmode="decimal"><em>${f.unit}</em></label>`)).join('')}
     </fieldset>`).join('');
 
   const $ = (sel) => host.querySelector(sel);
@@ -163,6 +171,8 @@ export function mountWrcCalculator(host) {
   function render() {
     batch = calculateWrc537Cases(state);
     result = batch.cases[state.activeCase].result; // calculateWrcAttachment: one location, or two with a pad
+    const type = isRectangular(state) ? 'RECTANGULAR' : 'ROUND';
+    for (const row of host.querySelectorAll('[data-only]')) row.hidden = row.dataset.only !== type;
     for (const l of LOADS) {
       host.querySelector(`[data-unit="${l.key}"]`).textContent = ['P', 'Vc', 'Vl'].includes(l.key) ? state.forceUnit : state.momentUnit;
     }
@@ -178,7 +188,9 @@ export function mountWrcCalculator(host) {
         ${chip(id === 'JUNCTION' ? 'T, shell + pad' : 'T (corroded)', `${fmt(g.T, 2)} mm`)}
         ${chip('Rm', `${fmt(g.Rm, 1)} mm`)}
         ${chip('γ = Rm/T', fmt(g.gamma, 2), gammaTone, `Allowed ${WRC_GAMMA_GRID[0]}–${WRC_GAMMA_GRID.at(-1)}`)}
-        ${chip('β = 0.875·r0/Rm', fmt(g.beta, 3), Number.isFinite(g.beta) ? (betaOk ? 'ok' : 'bad') : '', 'Allowed 0.05–0.5')}</div>`;
+        ${g.rectangular ? `${chip('β1 = c1/Rm', fmt(g.beta1, 3))}${chip('β2 = c2/Rm', fmt(g.beta2, 3))}
+        ${chip('β1/β2', fmt(g.ratio, 3), Number.isFinite(g.ratio) ? (g.ratio >= 0.25 - 1e-12 && g.ratio <= 4 + 1e-12 ? 'ok' : 'bad') : '', 'Allowed 0.25–4 (WRC 537 Tables 6–8)')}`
+    : chip('β = 0.875·r0/Rm', fmt(g.beta, 3), Number.isFinite(g.beta) ? (betaOk ? 'ok' : 'bad') : '', 'Allowed 0.05–0.5')}</div>`;
     }).join('');
 
     renderEnvelope();
@@ -199,7 +211,7 @@ export function mountWrcCalculator(host) {
         <table class="wrc__table wrc__points" data-location="${l.id}"><thead><tr><th>Point</th><th>σφ circ.</th><th>σx long.</th><th>τ shear</th><th>Stress intensity</th></tr></thead>
         <tbody>${r.rows.map((row) => `<tr${isGovLocation && row.location === gov.location ? ' class="is-gov"' : ''}>
           <td>${row.location}</td><td>${fmt(row.circumferential, 2)}</td><td>${fmt(row.longitudinal, 2)}</td><td>${fmt(row.shear, 2)}</td><td><b>${fmt(row.stressIntensity, 2)}</b></td></tr>`).join('')}
-        </tbody><caption>MPa (N/mm²). u = outside surface, l = inside surface. A, B on the longitudinal axis; C, D on the circumferential axis.${result.padded ? ` T = ${fmt(r.geometry.T, 2)} mm, attachment diameter ${fmt(2 * r.geometry.r0, 1)} mm.` : ''}</caption></table>`;
+        </tbody><caption>MPa (N/mm²). u = outside surface, l = inside surface. A, B on the longitudinal axis; C, D on the circumferential axis.${result.padded ? ` T = ${fmt(r.geometry.T, 2)} mm, attachment ${r.geometry.rectangular ? `${fmt(2 * r.geometry.c2, 1)} along × ${fmt(2 * r.geometry.c1, 1)} around` : `diameter ${fmt(2 * r.geometry.r0, 1)}`} mm.` : ''}</caption></table>${r.rectangular ? rectTermsTable(r, l.id) : ''}`;
       }).join('');
     } else {
       $('[data-slot="status"]').innerHTML = `
@@ -250,12 +262,13 @@ export function mountWrcCalculator(host) {
   }
   function feKey() {
     const c = state.loadCases[state.activeCase];
-    return JSON.stringify([state.shellOutsideDiameter, state.shellThickness, state.corrosionAllowance, state.attachmentOutsideDiameter,
-      state.padOutsideDiameter, state.padThickness,
+    return JSON.stringify([state.shellOutsideDiameter, state.shellThickness, state.corrosionAllowance, state.attachmentType, state.attachmentOutsideDiameter,
+      state.attachmentLength, state.attachmentWidth, state.padOutsideDiameter, state.padLength, state.padWidth, state.padThickness,
       state.cylinderLength, state.attachmentStation, state.forceUnit, state.momentUnit, state.coordinate,
       ...LOADS.map((l) => c.loads[l.key])]);
   }
   function runFe() {
+    if (isRectangular(state)) return; // round footprint only; the button is disabled
     const reference = feReference();
     if (!reference.ok) { fe = { key: feKey(), status: 'error', error: 'The WRC calculation for this case is blocked, so there is nothing to compare.' }; renderFe(); return; }
     if (!LOADS.some((l) => reference.loadsBase[l.key])) {
@@ -291,10 +304,12 @@ export function mountWrcCalculator(host) {
   function renderFe() {
     const slot = $('[data-slot="feResult"]');
     const button = $('[data-act="runFe"]');
-    button.disabled = fe?.status === 'running';
-    $('[data-slot="feScope"]').textContent = hasPad(state)
-      ? 'With a pad, the FE model checks the pad edge: the pad is the rigid attachment on the bare shell. The check at the attachment (shell + pad) is not cross-checked.'
-      : '';
+    const rectangular = isRectangular(state);
+    button.disabled = fe?.status === 'running' || rectangular;
+    let scope = '';
+    if (rectangular) scope = 'Not available for a rectangular attachment yet: the FE model has a round footprint only.';
+    else if (hasPad(state)) scope = 'With a pad, the FE model checks the pad edge: the pad is the rigid attachment on the bare shell. The check at the attachment (shell + pad) is not cross-checked.';
+    $('[data-slot="feScope"]').textContent = scope;
     if (!fe) { slot.innerHTML = ''; return; }
     const stale = fe.key !== feKey();
     if (fe.status === 'running') {
@@ -448,6 +463,20 @@ export function mountWrcCalculator(host) {
     setCase,
     destroy() { host.replaceChildren(); host.classList.remove('wrc'); },
   };
+}
+
+const TERM_LABEL = Object.freeze({
+  Pmem_AB: 'P membrane, A/B', Pmem_CD: 'P membrane, C/D', Pbend_AB: 'P bending, A/B', Pbend_CD: 'P bending, C/D',
+  Mcmem: 'Mc membrane', Mcbend: 'Mc bending', Mlmem: 'ML membrane', Mlbend: 'ML bending',
+});
+/** The equivalent β of each term of a rectangular attachment (WRC 537 §4.2.2), loads that are not zero only. */
+function rectTermsTable(r, locationId) {
+  const rows = ['circ', 'long'].flatMap((family) => Object.entries(r.provenance[family])
+    .filter(([, p]) => !p.unused)
+    .map(([key, p]) => `<tr><td>${family === 'circ' ? 'σφ' : 'σx'}: ${TERM_LABEL[key]}</td><td>${escapeHtml(p.figure)}</td><td>${fmt(p.beta, 4)}</td><td>${p.tableFactor ? `${p.tableFactor.kind} ${fmt(p.tableFactor.value, 3)}` : '—'}${p.factorApproximate ? ' <small>(approx.)</small>' : ''}</td><td>${escapeHtml(p.basis)}</td></tr>`));
+  if (!rows.length) return '';
+  return `<table class="wrc__table wrc__terms" data-location="${locationId}"><thead><tr><th>Term</th><th>Curve</th><th>β used</th><th>Table factor</th><th>Basis</th></tr></thead>
+    <tbody>${rows.join('')}</tbody><caption>Rectangular attachment: β1 = ${fmt(r.rectangular.beta1, 4)}, β2 = ${fmt(r.rectangular.beta2, 4)}, β1/β2 = ${fmt(r.rectangular.ratio, 3)}. Each term is read on its curve at its own β, and that β is used in its stress formula.</caption></table>`;
 }
 
 function chip(label, value, tone = '', title = '') {

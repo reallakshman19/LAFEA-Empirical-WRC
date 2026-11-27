@@ -14,6 +14,7 @@
   box-sizing: border-box;
 }
 .wrc *, .wrc *::before, .wrc *::after { box-sizing: border-box; }
+.wrc [hidden] { display: none !important; }
 .wrc button, .wrc select, .wrc input { font: inherit; color: inherit; }
 .wrc button, .wrc select {
   background: #0e1a2e; border: 1px solid #2b4a78; border-radius: 6px; padding: 5px 10px; cursor: pointer;
@@ -48,6 +49,8 @@
 .wrc__derived-label { width: 100%; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .wrc__h small { color: var(--wrc-muted); font-weight: 400; }
 .wrc__points { margin-bottom: 6px; }
+.wrc__terms { margin: 4px 0 12px; font-size: 13px; }
+.wrc__terms td:last-child, .wrc__terms th:last-child { text-align: left; color: var(--wrc-muted); }
 .wrc__chip { border: 1px solid var(--wrc-line); border-radius: 8px; padding: 6px 10px; background: var(--wrc-panel); min-width: 110px; }
 .wrc__chip span { display: block; color: var(--wrc-muted); font-size: 12px; }
 .wrc__chip b { font-size: 16px; font-variant-numeric: tabular-nums; }

@@ -32,8 +32,10 @@ later. The lug rules are confirmed from the licensed bulletin (2026-11-27): Tabl
 Production steps (owner, 2026-11-27: pads first):
 1. **Reinforcing pads** on round attachments (M): done 2026-11-27, checked at the attachment
    (shell + pad) and at the pad edge. See the AUDIT-AND-ROADMAP progress entry.
-2. **Lugs** in the WRC calculator (M): next, needs your go.
-3. **Trunnions** as round attachments, solid or hollow (S–M).
+2. **Lugs** in the WRC calculator (M): done 2026-11-27, within the WRC 537 rules (no torsion,
+   β1/β2 0.25–4, γ ≥ 15 for moments on a non-square lug). See the AUDIT-AND-ROADMAP progress entry.
+3. **Trunnions** as round attachments, solid or hollow, and an **FE cross-check with a rectangular
+   footprint** for lugs (S–M each): next, needs your go.
 4. **Finish the UI**, then the canvas (L).
 
 The next work is to finish the UI. The app's **Status & roadmap** tab (`src/app/status/status-content.js`)

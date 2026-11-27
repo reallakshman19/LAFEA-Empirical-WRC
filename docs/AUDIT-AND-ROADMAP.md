@@ -460,6 +460,40 @@ the worse location, and the result and report label the method as practice, not 
 
 The check at the attachment (shell + pad) has no FE counterpart in the current shell model.
 
+**2026-11-27: rectangular attachments (lugs).** The rules were read from the licensed WRC 537 PDF (printed
+pages 13 and 17, Tables 6–8 on pages 31–32). Each load and stress component gets its own β, read on the same
+curves as a round attachment:
+- radial load: equations 28–30 with Table 6;
+- Mc and ML: §4.2.2.4–5 with Tables 7 and 8;
+- shear: equations 50–51.
+
+§4.3 uses "the applicable values of γ and β" both to read each curve and in its stress formula, so each term's
+own β appears in both places. The calculator reuses the verified Table 5 core for the signs and the
+superposition.
+
+Engineering judgement, labelled in the app and the report:
+- Table 7/8 factors between printed rows are interpolated, linearly or in log γ (the user's choice) and in
+  log(β1/β2), with factor 1 for a square (§4.2.2.2);
+- the Table 6 K for a component (Nφ, Nx, Mφ, Mx) is used at every point where that component is evaluated.
+  The round route reads different P curves at A/B and C/D, validated against CAESAR II.
+
+Blocked: torsion on a lug (§4.3.4, "acceptable methods … are not available"), β1/β2 outside 0.25–4, Mc/ML
+on a non-square footprint below γ 15 (Tables 7–8 start there), and any term β outside 0.05–0.5. A thin plate
+welded straight to the shell (for example 300 × 25 mm, β1/β2 ≈ 0.08) is outside the range. A pad does not
+change that at the lug itself.
+
+Evidence (`scripts/wrc-lug-check.mjs`):
+
+| Check | Result |
+|---|---|
+| Tables 6–8 in code vs the `docs/emp1` extraction | 116 values equal, parentheses (approximate rows) equal |
+| Independent hand calculation at γ = 100, β1/β2 = 2 (every factor a printed value), all six terms of P, Mc, ML plus Vc, VL | σφ, σx, τ and SI at 8/8 points to 1e-9 |
+| Square footprint vs round attachment with r0 = c/0.875 (equations 26–27), γ 62 | normal stresses identical at 8/8 points; shear V/(4cT) |
+| Factor interpolation | exact at printed rows, 1 for a square, continuous through it, approximate rows flagged |
+
+There is no external lug benchmark yet, and the shell FE cross-check has a round footprint only. A
+rectangular-footprint FE check is the next evidence step.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
@@ -493,7 +527,7 @@ Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ da
 12. Pressure stress (zero-ΔP is the current limit) and a Kn/Kb stress-concentration input.
 13. Code check: PL / PL+Pb / PL+Pb+Q against S, 1.5S and 3S, with user-entered allowables.
 14. Spherical shells (WRC 537 spherical tables).
-15. Rectangular attachments (lugs). Reinforcing pads on round attachments: done 2026-11-27.
+15. Rectangular attachments (lugs) and reinforcing pads: done 2026-11-27 (FE cross-check for lugs still open).
 16. A batch of load cases (sustained, operating, occasional) with an envelope table.
 17. More benchmarks: at least 3 more CAESAR II / PV Elite cases across γ = 10–300 and β = 0.05–0.5.
 
