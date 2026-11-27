@@ -52,8 +52,14 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   - **PL** is the Tresca of the membrane terms.
   - **`buildCodeCheck`** checks Pm ≤ S, PL ≤ 1.5S, and either PL+Pb+Q ≤ SPS (default 3S, bending class `Q`)
     or PL+Pb ≤ 1.5S (class `PB`). It returns null when S is blank.
-  - **`calculateWrc537Cases({loadCases:[{name, loads}]})`** gives the envelope, the governing case and the
-    overall code check.
+  - **`calculateWrcAttachment(input)`** adds the optional reinforcing pad (`padOutsideDiameter`,
+    `padThickness`; blank or 0 means no pad). `wrcLocationInputs` turns the input into one location
+    (`ATTACHMENT`) or two (`JUNCTION`: OD + 2·tp and t + tp, so T = t − CA + tp; `PAD_EDGE`: the pad diameter as
+    the attachment). Each is a plain `calculateWrc537` run. `governing` and `codeCheck` are the worst over the
+    locations. WRC 537 has no pad rule: this is the PV Elite two-location practice, and it is labelled as such.
+  - **`calculateWrc537Cases({loadCases:[{name, loads}]})`** runs each case through `calculateWrcAttachment`.
+    It gives the envelope, the governing case (with its location) and the overall code check. Each case's
+    stresses are in `cases[i].result.locations[j].result.rows`.
 - **`wrc-panel.js`** — the form UI.
   - Load-case tabs (MAX_CASES 20), live γ/β badges, the envelope, the code check and the FE section.
   - Saves to localStorage automatically. Save and Open use `*.wrc.json` files.
@@ -62,7 +68,10 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
 - **Verification** (`npm run check:wrc`):
   - the γ = 5 hand calculation matches exactly (Au = 72.67 MPa);
   - against CAESAR II 2017 at γ = 48.03 the worst point is +2.0%, with the same governing point (Du);
-  - pressure, Kn/Kb, the code check and the envelope match hand arithmetic.
+  - pressure, Kn/Kb, the code check and the envelope match hand arithmetic;
+  - the pad option (`scripts/wrc-pad-check.mjs`) reproduces PV Elite's per-location geometry and pressure
+    stress, and hand-calculated torsion shear, at both locations.
+  - The FE cross-check, given a pad, compares the pad-edge location (see `feReference` in `wrc-panel.js`).
 
 ### 3.2 Shell-FE cross-check (`src/app/lafea/nozzle-shell.js`, `nozzle-worker.js`)
 

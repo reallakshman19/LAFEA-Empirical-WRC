@@ -439,6 +439,27 @@ checks its structure and that the facts it states (tabulated γ rows, the KNOWN-
 ratios) match their sources. `e2e/app-status.spec.js` checks the tab and its filter, and that it does not
 load the LAFEA workbench.
 
+**2026-11-27: reinforcing pads in the WRC calculator.** WRC 537 has no pad rule (the bulletin lists pad
+guidance as future work). So the calculator uses the two-location practice that PV Elite uses:
+- at the attachment, the pad is added to the shell wall on the outside: T = t − CA + t<sub>pad</sub>, with Rm
+  the mean radius of that wall;
+- at the pad edge, the shell alone is checked, with the pad diameter as the attachment.
+
+Each location gets its own range checks and 8-point table. The governing value, envelope and code check take
+the worse location, and the result and report label the method as practice, not a WRC rule. Evidence
+(`scripts/wrc-pad-check.mjs`):
+
+| Check | Result |
+|---|---|
+| Per-location geometry from PV Elite's raw inputs (shell ID 2111, T 25, nozzle 914.4, pad 1064.4 × 25) against its printed values | exact: D 2161 / T 50 / d 914.4 at the attachment, D 2136 / T 25 / d 1064.4 at the pad edge |
+| Pressure hoop p·Rm/T against PV Elite's largest hoop pressure stress | 11 317 vs 11 320 kPa (0.03%) and 22 372 vs 22 372 kPa |
+| Shear from Vc, Vl and Mt | within 1% at 16/16 points |
+| Torsion alone, τ = Mt/(2π r0² T), by hand | exact at 8/8 points at both locations |
+| No pad (blank or 0) | identical to the single-location result |
+| Shell FE cross-check at the pad edge (pad as the rigid attachment), 36-inch example, all six loads | FE/WRC 1.17 at Cu, same governing point; 7 660 DOF, 21 s |
+
+The check at the attachment (shell + pad) has no FE counterpart in the current shell model.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
@@ -472,7 +493,7 @@ Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ da
 12. Pressure stress (zero-ΔP is the current limit) and a Kn/Kb stress-concentration input.
 13. Code check: PL / PL+Pb / PL+Pb+Q against S, 1.5S and 3S, with user-entered allowables.
 14. Spherical shells (WRC 537 spherical tables).
-15. Rectangular attachments (lugs, trunnion pads).
+15. Rectangular attachments (lugs). Reinforcing pads on round attachments: done 2026-11-27.
 16. A batch of load cases (sustained, operating, occasional) with an envelope table.
 17. More benchmarks: at least 3 more CAESAR II / PV Elite cases across γ = 10–300 and β = 0.05–0.5.
 

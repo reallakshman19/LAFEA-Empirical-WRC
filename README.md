@@ -78,6 +78,7 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
 - **Inputs:** plain inputs in mm, N or kN, and N·m, kN·m or N·mm:
   - shell OD, thickness and corrosion allowance;
   - attachment OD;
+  - optional reinforcing pad (outside diameter and thickness);
   - optional cylinder length and attachment position;
   - P, Vc, Vl, Mc, Ml and Mt in WRC axes, as **up to 20 named load cases**;
   - design pressure, and stress concentration factors Kn and Kb;
@@ -95,6 +96,14 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
 - **Output:** circumferential, longitudinal and shear stress, membrane stress intensity (PL)
   and total stress intensity (Tresca), at each point. The governing point is highlighted.
   With more than one load case, an envelope table shows each case's governing point.
+- **Reinforcing pad:** WRC 537 has no pad rule, so the shell is checked twice, as PV Elite does:
+  - **at the attachment**, with the pad added to the shell wall on the outside (T = t − CA + t<sub>pad</sub>,
+    and Rm of that combined wall);
+  - **at the pad edge**, with the shell alone and the pad diameter as the attachment.
+
+  Each location has its own γ/β badges, range checks, 8-point table and code check. The governing value,
+  envelope and code check take the worse location. This assumes the pad is fully welded and acts with the
+  shell; it is common practice, not a WRC rule. Pad welds and stress in the pad are not checked.
 - **Pressure:** adds the thin-shell membrane stress p·Rm/T (hoop) and p·Rm/2T (longitudinal)
   at every point. This is common practice, not part of WRC 537. The extra pressure stress at
   the edge of the opening is **not** included.
@@ -120,9 +129,13 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   - Vc 1.27 and Vl 0.37. WRC 537 treats both as pure shear, but FE also finds bearing stress on the loaded
     side, and for Vc, shell bending at C/D. The Vc value moves by up to 14% with how the attachment is modelled.
 
+  With a pad, the FE model checks the pad edge: the pad is the rigid attachment on the bare shell. The
+  check at the attachment (shell + pad) has no FE counterpart. On the 36-inch pad example, FE/WRC at the
+  pad edge is 1.17, with the same governing point (Cu).
+
   A large ratio is a reason to look closer, not a pass or fail. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
-- **Not covered:** spherical shells and rectangular attachments (the extracted EMP1 core has
-  no WRC 537 data for them), pressure stress concentration at the opening, and fatigue. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
+- **Not covered:** spherical shells and rectangular attachments (lugs are next; their WRC 537 rules
+  are confirmed from the licensed bulletin), pressure stress concentration at the opening, and fatigue. See [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
 
 The calculator is a thin wrapper over the EMP1 core
 (`buildEmp1Wrc537InterpolatedTable5Ordinates` and
@@ -139,6 +152,11 @@ The calculator is a thin wrapper over the EMP1 core
   every load term at every point, and the shear stresses within 1%. With the same 1.2 shell SCF,
   PV Elite's governing load stress is 1.39× ours at the junction and 1.78× at the pad edge; see
   the Phase 5.4 entry in [docs/AUDIT-AND-ROADMAP.md](docs/AUDIT-AND-ROADMAP.md).
+- the **pad option** (`scripts/wrc-pad-check.mjs`), against that same PV Elite report. From PV Elite's raw
+  inputs, both locations reproduce its printed mean diameter, thickness and attachment diameter (2161/50/914.4
+  and 2136/25/1064.4 mm), and its pressure hoop stress within 0.03%. Shear is within 1% at all 16 points. With
+  torsion alone, τ = Mt/(2π r0² T) holds at both locations by hand. It also checks that no pad gives exactly the
+  old result, and checks the worst-location envelope and code check and the blocking rules.
 
 ## Run
 
@@ -172,15 +190,15 @@ Results after Phase 5.4 (2026-11-26), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **304 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **305 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
 | Browser e2e (21 specs, 49 tests) | `npx playwright test` (dev server) | **41 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, LAFEA example, plate form, status page) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js` | **11 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
+| App e2e (WRC calculator, LAFEA example, plate form, status page) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js` | **12 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
-| First-load size | `npm run check:bundle-size` (after `build`) | pass: 128.5 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 137.2 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 13 KNOWN checks that `check:all`
 skips, each with a plain reason:
