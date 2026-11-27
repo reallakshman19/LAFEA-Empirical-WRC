@@ -82,7 +82,7 @@ export const KNOWN_ISSUES = Object.freeze([
     + 'interpolated (judgement), and some printed rows are approximate.',
     'Use your licensed program or LAFEA FE for these cases.',
     'Lugs added 2026-11-27 (hand-checked against the bulletin equations). The FE cross-check for a rectangular '
-    + 'footprint is planned (PL-02). Spheres come later.'),
+    + 'footprint is planned (PL-04), and a lug benchmark is ready to run (PL-02). Spheres come later.'),
   issue('KI-04', 'WRC calculator', 'MEDIUM', 'Reinforcing pads use the two-location method',
     'WRC 537 has no pad rule. The calculator checks the shell twice, as PV Elite does: at the attachment with '
     + 'shell + pad thickness, and at the pad edge with the shell alone and the pad diameter. This assumes the pad '
@@ -169,35 +169,58 @@ export const KNOWN_ISSUES = Object.freeze([
     'Tracked in scripts/known-upstream-failures.json.'),
 ]);
 
-/** Near-term improvements: what, why, size (S under ½ day, M 1–2 days, L 3+ days) and what it needs. */
+/**
+ * Near-term improvements, in the recommended order: what, why, size (S under ½ day, M 1–2 days, L 3+ days)
+ * and what it needs. PL-01 to PL-05 finish and prove the first production scope (nozzles, trunnions and
+ * lugs on cylinders); the cheapest, strongest evidence comes first and FE covers what nothing else does.
+ */
 export const PLANNED_IMPROVEMENTS = Object.freeze([
-  plan('PL-01', 'Finish the UI', 'L', 'Nothing',
+  plan('PL-01', 'Interpolation spread for lugs', 'S', 'Nothing',
+    'Shows how much the Table 7/8 judgement moves each lug result, so you can see when it matters.',
+    ['Rerun each lug with the factors from the nearest printed rows on each side, as well as the interpolated value',
+      'Show the low–high range next to the governing stress, and in the report',
+      'Flag a lug whose range is wide (for example over 10%) for a closer look']),
+  plan('PL-02', 'Lug benchmark from your licensed program', 'S', 'Your runs of 3 lug cases with WRC 537 (docs/LUG-BENCHMARK-REQUEST.md)',
+    'The only real WRC 537 evidence for lugs: the same footprints run in PV Elite or similar, compared point by point.',
+    ['Cases ready: L1 (γ 100, β1/β2 2, printed factors), L2 (γ 62, ratio 0.5, interpolated), L3 (γ 50, ratio 0.25, edge of range), optional L4 with a pad',
+      'Freeze each report as a JSON reference and check our 8 points against it, as for the CAESAR II nozzle',
+      'Trace any large difference to its load term: interpolation, curve reading or convention']),
+  plan('PL-03', 'Trunnions', 'S', 'Nothing',
+    'Completes the attachment types in the first production scope.',
+    ['Trunnion as a round attachment, solid or hollow, labelled in inputs, results and report',
+      'Same WRC 537 round-attachment route and FE cross-check as a nozzle', 'Trunnion pipe stresses stay out of scope, and are stated so']),
+  plan('PL-04', 'FE for lugs', 'M', 'Nothing',
+    'Gives lugs the same FE comparison as nozzles, and an answer where WRC 537 has none (thin plates, torsion).',
+    ['Shell-FE mesh with a rectangular footprint, blending out to the round patch',
+      'Checks: a square footprint matches the equivalent round plug; mesh refinement; FE/WRC ratios for 3–4 lug shapes frozen',
+      'FE as the route for lugs WRC 537 blocks: β1/β2 outside 0.25–4 and torsion. The corner peak is labelled mesh-dependent',
+      'No simple torsion formula is planned: a shear-flow estimate misses the shell bending. Say if you want it as a labelled screening value']),
+  plan('PL-05', 'A code method for thin plate lugs', 'M', 'Your copy of the standard, and which one: EN 13445-3 (clause 16) or PD 5500 (Annex G)',
+    'Thin plates welded straight to the shell are the most common lug and are outside WRC 537; a code method written for them is a cheaper everyday answer than FE.',
+    ['Confirm the method\'s range and formulas from your copy', 'Implement it as a separate, labelled route next to WRC 537',
+      'Check it against the standard\'s worked example, if it has one, and against FE (PL-04)']),
+  plan('PL-06', 'Finish the UI', 'L', 'Nothing',
     'One look and layout across the WRC calculator, the LAFEA tab and this page.',
     ['Custody and authority text moved into a "Technical details" drawer', 'Plain example defaults in the advanced workflow',
       'Help text on every input', 'Inch/lbf/psi units', 'Layout that works on a laptop screen and a tablet',
       'Keyboard and screen-reader checks']),
-  plan('PL-02', 'Trunnions, and FE for lugs', 'M', 'Your go to start',
-    'Completes the first production scope: nozzles, trunnions and lugs on cylinders, each with an FE check.',
-    ['Trunnion as a round attachment, solid or hollow, labelled in inputs and report', 'Shell-FE cross-check with a rectangular footprint, so lugs get the same FE comparison as nozzles',
-      'FE route for lugs that WRC 537 blocks (thin plates, torsion)', 'Frozen FE/WRC ratios for a few lug shapes as evidence for the Table 7/8 interpolation']),
-  plan('PL-03', 'Evidence for interpolated γ', 'M', 'Optional: WRC 537 output from your program',
+  plan('PL-07', 'Evidence for interpolated γ', 'M', 'Optional: WRC 537 output from your program',
     'Turns interpolated γ from judgement into evidence (Phase 5.4).',
     ['Shell-FE sweep across γ 15–100 at two or three β values, checking that the FE/WRC ratio moves smoothly between tabulated rows',
       'A WRC 537 rerun of the 36-inch PV Elite nozzle, if available (adds two cases at once)',
       'Search the CAESAR II conference paper for more worked examples']),
-  plan('PL-04', 'Stronger FE solver', 'M', 'Nothing',
+  plan('PL-08', 'Stronger FE solver', 'M', 'Nothing',
     'Fixes the stall on slender models (KI-13) and the loosened shell tolerances (KI-11).',
     ['Better preconditioner (incomplete Cholesky or SSOR)', 'Direct sparse solve for small models',
       'Keep every frozen result within its tolerance']),
-  plan('PL-05', 'Kt through the convergence study', 'S', 'Nothing',
+  plan('PL-09', 'Kt through the convergence study', 'S', 'Nothing',
     'Lets the study certify the peak stress itself (KI-14).',
     ['Mesh-profile option tying the hole-edge arc length to h', 'Study point on the hole edge']),
-  plan('PL-06', 'One project file and one report', 'M', 'Nothing',
+  plan('PL-10', 'One project file and one report', 'M', 'Nothing',
     'A job should open and print as one thing.',
     ['Save and open both tabs\' inputs together', 'Combined report: WRC table, FE cross-check, plate results',
       'Export tables as CSV']),
 ]);
-
 /** Longer-term stages toward the universal canvas and the empirical solver. */
 export const ROADMAP = Object.freeze([
   stage('A', 'Universal canvas', 'L', 'Draw the model once, use it everywhere. First release: cylindrical shells.', [
@@ -237,7 +260,8 @@ export const ROADMAP = Object.freeze([
 /** Decisions only the owner can make, kept on the page so they are not lost. */
 export const OPEN_DECISIONS = Object.freeze([
   'Benchmarks: can you supply WRC 537 output (inputs and the 8-point table) from CAESAR II or PV Elite for more nozzles?',
-  'Next: trunnions and an FE cross-check for lugs (PL-02), or finish the UI (PL-01) first?',
+  'Lug benchmark (PL-02): can you run the 3 cases in docs/LUG-BENCHMARK-REQUEST.md in PV Elite (or similar) with WRC 537?',
+  'Thin plate lugs (PL-05): do you have EN 13445-3 or PD 5500, and which should the app follow?',
 ]);
 
 /** Decisions already made, with their date. */

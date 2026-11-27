@@ -71,5 +71,11 @@ for (const ratio of ['1.39', '1.78']) {
   assert.ok(ki03.what.includes(ratio) && audit.includes(ratio), `KI-03 ratio ${ratio} must match the audit`);
 }
 
+// The lug roadmap points at a benchmark request that exists and lists the same cases.
+const pl02 = PLANNED_IMPROVEMENTS.find((p) => p.id === 'PL-02');
+const requestDoc = readFileSync(new URL('../docs/LUG-BENCHMARK-REQUEST.md', import.meta.url), 'utf8');
+assert.ok(pl02.needs.includes('docs/LUG-BENCHMARK-REQUEST.md'), 'PL-02 must point at the request');
+const requestCases = JSON.parse(readFileSync(new URL('../validation/emp1/lug-benchmark-request/lug-benchmark-cases-v1.json', import.meta.url))).cases;
+for (const c of requestCases) assert.ok(requestDoc.includes(`| ${c.caseId}`) && pl02.items[0].includes(c.caseId), `PL-02 and the request must both list ${c.caseId}`);
 console.log(`app status content: ${KNOWN_ISSUES.length} known issues, ${PLANNED_IMPROVEMENTS.length} planned improvements, `
   + `${ROADMAP.length} roadmap stages, ${OPEN_DECISIONS.length} open decisions; facts match their sources. PASS`);

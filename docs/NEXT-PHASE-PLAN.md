@@ -34,11 +34,25 @@ Production steps (owner, 2026-11-27: pads first):
    (shell + pad) and at the pad edge. See the AUDIT-AND-ROADMAP progress entry.
 2. **Lugs** in the WRC calculator (M): done 2026-11-27, within the WRC 537 rules (no torsion,
    β1/β2 0.25–4, γ ≥ 15 for moments on a non-square lug). See the AUDIT-AND-ROADMAP progress entry.
-3. **Trunnions** as round attachments, solid or hollow, and an **FE cross-check with a rectangular
-   footprint** for lugs (S–M each): next, needs your go.
-4. **Finish the UI**, then the canvas (L).
 
-The next work is to finish the UI. The app's **Status & roadmap** tab (`src/app/status/status-content.js`)
+### Roadmap to finish the first production scope (2026-11-27)
+
+The cheapest, strongest evidence comes first, and FE covers what nothing else does. The same list is
+"Improvements planned" (PL-01 to PL-10) in the app's Status & roadmap tab.
+
+| Step | What | Size | Needs | Why this order |
+|---|---|---|---|---|
+| PL-01 | **Interpolation spread for lugs:** rerun each lug with the nearest printed Table 7/8 rows and show the low–high range | S | nothing | Shows at once how much the judgement matters for each lug |
+| PL-02 | **Lug benchmark:** 3 lug cases (plus an optional one with a pad) run in your licensed program with WRC 537, frozen as checks. Cases: [LUG-BENCHMARK-REQUEST.md](LUG-BENCHMARK-REQUEST.md) | S | **your runs** | The only real WRC 537 evidence for lugs; FE gives only a ratio |
+| PL-03 | **Trunnions:** round attachment, solid or hollow, labelled | S | nothing | Completes the attachment types |
+| PL-04 | **FE for lugs:** rectangular-footprint shell mesh; FE/WRC ratios for 3–4 shapes; FE as the route for lugs WRC 537 blocks (thin plates, torsion) | M | nothing | Covers what WRC 537 cannot; the corner peak is labelled mesh-dependent |
+| PL-05 | **Code method for thin plate lugs:** EN 13445-3 clause 16 or PD 5500 Annex G | M | **your copy of the standard, and which one** | Thin plates welded straight to the shell are the usual lug, and outside WRC 537 |
+| PL-06 | **Finish the UI**, then the canvas (roadmap stages A–D) | L | nothing | |
+
+A simple torsion formula for lugs is not planned. A shear-flow estimate misses the shell bending that WRC 537
+§4.3.4 warns about, so torsion goes to FE (PL-04) unless you ask for a labelled screening value.
+
+The app's **Status & roadmap** tab (`src/app/status/status-content.js`)
 holds the known issues, the planned improvements and the staged roadmap (A: canvas, B: empirical solver on
 the canvas, C: empirical and FE together, D: wider coverage). Keep that file and this plan in step.
 
@@ -100,8 +114,11 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
    PDF; pads go first, then lugs.*
 3. **`lafea.html`:** *decided 2026-11-26: keep it.* Keep the original single-view LAFEA page, or remove it with its upstream-only
    tests?
+4. **Lug benchmark (PL-02):** can you run the cases in [LUG-BENCHMARK-REQUEST.md](LUG-BENCHMARK-REQUEST.md)
+   in PV Elite (or similar) with WRC 537?
+5. **Thin plate lugs (PL-05):** do you have EN 13445-3 or PD 5500, and which should the app follow?
 
 ## Suggested start
 
-5.1, then 5.2, then 5.3. None of these needs input from you. 5.4 can run in parallel as soon as data
-arrives.
+5.1, then 5.2, then 5.3 (all done 2026-11-26). Next: PL-01, PL-03 and PL-04 need nothing from you; PL-02
+and PL-05 start as soon as your runs or your standard arrive.

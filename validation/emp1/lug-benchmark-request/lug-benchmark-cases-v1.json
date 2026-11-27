@@ -1,0 +1,65 @@
+{
+  "schema": "emp1-lug-benchmark-request/v1",
+  "purpose": "Lug (rectangular attachment) cases to run in the owner's licensed program with WRC 537, to benchmark the calculator's rectangular route. See docs/LUG-BENCHMARK-REQUEST.md.",
+  "method": "WRC 537 (2013), cylindrical shell, rectangular attachment",
+  "units": { "length": "mm", "force": "N", "moment": "N·m" },
+  "settings": {
+    "shellStressConcentrationFactor": 1.0,
+    "designPressure": 0,
+    "corrosionAllowance": 0,
+    "signConvention": "WRC 537 Figure 2 (WRC 107/537)",
+    "torsion": "Mt = 0: WRC 537 gives no method for torsion on a rectangular attachment"
+  },
+  "cases": [
+    {
+      "caseId": "L1",
+      "why": "γ = 100 exactly and β1/β2 = 2: every Table 7/8 factor is a printed value, so programs should agree closely. Same as the hand calculation in scripts/wrc-lug-check.mjs.",
+      "shellOutsideDiameter": 2010,
+      "shellInsideDiameter": 1990,
+      "shellThickness": 10,
+      "attachmentLengthAlongShell": 100,
+      "attachmentWidthAroundShell": 200,
+      "c1HalfWidthAround": 100,
+      "c2HalfLengthAlong": 50,
+      "loads": { "P": -3000, "Vc": 800, "Vl": -1200, "Mc": 2000, "Ml": -3000, "Mt": 0 }
+    },
+    {
+      "caseId": "L2",
+      "why": "γ = 62 and β1/β2 = 0.5: γ and the Table 7/8 factors are interpolated, and some Table 8 rows used are approximate (printed in parentheses). Same as the app example 'Lug, 200 × 100 mm footprint'.",
+      "shellOutsideDiameter": 1500,
+      "shellInsideDiameter": 1476,
+      "shellThickness": 12,
+      "attachmentLengthAlongShell": 200,
+      "attachmentWidthAroundShell": 100,
+      "c1HalfWidthAround": 50,
+      "c2HalfLengthAlong": 100,
+      "loads": { "P": -5000, "Vc": 1000, "Vl": -3000, "Mc": 1000, "Ml": -4000, "Mt": 0 }
+    },
+    {
+      "caseId": "L3",
+      "why": "γ = 50 and β1/β2 = 0.25: the edge of the WRC 537 shape range. Table 7 uses a printed row; Table 8 (β2/β1 = 4) is interpolated in γ.",
+      "shellOutsideDiameter": 1616,
+      "shellInsideDiameter": 1584,
+      "shellThickness": 16,
+      "attachmentLengthAlongShell": 400,
+      "attachmentWidthAroundShell": 100,
+      "c1HalfWidthAround": 50,
+      "c2HalfLengthAlong": 200,
+      "loads": { "P": -8000, "Vc": 2000, "Vl": -4000, "Mc": 3000, "Ml": -6000, "Mt": 0 }
+    },
+    {
+      "caseId": "L4",
+      "optional": true,
+      "why": "L2 with a 300 × 200 × 10 mm reinforcing pad: checks the two-location pad treatment (at the lug on shell + pad, and at the pad edge).",
+      "shellOutsideDiameter": 1500,
+      "shellInsideDiameter": 1476,
+      "shellThickness": 12,
+      "attachmentLengthAlongShell": 200,
+      "attachmentWidthAroundShell": 100,
+      "c1HalfWidthAround": 50,
+      "c2HalfLengthAlong": 100,
+      "pad": { "lengthAlongShell": 300, "widthAroundShell": 200, "thickness": 10 },
+      "loads": { "P": -5000, "Vc": 1000, "Vl": -3000, "Mc": 1000, "Ml": -4000, "Mt": 0 }
+    }
+  ]
+}

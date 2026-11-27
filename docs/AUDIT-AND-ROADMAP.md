@@ -491,8 +491,17 @@ Evidence (`scripts/wrc-lug-check.mjs`):
 | Square footprint vs round attachment with r0 = c/0.875 (equations 26–27), γ 62 | normal stresses identical at 8/8 points; shear V/(4cT) |
 | Factor interpolation | exact at printed rows, 1 for a square, continuous through it, approximate rows flagged |
 
-There is no external lug benchmark yet, and the shell FE cross-check has a round footprint only. A
-rectangular-footprint FE check is the next evidence step.
+There is no external lug benchmark yet, and the shell FE cross-check has a round footprint only.
+
+**2026-11-27: lug roadmap.** The Status & roadmap tab now lists 10 planned improvements in the
+recommended order (details in NEXT-PHASE-PLAN.md):
+1. interpolation spread for lugs;
+2. a lug benchmark from the owner's licensed program (cases ready in `docs/LUG-BENCHMARK-REQUEST.md`,
+   checked to be accepted by the calculator);
+3. trunnions;
+4. FE for lugs;
+5. a code method for thin plate lugs;
+6. then the UI finish.
 
 ## Roadmap
 
