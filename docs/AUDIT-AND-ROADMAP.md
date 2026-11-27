@@ -503,6 +503,22 @@ recommended order (details in NEXT-PHASE-PLAN.md):
 5. a code method for thin plate lugs;
 6. then the UI finish.
 
+**2026-11-27: PL-01, interpolation spread for lugs.** When a Table 7/8 factor used by a non-zero load is
+interpolated, the lug is run again with the printed rows on each side of each bracket instead: lower or upper
+β1/β2 row × lower or upper γ row, up to four corner runs. The curves are read exactly as in the main run; only
+the factors change. The low–high governing stress is shown under the result and in the report, and flagged
+when wider than 10% of the governing value. The corners show how much the judgement matters; they are not a
+proven bound.
+
+| Lug (shell OD 1500 × 12 mm, γ 62) | Spread of governing SI |
+|---|---|
+| 200 × 100 mm footprint (β1/β2 0.5), app example loads | 150.10–156.26 MPa, 4.0% (Table 7/8 ratios printed, γ interpolated) |
+| 200 × 60 mm (β1/β2 0.3), Mc only | about 22%: flagged (the 0.25 and 0.5 rows of Table 7 differ a lot) |
+| Printed factors only (γ 100, β1/β2 2), or a square footprint | no spread |
+
+So narrow lugs under Mc are where the interpolation judgement matters most. They are the first candidates for
+the lug benchmark (PL-02) and FE (PL-04).
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

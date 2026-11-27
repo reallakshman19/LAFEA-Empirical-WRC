@@ -79,7 +79,8 @@ export const KNOWN_ISSUES = Object.freeze([
     + '1.78× (pad edge) of ours. Lugs (rectangular attachments) follow WRC 537 §4.2.2: torsion on a lug has no WRC '
     + 'method and is blocked; the footprint must have β1/β2 between 0.25 and 4, so a thin plate welded straight to '
     + 'the shell is blocked; moments on a non-square lug need γ ≥ 15. Table 7/8 factors between printed rows are '
-    + 'interpolated (judgement), and some printed rows are approximate.',
+    + 'interpolated (judgement), and some printed rows are approximate; the result shows the spread with the nearest printed '
+    + 'rows instead, and flags it when wider than 10% (a narrow lug under Mc can reach about 22%).',
     'Use your licensed program or LAFEA FE for these cases.',
     'Lugs added 2026-11-27 (hand-checked against the bulletin equations). The FE cross-check for a rectangular '
     + 'footprint is planned (PL-04), and a lug benchmark is ready to run (PL-02). Spheres come later.'),
@@ -171,15 +172,11 @@ export const KNOWN_ISSUES = Object.freeze([
 
 /**
  * Near-term improvements, in the recommended order: what, why, size (S under ½ day, M 1–2 days, L 3+ days)
- * and what it needs. PL-01 to PL-05 finish and prove the first production scope (nozzles, trunnions and
+ * and what it needs. PL-02 to PL-05 finish and prove the first production scope (nozzles, trunnions and
  * lugs on cylinders); the cheapest, strongest evidence comes first and FE covers what nothing else does.
+ * PL-01 (interpolation spread for lugs) was done on 2026-11-27 and is now part of the calculator.
  */
 export const PLANNED_IMPROVEMENTS = Object.freeze([
-  plan('PL-01', 'Interpolation spread for lugs', 'S', 'Nothing',
-    'Shows how much the Table 7/8 judgement moves each lug result, so you can see when it matters.',
-    ['Rerun each lug with the factors from the nearest printed rows on each side, as well as the interpolated value',
-      'Show the low–high range next to the governing stress, and in the report',
-      'Flag a lug whose range is wide (for example over 10%) for a closer look']),
   plan('PL-02', 'Lug benchmark from your licensed program', 'S', 'Your runs of 3 lug cases with WRC 537 (docs/LUG-BENCHMARK-REQUEST.md)',
     'The only real WRC 537 evidence for lugs: the same footprints run in PV Elite or similar, compared point by point.',
     ['Cases ready: L1 (γ 100, β1/β2 2, printed factors), L2 (γ 62, ratio 0.5, interpolated), L3 (γ 50, ratio 0.25, edge of range), optional L4 with a pad',

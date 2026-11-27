@@ -106,13 +106,20 @@ function gammaWeight(coordinate, gamma, lower, upper) {
   return (gamma - lower) / (upper - lower);
 }
 
-/** One ratio row of Table 7 or 8, at γ: exact, or blended between the two nearest γ rows. */
-function valueAtGamma(rows, column, gamma, coordinate) {
+/**
+ * One ratio row of Table 7 or 8, at γ: exact, or blended between the two nearest γ rows.
+ * `pickGamma` ('lo' or 'hi') takes that printed row instead of blending (for the interpolation spread).
+ */
+function valueAtGamma(rows, column, gamma, coordinate, pickGamma = null) {
   const exact = rows.find((r) => SAME(r.gamma, gamma));
   if (exact) return { value: exact.values[column], approximate: exact.approximate, gammaInterpolated: false };
   const i = rows.findIndex((r) => r.gamma > gamma);
   const lower = rows[i - 1];
   const upper = rows[i];
+  if (pickGamma) {
+    const r = pickGamma === 'lo' ? lower : upper;
+    return { value: r.values[column], approximate: r.approximate, gammaInterpolated: false, picked: true };
+  }
   const w = gammaWeight(coordinate, gamma, lower.gamma, upper.gamma);
   return {
     value: (1 - w) * lower.values[column] + w * upper.values[column],
@@ -124,8 +131,10 @@ function valueAtGamma(rows, column, gamma, coordinate) {
 /**
  * Table 7 or 8 factor for one column at a shape ratio and γ.
  * Returns { value, approximate, interpolated } or { blocked: reason }.
+ * `pick` = { ratio: 'lo'|'hi', gamma: 'lo'|'hi' } takes the printed row on that side of each bracket instead
+ * of interpolating (exact rows are used as they are). This gives the corners of the interpolation spread.
  */
-export function momentFactor(table, column, ratio, gamma, coordinate = 'LINEAR_GAMMA') {
+export function momentFactor(table, column, ratio, gamma, coordinate = 'LINEAR_GAMMA', pick = null) {
   if (SAME(ratio, 1)) return { value: 1, approximate: false, interpolated: false, square: true };
   if (!(ratio >= WRC537_RECT_RATIO_RANGE.minimum - 1e-12 && ratio <= WRC537_RECT_RATIO_RANGE.maximum + 1e-12)) {
     return { blocked: 'RATIO' };
@@ -136,7 +145,7 @@ export function momentFactor(table, column, ratio, gamma, coordinate = 'LINEAR_G
   const ratios = [0.25, 0.5, 1, 2, 4];
   const at = (r) => (r === 1
     ? { value: 1, approximate: false, gammaInterpolated: false }
-    : valueAtGamma(table[r], column, gamma, coordinate));
+    : valueAtGamma(table[r], column, gamma, coordinate, pick?.gamma ?? null));
   const exactRatio = ratios.find((r) => SAME(r, ratio));
   if (exactRatio !== undefined) {
     const v = at(exactRatio);
@@ -145,6 +154,10 @@ export function momentFactor(table, column, ratio, gamma, coordinate = 'LINEAR_G
   const i = ratios.findIndex((r) => r > ratio);
   const lo = ratios[i - 1];
   const hi = ratios[i];
+  if (pick) {
+    const v = at(pick.ratio === 'lo' ? lo : hi);
+    return { value: v.value, approximate: v.approximate, interpolated: false, picked: true };
+  }
   const w = (Math.log(ratio) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
   const a = at(lo);
   const b = at(hi);
@@ -161,7 +174,7 @@ export function momentFactor(table, column, ratio, gamma, coordinate = 'LINEAR_G
  * Returns { terms: { circ: {key: term}, long: {...} }, reasons, notes }, where a term is
  * { component, load, beta, factor, factorApproximate, factorInterpolated, basis }.
  */
-export function rectangularTerms({ beta1, beta2, gamma, coordinate }) {
+export function rectangularTerms({ beta1, beta2, gamma, coordinate, pick = null }) {
   const ratio = beta1 / beta2; // Table 7 index
   const mcRoot = Math.cbrt(beta1 ** 2 * beta2);
   const mlRoot = Math.cbrt(beta1 * beta2 ** 2);
@@ -174,10 +187,10 @@ export function rectangularTerms({ beta1, beta2, gamma, coordinate }) {
     for (const key of ['Pmem_AB', 'Pmem_CD']) add(family, key, { component: N, load: 'P', beta: pN, factor: 1, tableFactor: null, basis: `eq. ${ratio >= 1 ? 29 : 30}, Table 6 K for ${SYMBOL[N]}` });
     for (const key of ['Pbend_AB', 'Pbend_CD']) add(family, key, { component: M, load: 'P', beta: pM, factor: 1, tableFactor: null, basis: `eq. ${ratio >= 1 ? 29 : 30}, Table 6 K for ${SYMBOL[M]}` });
 
-    const cMem = momentFactor(WRC537_TABLE7, N, ratio, gamma, coordinate);
-    const cBend = momentFactor(WRC537_TABLE7, M, ratio, gamma, coordinate);
-    const lMem = momentFactor(WRC537_TABLE8, N, 1 / ratio, gamma, coordinate);
-    const lBend = momentFactor(WRC537_TABLE8, M, 1 / ratio, gamma, coordinate);
+    const cMem = momentFactor(WRC537_TABLE7, N, ratio, gamma, coordinate, pick);
+    const cBend = momentFactor(WRC537_TABLE7, M, ratio, gamma, coordinate, pick);
+    const lMem = momentFactor(WRC537_TABLE8, N, 1 / ratio, gamma, coordinate, pick);
+    const lBend = momentFactor(WRC537_TABLE8, M, 1 / ratio, gamma, coordinate, pick);
     for (const f of [cMem, cBend]) if (f.blocked) blockedFactors.add(`Mc:${f.blocked}`);
     for (const f of [lMem, lBend]) if (f.blocked) blockedFactors.add(`Ml:${f.blocked}`);
     const term = (load, component, beta, factor, basis, f, kind) => ({

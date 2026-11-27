@@ -132,6 +132,8 @@ test('a rectangular lug is solved with a β for each term, and its limits are ex
   await expect(calc.locator('.wrc__gov strong')).toHaveText('153.38 MPa');
   await expect(calc.locator('.wrc__gov b')).toHaveText('Au');
   await expect(calc.locator('.wrc__terms tbody tr')).toHaveCount(16);
+  await expect(calc.locator('.wrc__spread')).toContainText('150.10–156.26 MPa');
+  await expect(calc.locator('.wrc__spread--wide')).toHaveCount(0);
   await expect(calc.locator('.wrc__notes')).toContainText('gives each load and stress component its own β');
   await expect(calc.locator('[data-act="runFe"]')).toBeDisabled();
   await expect(calc.locator('[data-slot="feScope"]')).toContainText('round footprint only');

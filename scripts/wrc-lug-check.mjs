@@ -221,6 +221,38 @@ for (const text of ['rectangular attachment (§4.2.2', 'β used', 'Table factor'
 }
 console.log('Report and load-case batch carry the rectangular data');
 
+// 9. Interpolation spread (roadmap PL-01): corner runs with the printed rows on each side of the interpolation.
+{
+  // Printed factors only, a square, or a round attachment: no spread.
+  assert.equal(app.factorSpread, null);
+  assert.equal(calculateWrc537({ ...lug, attachmentWidth: 200 }).factorSpread, null);
+  assert.equal(calculateWrc537(EXAMPLE_CASES.CAESAR_GAMMA48).factorSpread ?? null, null);
+  // A corner's factors are printed table values: lower/upper β1/β2 row × lower/upper γ row.
+  assert.equal(momentFactor(WRC537_TABLE7, 'Nphi', 0.7, 62, 'LINEAR_GAMMA', { ratio: 'lo', gamma: 'lo' }).value, 0.57); // 0.5 row, γ 50
+  assert.equal(momentFactor(WRC537_TABLE7, 'Nphi', 0.7, 62, 'LINEAR_GAMMA', { ratio: 'lo', gamma: 'hi' }).value, 0.51); // 0.5 row, γ 100
+  assert.equal(momentFactor(WRC537_TABLE7, 'Nphi', 0.7, 62, 'LINEAR_GAMMA', { ratio: 'hi', gamma: 'lo' }).value, 1); // square
+  assert.equal(momentFactor(WRC537_TABLE8, 'Nx', 2, 62, 'LINEAR_GAMMA', { ratio: 'lo', gamma: 'lo' }).value, 1.30); // exact ratio 2, γ 15 row
+  assert.equal(momentFactor(WRC537_TABLE8, 'Nx', 2, 62, 'LINEAR_GAMMA', { ratio: 'hi', gamma: 'hi' }).value, 1.15); // γ 100 row
+  // The app example (β1/β2 0.5 and β2/β1 2 are printed ratios, γ 62 is not): two distinct corners, around the base value.
+  const example = calculateWrc537(lug);
+  const sp = example.factorSpread;
+  assert.equal(sp.corners.length, 2);
+  assert.deepEqual(sp.corners.map((c) => c.pick.gamma), ['lo', 'hi']);
+  assert.ok(sp.low <= example.governing.stressIntensity && example.governing.stressIntensity <= sp.high);
+  assert.ok(near(sp.low, Math.min(example.governing.stressIntensity, ...sp.corners.map((c) => c.stressIntensity))));
+  assert.ok(near(sp.high, Math.max(example.governing.stressIntensity, ...sp.corners.map((c) => c.stressIntensity))));
+  assert.ok(near(sp.width, (sp.high - sp.low) / example.governing.stressIntensity));
+  assert.equal(sp.wide, false);
+  // Between ratio rows (0.7): four corners.
+  assert.equal(calculateWrc537({ ...lug, attachmentWidth: 140 }).factorSpread.corners.length, 4);
+  // A narrow lug carrying Mc (β1/β2 0.3, between the 0.25 and 0.5 rows, which differ a lot): wide, and flagged.
+  const narrow = calculateWrc537({ ...lug, attachmentWidth: 60, loads: { P: 0, Vc: 0, Vl: 0, Mc: 3000, Ml: 0, Mt: 0 } });
+  assert.ok(narrow.factorSpread.wide && narrow.factorSpread.width > 0.2, `narrow lug spread ${narrow.factorSpread.width}`);
+  assert.ok(narrow.warnings.some((w) => /interpolation matters/u.test(w)));
+  assert.ok(buildWrcReportHtml(narrow).includes('Table 7/8 interpolation spread'));
+  console.log(`Interpolation spread: none for printed factors or a square; app example ${sp.low.toFixed(2)}–${sp.high.toFixed(2)} MPa (${(100 * sp.width).toFixed(1)}%); narrow lug under Mc ${(100 * narrow.factorSpread.width).toFixed(0)}%, flagged`);
+}
+
 // 8. The benchmark request (docs/LUG-BENCHMARK-REQUEST.md): every case is consistent and accepted by the calculator.
 {
   const request = JSON.parse(readFileSync(new URL('../validation/emp1/lug-benchmark-request/lug-benchmark-cases-v1.json', import.meta.url)));
