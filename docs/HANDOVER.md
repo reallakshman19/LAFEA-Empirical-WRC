@@ -57,6 +57,12 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
     (`ATTACHMENT`) or two (`JUNCTION`: OD + 2·tp and t + tp, so T = t − CA + tp; `PAD_EDGE`: the pad diameter as
     the attachment). Each is a plain `calculateWrc537` run. `governing` and `codeCheck` are the worst over the
     locations. WRC 537 has no pad rule: this is the PV Elite two-location practice, and it is labelled as such.
+  - **Rectangular attachments** (`attachmentType: 'RECTANGULAR'`, `attachmentLength` = 2·c2 along the shell,
+    `attachmentWidth` = 2·c1 around it; rectangular pads use `padLength`/`padWidth`). `wrc537-rectangular.js`
+    holds Tables 6–8 and gives each Table 5 term its own β and factor (WRC 537 §4.2.2). `evaluateRectangular`
+    in `wrc-calc.js` reads each term at its β and calls the same Table 5 core with β = 1, passing each ordinate
+    as (value × C)/β_term. Shear goes through the core with an equivalent radius, π·r = 4·c (equations 50–51).
+    Blocked: Mt ≠ 0, β1/β2 outside 0.25–4, Mc/ML below γ 15 on a non-square footprint, any term β outside 0.05–0.5.
   - **`calculateWrc537Cases({loadCases:[{name, loads}]})`** runs each case through `calculateWrcAttachment`.
     It gives the envelope, the governing case (with its location) and the overall code check. Each case's
     stresses are in `cases[i].result.locations[j].result.rows`.
@@ -72,6 +78,9 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   - the pad option (`scripts/wrc-pad-check.mjs`) reproduces PV Elite's per-location geometry and pressure
     stress, and hand-calculated torsion shear, at both locations.
   - The FE cross-check, given a pad, compares the pad-edge location (see `feReference` in `wrc-panel.js`).
+    It is disabled for a rectangular attachment (round footprint only).
+  - lugs (`scripts/wrc-lug-check.mjs`): the tables against the `docs/emp1` extraction; an independent hand
+    calculation at γ 100, β1/β2 2; square footprint = round with r0 = c/0.875; interpolation; blocking.
 
 ### 3.2 Shell-FE cross-check (`src/app/lafea/nozzle-shell.js`, `nozzle-worker.js`)
 

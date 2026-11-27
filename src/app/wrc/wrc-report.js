@@ -101,9 +101,12 @@ ${cc ? `${checkTable(r.locations, padded)}<p>Code check for this case: <b class=
     return `${label}
 <tr><td>Thickness used (${l.id === 'JUNCTION' ? 't<sub>n</sub> − CA + t<sub>pad</sub>' : 't<sub>n</sub> − CA'})</td><td>T</td><td class="n">${fmt(g.T, 3)}</td><td>mm</td></tr>
 <tr><td>Mean radius of that wall</td><td>R<sub>m</sub></td><td class="n">${fmt(g.Rm, 3)}</td><td>mm</td></tr>
-<tr><td>${l.id === 'PAD_EDGE' ? 'Pad outside radius (the attachment here)' : 'Attachment outside radius'}</td><td>r<sub>0</sub></td><td class="n">${fmt(g.r0, 3)}</td><td>mm</td></tr>
+${g.rectangular ? `<tr><td>${l.id === 'PAD_EDGE' ? 'Pad (the attachment here): half-width around / half-length along' : 'Attachment half-width around / half-length along the shell'}</td><td>c<sub>1</sub> / c<sub>2</sub></td><td class="n">${fmt(g.c1, 3)} / ${fmt(g.c2, 3)}</td><td>mm</td></tr>
 <tr><td>γ = R<sub>m</sub>/T</td><td>γ</td><td class="n">${fmt(g.gamma, 3)}</td><td>—</td></tr>
-<tr><td>β = 0.875·r<sub>0</sub>/R<sub>m</sub></td><td>β</td><td class="n">${fmt(g.beta, 4)}</td><td>—</td></tr>
+<tr><td>β<sub>1</sub> = c<sub>1</sub>/R<sub>m</sub>, β<sub>2</sub> = c<sub>2</sub>/R<sub>m</sub>, β<sub>1</sub>/β<sub>2</sub> (eq. 28)</td><td>β<sub>1</sub> / β<sub>2</sub></td><td class="n">${fmt(g.beta1, 4)} / ${fmt(g.beta2, 4)} / ${fmt(g.ratio, 3)}</td><td>—</td></tr>`
+    : `<tr><td>${l.id === 'PAD_EDGE' ? 'Pad outside radius (the attachment here)' : 'Attachment outside radius'}</td><td>r<sub>0</sub></td><td class="n">${fmt(g.r0, 3)}</td><td>mm</td></tr>
+<tr><td>γ = R<sub>m</sub>/T</td><td>γ</td><td class="n">${fmt(g.gamma, 3)}</td><td>—</td></tr>
+<tr><td>β = 0.875·r<sub>0</sub>/R<sub>m</sub></td><td>β</td><td class="n">${fmt(g.beta, 4)}</td><td>—</td></tr>`}
 ${l.result.ok ? `<tr><td>Pressure membrane stress, hoop p·R<sub>m</sub>/T / longitudinal p·R<sub>m</sub>/2T</td><td>σ<sub>p</sub></td><td class="n">${fmt(l.result.pressureStress.circumferential, 3)} / ${fmt(l.result.pressureStress.longitudinal, 3)}</td><td>MPa</td></tr>` : ''}`;
   }).join('');
 
@@ -112,10 +115,10 @@ ${l.result.ok ? `<tr><td>Pressure membrane stress, hoop p·R<sub>m</sub>/T / lon
     const g = r.geometry;
     const rows = ['circ', 'long'].flatMap((family) => Object.entries(r.provenance[family]).map(([key, p]) => `
         <tr><td>${family === 'circ' ? 'Circumferential' : 'Longitudinal'}</td><td>${esc(key)}</td>
-        <td>${esc(p.figure)}</td><td class="n">${fmt(Math.abs(p.y), 5)}</td><td>${p.interpolationUsed ? 'interpolated' : 'tabulated row'}</td></tr>`)).join('');
+        <td>${esc(p.figure)}</td>${g.rectangular ? `<td class="n">${p.unused ? '—' : fmt(p.beta, 4)}</td><td class="n">${p.unused || !p.tableFactor ? '—' : `${p.tableFactor.kind} ${fmt(p.tableFactor.value, 3)}${p.factorApproximate ? ' (approx.)' : ''}`}</td>` : ''}<td class="n">${p.unused ? 'not used (load 0)' : fmt(Math.abs(p.y), 5)}</td><td>${p.unused ? '—' : `${p.interpolationUsed ? 'interpolated' : 'tabulated row'}${g.rectangular ? `; ${esc(p.basis)}` : ''}`}</td></tr>`)).join('');
     return `${padded ? `<h3>${esc(l.label)}</h3>` : ''}
-<div class="muted">Original curves, γ = ${fmt(g.gamma, 3)}, β = ${fmt(g.beta, 4)}. The M<sub>L</sub> bending curves are 1B/2B (eight-point axis values).${r.tier === 'INTERPOLATED' ? ` Interpolated between γ = ${r.gammaClass.lower} and ${r.gammaClass.upper} (${r.coordinate === 'LINEAR_GAMMA' ? 'linear in γ' : 'log γ'}).` : ''}</div>
-<table><tr><th>Family</th><th>Term</th><th>Figure</th><th class="n">|ordinate|</th><th>Source</th></tr>${rows}</table>`;
+<div class="muted">Original curves, γ = ${fmt(g.gamma, 3)}, ${g.rectangular ? 'β for each term from WRC 537 §4.2.2 (shown)' : `β = ${fmt(g.beta, 4)}`}. The M<sub>L</sub> bending curves are 1B/2B (eight-point axis values).${r.tier === 'INTERPOLATED' ? ` Interpolated between γ = ${r.gammaClass.lower} and ${r.gammaClass.upper} (${r.coordinate === 'LINEAR_GAMMA' ? 'linear in γ' : 'log γ'}).` : ''}</div>
+<table><tr><th>Family</th><th>Term</th><th>Figure</th>${g.rectangular ? '<th class="n">β used</th><th class="n">Table factor</th>' : ''}<th class="n">|ordinate|</th><th>Source</th></tr>${rows}</table>`;
   }).join('\n') : '';
 
   return `<!doctype html>
@@ -135,7 +138,7 @@ ${l.result.ok ? `<tr><td>Pressure membrane stress, hoop p·R<sub>m</sub>/T / lon
 </style></head><body>
 <h1>WRC 537 local stress: ${esc(i.title || 'Attachment on cylindrical shell')}</h1>
 <div class="muted">Generated ${esc(generatedAt.toISOString().replace('T', ' ').slice(0, 19))} UTC · LAFEA + Empirical/WRC ${esc(appVersion)}</div>
-<div class="tier"><b>Method:</b> WRC Bulletin 537 (2013), cylindrical shell, round attachment, Table 5. ${esc(WRC_TIER_TEXT[ref.tier])}${padded ? `<br>${esc(WRC_PAD_METHOD_TEXT)}` : ''}</div>
+<div class="tier"><b>Method:</b> WRC Bulletin 537 (2013), cylindrical shell, ${g0.rectangular ? 'rectangular attachment (§4.2.2, equations 28–30 and 50–51, Tables 6–8) on the Table 5 curves' : 'round attachment, Table 5'}. ${esc(WRC_TIER_TEXT[ref.tier])}${padded ? `<br>${esc(WRC_PAD_METHOD_TEXT)}` : ''}</div>
 
 <h2>1. Geometry and design data</h2>
 <table>
@@ -143,8 +146,11 @@ ${l.result.ok ? `<tr><td>Pressure membrane stress, hoop p·R<sub>m</sub>/T / lon
 <tr><td>Shell outside diameter</td><td>D<sub>o</sub></td><td class="n">${fmt(g0.OD, 2)}</td><td>mm</td></tr>
 <tr><td>Shell nominal thickness</td><td>t<sub>n</sub></td><td class="n">${fmt(g0.tn, 2)}</td><td>mm</td></tr>
 <tr><td>Corrosion allowance</td><td>CA</td><td class="n">${fmt(g0.ca, 2)}</td><td>mm</td></tr>
-<tr><td>Attachment outside diameter</td><td>d</td><td class="n">${fmt(2 * g0.r0, 2)}</td><td>mm</td></tr>
-${padded && first.pad ? `<tr><td>Reinforcing pad outside diameter / thickness / width</td><td>d<sub>pad</sub> / t<sub>pad</sub> / w</td><td class="n">${fmt(first.pad.outsideDiameter, 2)} / ${fmt(first.pad.thickness, 2)} / ${fmt(first.pad.width, 2)}</td><td>mm</td></tr>` : ''}
+${g0.rectangular
+    ? `<tr><td>Attachment footprint, length along / width around the shell</td><td>2c<sub>2</sub> / 2c<sub>1</sub></td><td class="n">${fmt(2 * g0.c2, 2)} / ${fmt(2 * g0.c1, 2)}</td><td>mm</td></tr>`
+    : `<tr><td>Attachment outside diameter</td><td>d</td><td class="n">${fmt(2 * g0.r0, 2)}</td><td>mm</td></tr>`}
+${padded && first.pad && !first.pad.rectangular ? `<tr><td>Reinforcing pad outside diameter / thickness / width</td><td>d<sub>pad</sub> / t<sub>pad</sub> / w</td><td class="n">${fmt(first.pad.outsideDiameter, 2)} / ${fmt(first.pad.thickness, 2)} / ${fmt(first.pad.width, 2)}</td><td>mm</td></tr>` : ''}
+${padded && first.pad?.rectangular ? `<tr><td>Reinforcing pad length along / width around / thickness</td><td>—</td><td class="n">${fmt(first.pad.length, 2)} / ${fmt(first.pad.width, 2)} / ${fmt(first.pad.thickness, 2)}</td><td>mm</td></tr>` : ''}
 ${locationGeometry}
 <tr><td>Cylinder length / attachment position / nearest end</td><td>L / x / e</td><td class="n">${fmt(g0.L, 0)} / ${fmt(g0.x, 0)} / ${fmt(g0.endDistance, 0)}</td><td>mm</td></tr>
 <tr><td>Design pressure (internal +)</td><td>p</td><td class="n">${fmt(Number(i.designPressure) || 0, 3)}</td><td>MPa</td></tr>
@@ -181,6 +187,7 @@ ${warnings.length ? `<h2>Notes</h2><ul>${warnings.map((w) => `<li>${esc(w)}</li>
 <ul>
 <li>Host cylindrical shell stress at the attachment juncture${padded ? ' and at the pad edge' : ''} only. Stresses in the attachment, nozzle${padded ? ', pad or pad welds' : ''} are not calculated.</li>
 ${padded ? '<li>The pad is checked with the two-location method (shell + pad at the attachment, shell alone at the pad edge). WRC 537 has no pad rule; this is common practice, and it assumes the pad is fully welded and acts with the shell.</li>' : ''}
+${g0.rectangular ? '<li>Rectangular attachment: WRC 537 gives no method for torsion M<sub>T</sub> (§4.3.4), so torsion is not accepted. Tables 6–8 hold approximately for 0.25 ≤ β<sub>1</sub>/β<sub>2</sub> ≤ 4; factors between the printed rows are interpolated (engineering judgement). Stresses in the lug, its welds or its pad are not calculated.</li>' : ''}
 <li>Pressure adds the thin-shell membrane stress only. The extra pressure stress at the edge of the opening is not included.</li>
 <li>${S ? 'The code check is a screening check with user-entered allowables and the ASME VIII-2 Part 5 stress categories. It is not a full code assessment (no fatigue, ratcheting or nozzle reinforcement check).' : 'No code acceptance check has been made, because no allowable stress was entered.'}</li>
 <li>Interpolated γ and the assumed β limit for γ above 5 are engineering judgement, not WRC rules.</li>

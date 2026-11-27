@@ -122,6 +122,31 @@ test('a reinforcing pad is checked at the attachment and at the pad edge', async
   await expect(calc.locator('[data-slot="feScope"]')).toBeEmpty();
 });
 
+test('a rectangular lug is solved with a β for each term, and its limits are explained', async ({ page }) => {
+  const calc = page.locator('[data-empirical-subview="WRC"]');
+  await calc.locator('[data-act="example"]').selectOption('LUG_200X100');
+  await expect(calc.locator('[data-k="attachmentType"]')).toHaveValue('RECTANGULAR');
+  await expect(calc.locator('[data-k="attachmentOutsideDiameter"]')).toBeHidden();
+  await expect(calc.locator('[data-k="attachmentWidth"]')).toBeVisible();
+  await expect(calc.locator('.wrc__derived')).toContainText('β1/β2');
+  await expect(calc.locator('.wrc__gov strong')).toHaveText('153.38 MPa');
+  await expect(calc.locator('.wrc__gov b')).toHaveText('Au');
+  await expect(calc.locator('.wrc__terms tbody tr')).toHaveCount(16);
+  await expect(calc.locator('.wrc__notes')).toContainText('gives each load and stress component its own β');
+  await expect(calc.locator('[data-act="runFe"]')).toBeDisabled();
+  await expect(calc.locator('[data-slot="feScope"]')).toContainText('round footprint only');
+
+  await calc.locator('[data-load="Mt"]').fill('10');
+  await expect(calc.locator('.wrc__reasons')).toContainText('no method for torsion');
+  await calc.locator('[data-load="Mt"]').fill('0');
+  await calc.locator('[data-k="attachmentWidth"]').fill('25');
+  await expect(calc.locator('.wrc__reasons')).toContainText('outside 0.25–4');
+
+  await calc.locator('[data-k="attachmentType"]').selectOption('ROUND');
+  await expect(calc.locator('[data-k="attachmentOutsideDiameter"]')).toBeVisible();
+  await expect(calc.locator('.wrc__terms')).toHaveCount(0);
+});
+
 test('shell FE cross-check runs in the background and agrees on the governing point', async ({ page }) => {
   test.setTimeout(240000);
   const calc = page.locator('[data-empirical-subview="WRC"]');

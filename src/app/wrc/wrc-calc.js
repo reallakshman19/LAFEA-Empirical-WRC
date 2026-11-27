@@ -17,13 +17,16 @@ import {
   EMP1_WRC537_GAMMA_INTERPOLATION_POLICY,
   EMP1_WRC537_TABLE5_REQUIRED_FIGURES,
   buildEmp1Wrc537InterpolatedTable5Ordinates,
+  classifyEmp1Wrc537BracketSignChange,
   emp1Wrc537CommonTabulatedGammas,
+  evaluateEmp1Wrc537InterpolatedOrdinate,
 } from '../../core/emp1/emp1-wrc537-cylindrical-gamma-interpolation.js';
 import {
   EMP1_WRC537_CYL_LOCATIONS,
   emp1Wrc537PlaneStressIntensity as tresca,
   evaluateEmp1Wrc537CylindricalTable5,
 } from '../../core/emp1/emp1-wrc537-cylindrical-table5.js';
+import { WRC537_RECT_RATIO_RANGE, rectangularTerms } from './wrc537-rectangular.js';
 
 export const WRC_LOCATIONS = EMP1_WRC537_CYL_LOCATIONS;
 export const WRC_BETA_RANGE = Object.freeze({ minimum: 0.05, maximum: 0.5 });
@@ -61,6 +64,15 @@ export const WRC_BENDING_CLASS = Object.freeze({
   PB: 'Primary Pb, PL+Pb ≤ 1.5S (conservative)',
 });
 
+export const WRC_ATTACHMENT_TYPES = Object.freeze({
+  ROUND: 'Round (nozzle, trunnion)',
+  RECTANGULAR: 'Rectangular (lug, plate)',
+});
+
+export const WRC_RECT_METHOD_TEXT = 'Rectangular attachment: WRC 537 §4.2.2 gives each load and stress component its own β '
+  + '(equations 28–30 with Table 6 for P; Tables 7 and 8 for Mc and ML), read on the same curves as a round attachment. '
+  + 'Shear is Vc/(4·c1·T) and VL/(4·c2·T) (equations 50–51).';
+
 /** Where the shell is checked. Without a pad there is one location; with a pad there are two. */
 export const WRC_LOCATION_TEXT = Object.freeze({
   ATTACHMENT: 'At the attachment',
@@ -70,7 +82,7 @@ export const WRC_LOCATION_TEXT = Object.freeze({
 
 export const WRC_PAD_METHOD_TEXT = 'Reinforcing pad: WRC 537 itself has no pad rule (it lists pad guidance as future work). '
   + 'The shell is checked twice, as PV Elite and similar programs do: at the attachment with the shell and pad '
-  + 'thicknesses added, and at the pad edge with the shell alone and the pad diameter as the attachment. '
+  + 'thicknesses added, and at the pad edge with the shell alone and the pad (its diameter, or its length and width) as the attachment. '
   + 'This assumes the pad is fully welded and acts with the shell. It is common practice, not a WRC rule.';
 
 export const DEFAULT_CASE = Object.freeze({
@@ -78,8 +90,13 @@ export const DEFAULT_CASE = Object.freeze({
   shellOutsideDiameter: 1000,
   shellThickness: 12,
   corrosionAllowance: 0,
+  attachmentType: 'ROUND',
   attachmentOutsideDiameter: 219.1,
+  attachmentLength: '',
+  attachmentWidth: '',
   padOutsideDiameter: '',
+  padLength: '',
+  padWidth: '',
   padThickness: '',
   cylinderLength: 3000,
   attachmentStation: 1500,
@@ -141,7 +158,24 @@ export const EXAMPLE_CASES = Object.freeze({
     Kn: 1.2,
     Kb: 1.2,
   }),
+  LUG_200X100: Object.freeze({
+    title: 'Lug footprint 200 mm along × 100 mm around the shell',
+    shellOutsideDiameter: 1500,
+    shellThickness: 12,
+    corrosionAllowance: 0,
+    attachmentType: 'RECTANGULAR',
+    attachmentLength: 200,
+    attachmentWidth: 100,
+    cylinderLength: 4000,
+    attachmentStation: 2000,
+    forceUnit: 'N',
+    momentUnit: 'N·m',
+    loads: Object.freeze({ P: -5000, Vc: 1000, Vl: -3000, Mc: 1000, Ml: -4000, Mt: 0 }),
+    coordinate: 'LINEAR_GAMMA',
+  }),
 });
+
+export function isRectangular(input) { return input?.attachmentType === 'RECTANGULAR'; }
 
 const LOAD_KEYS = Object.freeze(['P', 'Vc', 'Vl', 'Mc', 'Ml', 'Mt']);
 const FORCE_KEYS = new Set(['P', 'Vc', 'Vl']);
@@ -151,16 +185,23 @@ export function deriveWrcGeometry(input) {
   const OD = num(input.shellOutsideDiameter);
   const tn = num(input.shellThickness);
   const ca = num(input.corrosionAllowance ?? 0);
-  const dA = num(input.attachmentOutsideDiameter);
   const T = tn - ca; // corroded wall
   const Rm = (OD - T) / 2; // mean radius of the corroded wall (bore grows by CA)
-  const r0 = dA / 2;
   const gamma = Rm / T;
-  const beta = 0.875 * r0 / Rm;
   const L = num(input.cylinderLength);
   const x = num(input.attachmentStation);
   const endDistance = Number.isFinite(L) && Number.isFinite(x) ? Math.min(x, L - x) : NaN;
-  return { OD, tn, ca, T, Rm, r0, gamma, beta, L, x, endDistance };
+  if (isRectangular(input)) {
+    // WRC 537 (28): c1 half-length around the shell, c2 half-length along it.
+    const c1 = num(input.attachmentWidth) / 2;
+    const c2 = num(input.attachmentLength) / 2;
+    const beta1 = c1 / Rm;
+    const beta2 = c2 / Rm;
+    return { rectangular: true, OD, tn, ca, T, Rm, c1, c2, beta1, beta2, ratio: beta1 / beta2, r0: NaN, gamma, beta: NaN, L, x, endDistance };
+  }
+  const r0 = num(input.attachmentOutsideDiameter) / 2;
+  const beta = 0.875 * r0 / Rm;
+  return { rectangular: false, OD, tn, ca, T, Rm, r0, gamma, beta, L, x, endDistance };
 }
 
 /** Convert user-unit loads to N and N·mm. */
@@ -193,7 +234,10 @@ export function calculateWrc537(input) {
   const g = geometry;
 
   // Input sanity
-  for (const [key, label] of [['OD', 'Shell outside diameter'], ['tn', 'Shell thickness'], ['r0', 'Attachment outside diameter']]) {
+  const sizeFields = g.rectangular
+    ? [['c2', 'Attachment length along the shell'], ['c1', 'Attachment width around the shell']]
+    : [['r0', 'Attachment outside diameter']];
+  for (const [key, label] of [['OD', 'Shell outside diameter'], ['tn', 'Shell thickness'], ...sizeFields]) {
     if (!(g[key] > 0)) reasons.push(reason('INPUT', `${label} must be a positive number.`));
   }
   if (!(g.ca >= 0)) reasons.push(reason('INPUT', 'Corrosion allowance must be zero or positive.'));
@@ -220,7 +264,9 @@ export function calculateWrc537(input) {
           ? 'The shell is too thick for WRC 537. Use FE (LAFEA) instead.'
           : 'The shell is too thin for WRC 537. Use FE (LAFEA) instead.'));
     }
-    if (!(g.beta >= WRC_BETA_RANGE.minimum && g.beta <= WRC_BETA_RANGE.maximum)) {
+    if (g.rectangular) {
+      reasons.push(...rectangularRangeReasons(g, loads, input.coordinate === 'LOG_GAMMA' ? 'LOG_GAMMA' : 'LINEAR_GAMMA', gammaClass));
+    } else if (!(g.beta >= WRC_BETA_RANGE.minimum && g.beta <= WRC_BETA_RANGE.maximum)) {
       const lowHigh = g.beta < WRC_BETA_RANGE.minimum ? 'small' : 'large';
       reasons.push(reason('BETA',
         `β = 0.875·r0/Rm = ${fmt(g.beta, 3)} is outside 0.05–0.5: the attachment is too ${lowHigh} for this shell.`,
@@ -253,27 +299,15 @@ export function calculateWrc537(input) {
     return { ...base, ok: false, tier: WRC_TIER.BLOCKED, reasons, warnings };
   }
 
-  let ordinateSet;
+  let evaluated;
   try {
-    ordinateSet = buildEmp1Wrc537InterpolatedTable5Ordinates({
-      variant: 'ORIGINAL',
-      gamma: g.gamma,
-      beta: g.beta,
-      coordinate,
-      betaDomain: { basis: 'OWNER_DECLARED', ...WRC_BETA_RANGE },
-      longitudinalMomentFigures: WRC_ML_FIGURES,
-    });
+    evaluated = g.rectangular ? evaluateRectangular(g, loads, coordinate, Kn, Kb) : evaluateRound(g, loads, coordinate, Kn, Kb);
   } catch (error) {
     return { ...base, ok: false, tier: WRC_TIER.BLOCKED, reasons: [explainCoreError(error)], warnings };
   }
-  const table5 = evaluateEmp1Wrc537CylindricalTable5({
-    geometry: { meanRadius: g.Rm, shellThickness: g.T, attachmentRadius: g.r0, beta: g.beta },
-    stressConcentration: { Kn, Kb },
-    loads,
-    curveOrdinates: ordinateSet.ordinates,
-  });
-  const s = table5.stresses;
-  const c = table5.components;
+  const s = evaluated.stresses;
+  const c = evaluated.components;
+  if (g.rectangular) warnings.push(...rectangularWarnings(evaluated.rectangular, loads));
   // Thin-shell pressure membrane stress, added at every point on both surfaces.
   const pressureStress = { circumferential: pressure * g.Rm / g.T, longitudinal: pressure * g.Rm / (2 * g.T) };
   const rows = WRC_LOCATIONS.map((location, i) => {
@@ -312,10 +346,11 @@ export function calculateWrc537(input) {
     tier: gammaClass.tier,
     reasons: [],
     warnings,
-    ordinates: ordinateSet.ordinates,
-    provenance: ordinateSet.provenance,
-    scale: table5.scale,
-    components: table5.components,
+    ordinates: evaluated.ordinates,
+    provenance: evaluated.provenance,
+    scale: evaluated.scale,
+    components: evaluated.components,
+    rectangular: evaluated.rectangular ?? null,
     rows,
     governing,
     pressureStress,
@@ -323,6 +358,166 @@ export function calculateWrc537(input) {
     codeCheck,
     policy: { coordinate, interpolationPolicy: EMP1_WRC537_GAMMA_INTERPOLATION_POLICY.basis },
   };
+}
+
+/** Round attachment: one β for every curve, WRC 537 Table 5. */
+function evaluateRound(g, loads, coordinate, Kn, Kb) {
+  const ordinateSet = buildEmp1Wrc537InterpolatedTable5Ordinates({
+    variant: 'ORIGINAL',
+    gamma: g.gamma,
+    beta: g.beta,
+    coordinate,
+    betaDomain: { basis: 'OWNER_DECLARED', ...WRC_BETA_RANGE },
+    longitudinalMomentFigures: WRC_ML_FIGURES,
+  });
+  const table5 = evaluateEmp1Wrc537CylindricalTable5({
+    geometry: { meanRadius: g.Rm, shellThickness: g.T, attachmentRadius: g.r0, beta: g.beta },
+    stressConcentration: { Kn, Kb },
+    loads,
+    curveOrdinates: ordinateSet.ordinates,
+  });
+  return { ordinates: ordinateSet.ordinates, provenance: ordinateSet.provenance, scale: table5.scale, components: table5.components, stresses: table5.stresses };
+}
+
+/** The figure for each Table 5 term: the same map as buildEmp1Wrc537InterpolatedTable5Ordinates, ML bending 1B/2B. */
+const TABLE5_FIGURES = Object.freeze({
+  circ: Object.freeze({ Pmem_AB: '4C', Pmem_CD: '3C', Pbend_AB: '2C-1', Pbend_CD: '1C', Mcmem: '3A', Mcbend: '1A', Mlmem: '3B', Mlbend: WRC_ML_FIGURES.circumferential }),
+  long: Object.freeze({ Pmem_AB: '3C', Pmem_CD: '4C', Pbend_AB: '1C-1', Pbend_CD: '2C', Mcmem: '4A', Mcbend: '2A', Mlmem: '4B', Mlbend: WRC_ML_FIGURES.longitudinal }),
+});
+const TABLE5_ALL_FIGURES = Object.freeze([...EMP1_WRC537_TABLE5_REQUIRED_FIGURES, WRC_ML_FIGURES.circumferential, WRC_ML_FIGURES.longitudinal]);
+const ZERO_LOADS = Object.freeze({ P: 0, Vc: 0, Vl: 0, Mc: 0, Ml: 0, Mt: 0 });
+
+/**
+ * Rectangular attachment: each term is read at its own β (wrc537-rectangular.js) and scaled by its own
+ * β in the stress formula. The verified Table 5 evaluator is reused for the signs and the superposition:
+ * it is called with β = 1, so each moment ordinate passed in is (curve value × C) / β_term, which gives
+ * σ = value · C · M / (Rm² β_term T) for membrane and 6 · value · M / (Rm β_term T²) for bending.
+ * Shear (50–51) is evaluated through the same core with an equivalent radius: π·r·T = 4·c·T.
+ */
+function evaluateRectangular(g, loads, coordinate, Kn, Kb) {
+  const rect = rectangularTerms({ beta1: g.beta1, beta2: g.beta2, gamma: g.gamma, coordinate });
+  const ordinates = { circ: {}, long: {} };
+  const provenance = { circ: {}, long: {} };
+  const raw = { circ: {}, long: {} };
+  for (const family of ['circ', 'long']) {
+    for (const [key, figure] of Object.entries(TABLE5_FIGURES[family])) {
+      const term = rect.terms[family][key];
+      if (loads[term.load] === 0) {
+        ordinates[family][key] = 0;
+        provenance[family][key] = { figure, y: 0, interpolationUsed: false, unused: true, ...termInfo(term) };
+        continue;
+      }
+      const ev = evaluateEmp1Wrc537InterpolatedOrdinate({
+        figure, variant: 'ORIGINAL', gamma: g.gamma, beta: term.beta, coordinate,
+        betaDomain: { basis: 'OWNER_DECLARED', ...WRC_BETA_RANGE }, figures: TABLE5_ALL_FIGURES,
+      });
+      const magnitude = Math.abs(ev.y) * term.factor;
+      ordinates[family][key] = term.load === 'P' ? magnitude : magnitude / term.beta;
+      provenance[family][key] = { figure: ev.figure, y: ev.y, interpolationUsed: ev.interpolationUsed, unused: false, ...termInfo(term) };
+      raw[family][key] = ev;
+    }
+  }
+  // Same fail-closed rule as the round route: a curve that changes sign between the γ rows, while carrying a
+  // material share of its family, could cancel towards zero.
+  for (const family of ['circ', 'long']) {
+    const evs = Object.entries(raw[family]);
+    const familyMaximum = Math.max(0, ...evs.map(([, ev]) => Math.abs(ev.y)));
+    const material = evs.filter(([, ev]) => ev.signChange?.signChange
+      && classifyEmp1Wrc537BracketSignChange(ev.bracketOrdinates.lowerY, ev.bracketOrdinates.upperY, familyMaximum).material === true);
+    if (material.length) {
+      const error = new Error(`EMP1_WRC537_GAMMA_INTERP_MATERIAL_SIGN_CHANGE_ACROSS_BRACKET:${material.map(([k]) => `${family}.${k}`).join(',')}`);
+      error.code = error.message;
+      throw error;
+    }
+  }
+  const core = (attachmentRadius, coreLoads) => evaluateEmp1Wrc537CylindricalTable5({
+    geometry: { meanRadius: g.Rm, shellThickness: g.T, attachmentRadius, beta: 1 },
+    stressConcentration: { Kn, Kb },
+    loads: coreLoads,
+    curveOrdinates: ordinates,
+  });
+  const normal = core(1, { ...loads, Vc: 0, Vl: 0, Mt: 0 });
+  const vc = core(4 * g.c1 / Math.PI, { ...ZERO_LOADS, Vc: loads.Vc }).components.shear.Vc; // τ = Vc/(4·c1·T), eq. 50
+  const vl = core(4 * g.c2 / Math.PI, { ...ZERO_LOADS, Vl: loads.Vl }).components.shear.Vl; // τ = VL/(4·c2·T), eq. 51
+  const mt = WRC_LOCATIONS.map(() => 0); // blocked before this point unless Mt = 0
+  const shear = WRC_LOCATIONS.map((_, i) => vc[i] + vl[i]);
+  const { circumferential, longitudinal } = normal.stresses;
+  return {
+    ordinates,
+    provenance,
+    scale: { vcShear: Math.abs(loads.Vc) / (4 * g.c1 * g.T), vlShear: Math.abs(loads.Vl) / (4 * g.c2 * g.T), note: 'Moment terms use each term\'s own β; see provenance.' },
+    components: { circumferential: normal.components.circumferential, longitudinal: normal.components.longitudinal, shear: { Vc: vc, Vl: vl, Mt: mt } },
+    stresses: {
+      circumferential,
+      longitudinal,
+      shear,
+      stressIntensity: WRC_LOCATIONS.map((_, i) => tresca(circumferential[i], longitudinal[i], shear[i])),
+    },
+    rectangular: { ratio: rect.ratio, beta1: g.beta1, beta2: g.beta2, terms: rect.terms },
+  };
+}
+
+function termInfo(term) {
+  return {
+    load: term.load, component: term.component, beta: term.beta, factor: term.factor, tableFactor: term.tableFactor ?? null, basis: term.basis,
+    factorApproximate: Boolean(term.factorApproximate), factorInterpolated: Boolean(term.factorInterpolated),
+  };
+}
+
+/** Blocking rules for a rectangular attachment that WRC 537 states (§4.2.2, §4.3.4, Tables 6–8). */
+function rectangularRangeReasons(g, loads, coordinate, gammaClass) {
+  const out = [];
+  const range = WRC537_RECT_RATIO_RANGE;
+  if (loads.Mt !== 0) {
+    out.push(reason('TORSION',
+      'WRC 537 §4.3.4 gives no method for torsion Mt on a rectangular attachment ("acceptable methods of analyzing this situation are not available").',
+      'Check the torsion by FE (LAFEA) or test, as the bulletin says. Run the other loads here with Mt = 0 only if you assess the torsion separately.'));
+  }
+  if (!(g.ratio >= range.minimum - 1e-12 && g.ratio <= range.maximum + 1e-12)) {
+    out.push(reason('RATIO',
+      `The footprint shape β1/β2 = c1/c2 = ${fmt(g.ratio, 3)} is outside 0.25–4, where WRC 537 Tables 6–8 hold. A thin plate welded straight to the shell is usually outside it.`,
+      `Width around the shell must be between ${fmt(range.minimum * 2 * g.c2, 1)} and ${fmt(range.maximum * 2 * g.c2, 1)} mm for this length. Otherwise use FE (LAFEA). A pad does not help here: at the lug the footprint is still the plate.`));
+    return out;
+  }
+  if (gammaClass.tier === WRC_TIER.BLOCKED) return out;
+  const square = Math.abs(g.ratio - 1) <= 1e-9;
+  if (!square && (loads.Mc !== 0 || loads.Ml !== 0) && g.gamma < 15 - 1e-9) {
+    out.push(reason('GAMMA',
+      `γ = ${fmt(g.gamma, 1)}: WRC 537 Tables 7 and 8 (the Mc and ML factors for a non-square attachment) start at γ = 15.`,
+      'Use FE (LAFEA), or a square footprint, for Mc or ML on this shell.'));
+    return out;
+  }
+  const rect = rectangularTerms({ beta1: g.beta1, beta2: g.beta2, gamma: g.gamma, coordinate });
+  const outside = [];
+  for (const family of ['circ', 'long']) {
+    for (const [key, term] of Object.entries(rect.terms[family])) {
+      if (loads[term.load] === 0) continue;
+      if (!(term.beta >= WRC_BETA_RANGE.minimum && term.beta <= WRC_BETA_RANGE.maximum)) outside.push({ key, term });
+    }
+  }
+  if (outside.length) {
+    const worst = outside.reduce((a, b) => (Math.abs(Math.log(b.term.beta / 0.2)) > Math.abs(Math.log(a.term.beta / 0.2)) ? b : a));
+    const lowHigh = worst.term.beta < WRC_BETA_RANGE.minimum ? 'small' : 'large';
+    const list = [...new Set(outside.map((o) => `${o.term.load} ${o.term.component} β = ${fmt(o.term.beta, 3)}`))].join('; ');
+    out.push(reason('BETA',
+      `The equivalent β for some terms is outside the curves' 0.05–0.5: ${list}. The footprint is too ${lowHigh} for this shell.`,
+      'Change the footprint size, or use FE (LAFEA).'));
+  }
+  return out;
+}
+
+function rectangularWarnings(rect, loads) {
+  const used = ['circ', 'long'].flatMap((f) => Object.values(rect.terms[f])).filter((t) => loads[t.load] !== 0);
+  const out = [WRC_RECT_METHOD_TEXT];
+  const moments = used.filter((t) => t.load !== 'P');
+  if (moments.some((t) => t.factorInterpolated)) {
+    out.push(`Table 7/8 factors for β1/β2 = ${fmt(rect.ratio, 3)} were interpolated between the printed rows (in γ, and in log β1/β2 with factor 1 for a square). This is engineering judgement, not a WRC rule.`);
+  }
+  if (moments.some((t) => t.factorApproximate)) {
+    out.push('Some Table 7/8 factors used are printed in parentheses in WRC 537: "determined by an approximate solution".');
+  }
+  out.push('Radial-load K factors (Table 6) are applied per stress component (Nφ, Nx, Mφ, Mx) at every point. Table 6 is stated to hold approximately for 4 ≥ β1/β2 ≥ 0.25.');
+  return out;
 }
 
 /**
@@ -354,9 +549,14 @@ function buildCodeCheck(rows, governing, { pressure, g, input }) {
   return { S, Sps, bendingClass, items, pass: items.every((i) => i.pass), worst };
 }
 
-/** True when either pad field holds a non-zero value. Blank or 0 in both means no pad. */
+/** Pad fields for the attachment type: a round pad for a round attachment, a rectangular pad for a rectangular one. */
+function padFields(input) {
+  return isRectangular(input) ? [input.padLength, input.padWidth, input.padThickness] : [input.padOutsideDiameter, input.padThickness];
+}
+
+/** True when any pad field holds a non-zero value. Blank or 0 in all of them means no pad. */
 export function hasPad(input) {
-  return [input.padOutsideDiameter, input.padThickness].some((v) => !(v === '' || v == null || Number(v) === 0));
+  return padFields(input).some((v) => !(v === '' || v == null || Number(v) === 0));
 }
 
 /**
@@ -376,12 +576,31 @@ export function wrcLocationInputs(input) {
       label: WRC_LOCATION_TEXT.JUNCTION,
       input: { ...input, shellOutsideDiameter: num(input.shellOutsideDiameter) + 2 * tp, shellThickness: num(input.shellThickness) + tp },
     },
-    { id: 'PAD_EDGE', label: WRC_LOCATION_TEXT.PAD_EDGE, input: { ...input, attachmentOutsideDiameter: num(input.padOutsideDiameter) } },
+    {
+      id: 'PAD_EDGE',
+      label: WRC_LOCATION_TEXT.PAD_EDGE,
+      input: isRectangular(input)
+        ? { ...input, attachmentLength: num(input.padLength), attachmentWidth: num(input.padWidth) }
+        : { ...input, attachmentOutsideDiameter: num(input.padOutsideDiameter) },
+    },
   ];
 }
 
 function padReasons(input) {
   if (!hasPad(input)) return [];
+  if (isRectangular(input)) {
+    const out = [];
+    const both = 'Enter all three pad fields, or leave them blank for no pad.';
+    for (const [key, label] of [['padLength', 'Pad length along the shell'], ['padWidth', 'Pad width around the shell'], ['padThickness', 'Pad thickness']]) {
+      if (!(num(input[key]) > 0)) out.push(reason('PAD', `${label} must be a positive number.`, both));
+    }
+    for (const [pad, att, label] of [['padLength', 'attachmentLength', 'length'], ['padWidth', 'attachmentWidth', 'width']]) {
+      if (num(input[pad]) > 0 && num(input[att]) > 0 && !(num(input[pad]) > num(input[att]))) {
+        out.push(reason('PAD', `The pad ${label} (${fmt(num(input[pad]), 1)} mm) must be larger than the attachment ${label} (${fmt(num(input[att]), 1)} mm).`, 'Check the pad size.'));
+      }
+    }
+    return out;
+  }
   const dp = num(input.padOutsideDiameter);
   const tp = num(input.padThickness);
   const dA = num(input.attachmentOutsideDiameter);
@@ -402,9 +621,12 @@ const TIER_ORDER = [WRC_TIER.SOURCE_QUALIFIED, WRC_TIER.TABULATED_ROW, WRC_TIER.
  */
 export function calculateWrcAttachment(input) {
   const padded = hasPad(input);
-  const pad = padded
-    ? { outsideDiameter: num(input.padOutsideDiameter), thickness: num(input.padThickness), width: (num(input.padOutsideDiameter) - num(input.attachmentOutsideDiameter)) / 2 }
-    : null;
+  let pad = null;
+  if (padded && isRectangular(input)) {
+    pad = { rectangular: true, length: num(input.padLength), width: num(input.padWidth), thickness: num(input.padThickness) };
+  } else if (padded) {
+    pad = { rectangular: false, outsideDiameter: num(input.padOutsideDiameter), thickness: num(input.padThickness), width: (num(input.padOutsideDiameter) - num(input.attachmentOutsideDiameter)) / 2 };
+  }
   const invalid = padReasons(input);
   if (invalid.length) {
     return {
@@ -415,7 +637,7 @@ export function calculateWrcAttachment(input) {
   const locations = wrcLocationInputs(input).map((spec) => ({ id: spec.id, label: spec.label, result: calculateWrc537(spec.input) }));
   const prefix = (label, text) => (padded ? `${label}: ${text}` : text);
   // At the pad edge the "attachment" is the pad, so say so in the suggested fix.
-  const fixFor = (l, r) => (l.id === 'PAD_EDGE' ? r.fix.replace(/^Attachment OD/u, 'Pad OD') : r.fix);
+  const fixFor = (l, r) => (l.id === 'PAD_EDGE' ? r.fix.replace(/^Attachment OD/u, 'Pad OD').replace(/^Width around the shell/u, 'Pad width around the shell') : r.fix);
   const reasons = locations.flatMap((l) => l.result.reasons.map((r) => ({ ...r, text: prefix(l.label, r.text), fix: fixFor(l, r), locationId: l.id })));
   const warnings = [...(padded ? [WRC_PAD_METHOD_TEXT] : []),
     ...new Set(locations.flatMap((l) => l.result.warnings.map((w) => prefix(l.label, w))))];
