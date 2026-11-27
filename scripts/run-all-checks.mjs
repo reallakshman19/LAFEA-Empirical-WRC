@@ -40,6 +40,9 @@ const REQUIRES = {
 // About 2 minutes on an idle machine, close to the default limit; give it room on a busy one.
 const SCRIPT_TIMEOUT = {
   'lafea-b02d-v2-governing-response-check.mjs': 600000,
+  // The lug shell-FE checks take about 70 s alone and over 2 min on a busy machine.
+  'wrc-lug-fe-check.mjs': 300000,
+  'wrc-lug-fe-route-check.mjs': 300000,
 };
 const available = new Map();
 const hasTool = (tool) => {

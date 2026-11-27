@@ -45,12 +45,13 @@ The cheapest, strongest evidence comes first, and FE covers what nothing else do
 | PL-01 | **Interpolation spread for lugs:** rerun each lug with the nearest printed Table 7/8 rows and show the low–high range. **Done 2026-11-27.** | S | nothing | Shows at once how much the judgement matters for each lug |
 | PL-02 | **Lug benchmark:** 3 lug cases (plus an optional one with a pad) run in your licensed program with WRC 537, frozen as checks. Cases: [LUG-BENCHMARK-REQUEST.md](LUG-BENCHMARK-REQUEST.md) | S | **your runs** | The only real WRC 537 evidence for lugs; FE gives only a ratio |
 | PL-03 | **Trunnions:** round attachment, solid or hollow, labelled. **Done 2026-11-27.** | S | nothing | Completes the attachment types |
-| PL-04 | **FE for lugs:** rectangular-footprint shell mesh; FE/WRC ratios for 3–4 shapes; FE as the route for lugs WRC 537 blocks (thin plates, torsion) | M | nothing | Covers what WRC 537 cannot; the corner peak is labelled mesh-dependent |
+| PL-04 | **FE for lugs:** rectangular-footprint shell mesh; FE/WRC ratios for several shapes; FE as the route for lugs WRC 537 blocks (thin plates, torsion). **Done 2026-11-27.** FE finds less than WRC at the middle of a lug's edges and more at its corners | M | nothing | Covers what WRC 537 cannot; the corner peak is labelled mesh-dependent |
 | PL-05 | **Code method for thin plate lugs:** EN 13445-3 clause 16 or PD 5500 Annex G | M | **your copy of the standard, and which one** | Thin plates welded straight to the shell are the usual lug, and outside WRC 537 |
 | PL-06 | **Finish the UI**, then the canvas (roadmap stages A–D) | L | nothing | |
 
 A simple torsion formula for lugs is not planned. A shear-flow estimate misses the shell bending that WRC 537
-§4.3.4 warns about, so torsion goes to FE (PL-04) unless you ask for a labelled screening value.
+§4.3.4 warns about, so torsion goes to FE (PL-04: the FE model now takes a lug with torsion on its own) unless
+you ask for a labelled screening value.
 
 The app's **Status & roadmap** tab (`src/app/status/status-content.js`)
 holds the known issues, the planned improvements and the staged roadmap (A: canvas, B: empirical solver on
@@ -120,5 +121,5 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 
 ## Suggested start
 
-5.1, then 5.2, then 5.3 (all done 2026-11-26), then PL-01 and PL-03 (done 2026-11-27). Next: PL-04 needs nothing from you; PL-02
-and PL-05 start as soon as your runs or your standard arrive.
+5.1, then 5.2, then 5.3 (all done 2026-11-26), then PL-01, PL-03 and PL-04 (done 2026-11-27). Next: PL-06 (the UI) needs
+nothing from you; PL-02 and PL-05 start as soon as your runs or your standard arrive.

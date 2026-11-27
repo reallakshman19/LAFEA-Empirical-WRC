@@ -18,7 +18,7 @@ test('Status & roadmap tab lists known issues, planned improvements and the road
   }
   await expect(view.locator('[data-pillar]')).toHaveCount(3);
   await expect(view.locator('[data-issue-id]')).toHaveCount(19);
-  await expect(view.locator('[data-plan-id]')).toHaveCount(8);
+  await expect(view.locator('[data-plan-id]')).toHaveCount(7);
   await expect(view.locator('[data-stage-id]')).toHaveCount(4);
   await expect(view.locator('[data-stage-id="A"]')).toContainText('Universal canvas');
   await expect(view.locator('[data-stage-id="A"]')).toContainText('trunnions');

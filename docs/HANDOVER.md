@@ -77,8 +77,8 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   - pressure, Kn/Kb, the code check and the envelope match hand arithmetic;
   - the pad option (`scripts/wrc-pad-check.mjs`) reproduces PV Elite's per-location geometry and pressure
     stress, and hand-calculated torsion shear, at both locations.
-  - The FE cross-check, given a pad, compares the pad-edge location (see `feReference` in `wrc-panel.js`).
-    It is disabled for a rectangular attachment (round footprint only).
+  - The FE cross-check, given a pad, compares the pad-edge location (see `wrcFeReference` in `wrc-calc.js`).
+    For a lug WRC 537 refuses only for its own lug limits (reasons marked `feRoute`), it runs FE only.
   - lugs (`scripts/wrc-lug-check.mjs`): the tables against the `docs/emp1` extraction; an independent hand
     calculation at γ 100, β1/β2 2; square footprint = round with r0 = c/0.875; interpolation; blocking.
 
@@ -97,6 +97,16 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   (16,330 DOF) changes it by less than 2%.
 - **Run times:** about 26 s in the browser; `scripts/wrc-nozzle-fe-check.mjs` takes about 2 min.
 - **Frozen FE maxima:** P 21.58, Mc 145.62, Ml 57.99 (±1%).
+- **Lugs** (`src/app/lafea/lug-shell.js`, PL-04): the same model with a rectangular footprint.
+  - Rings are the footprint scaled out to a patch rectangle, so the corners are nodes.
+  - The plug is a structured grid, and the loads go on its interior nodes as statically exact forces.
+    A long, narrow plug is not rigid, so a centre load would bend it.
+  - A–D are the middle of each edge.
+  - `edgePeak` is the highest element value next to the footprint. It sits at a corner and grows with the mesh.
+  - The worker picks the model by `geometry.rectangular`.
+  - Checks: `scripts/wrc-lug-fe-check.mjs` and `scripts/wrc-lug-fe-route-check.mjs`, about 70 s each.
+  - Don't run the refined mesh (24 divisions) on a 100 mm square with three load cases: it hits Node's
+    default heap limit.
 
 ### 3.3 LAFEA example (`src/app/lafea/lafea-example.js`, `lafea-view.js`)
 

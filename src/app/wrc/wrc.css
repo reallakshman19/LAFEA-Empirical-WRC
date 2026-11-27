@@ -53,6 +53,7 @@
 .wrc__spread { margin: -4px 0 12px; color: var(--wrc-muted); font-size: 13px; }
 .wrc__spread b { color: var(--wrc-text); font-variant-numeric: tabular-nums; }
 .wrc__spread--wide { color: var(--wrc-warn); }
+.wrc__fepeak { margin: 6px 0 10px; color: var(--wrc-warn); font-size: 13px; }
 .wrc__terms td:last-child, .wrc__terms th:last-child { text-align: left; color: var(--wrc-muted); }
 .wrc__chip { border: 1px solid var(--wrc-line); border-radius: 8px; padding: 6px 10px; background: var(--wrc-panel); min-width: 110px; }
 .wrc__chip span { display: block; color: var(--wrc-muted); font-size: 12px; }

@@ -4,11 +4,13 @@
 import './wrc.css';
 import {
   DEFAULT_CASE, EXAMPLE_CASES, FORCE_UNITS, MOMENT_UNITS, WRC_BETA_RANGE, WRC_COORDINATES,
-  WRC_ATTACHMENT_TYPES, WRC_TRUNNION_CONSTRUCTION, WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases, calculateWrcAttachment,
-  classifyGamma, deriveWrcGeometry, fmt, hasPad, isRectangular, isTrunnion,
+  WRC_ATTACHMENT_TYPES, WRC_TRUNNION_CONSTRUCTION, WRC_BENDING_CLASS, WRC_FE_MODE, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases,
+  classifyGamma, deriveWrcGeometry, fmt, hasPad, isRectangular, isTrunnion, wrcFeReference,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
-import { FE_CONTOUR_CAPTION, FE_METHOD_NOTE, buildFeContourHtml, triangleAt } from './fe-contour.js';
+import {
+  FE_CONTOUR_CAPTION, FE_LUG_METHOD_NOTE, FE_METHOD_NOTE, buildFeContourHtml, feEdgePeakText, feOnlyReasonText, insideAttachment, triangleAt,
+} from './fe-contour.js';
 
 const STORAGE_KEY = 'lafea-emp-app/wrc-case';
 const CASE_SCHEMA = 'lafea-emp-app/wrc537-case/v1';
@@ -112,7 +114,7 @@ export function mountWrcCalculator(host) {
         <div data-slot="check"></div>
         <section class="wrc__fe" data-slot="fe">
           <h3 class="wrc__h">Shell FE cross-check <small>(LAFEA shell solver)</small></h3>
-          <p class="wrc__help">Solves this geometry with a thin-shell FE model: a rigid round attachment on a cylinder with clamped ends, about 10 000 DOF. It uses all six of this case's loads (P, Vc, Vl, Mc, Ml, Mt), but not pressure or Kn/Kb. It compares stress intensity at the 8 WRC points and draws the FE stress around the attachment. It takes about 1–2 minutes and runs in the background.</p>
+          <p class="wrc__help">Solves this geometry with a thin-shell FE model: a rigid attachment (round, or a stiff plate the size of a rectangular footprint) on a cylinder with clamped ends, about 10 000 DOF. It uses all six of this case's loads (P, Vc, Vl, Mc, Ml, Mt), but not pressure or Kn/Kb. It compares stress intensity at the 8 WRC points and draws the FE stress around the attachment. It takes about 1–2 minutes and runs in the background.</p>
           <p class="wrc__help" data-slot="feScope"></p>
           <button type="button" data-act="runFe">Run shell FE cross-check</button>
           <div data-slot="feResult" aria-live="polite"></div>
@@ -250,20 +252,12 @@ export function mountWrcCalculator(host) {
   }
 
   /**
-   * The WRC result the FE model is compared with: the active case without pressure or Kn/Kb.
-   * With a pad, the FE model is a rigid attachment of the pad diameter on the bare shell, so it is
-   * compared with the pad-edge check. The check at the attachment (shell + pad) has no FE counterpart.
+   * The WRC result the FE model stands for: the active case without pressure or Kn/Kb, at the pad edge
+   * when there is a pad (see wrcFeReference). `feMode` says whether FE is compared with it, or runs
+   * alone for a lug WRC 537 refuses.
    */
   function feReference() {
-    const c = state.loadCases[state.activeCase];
-    const attachment = calculateWrcAttachment({
-      ...state,
-      loads: { ...c.loads },
-      designPressure: 0, Kn: 1, Kb: 1, allowableS: '',
-    });
-    if (!attachment.ok) return { ok: false };
-    const location = attachment.locations.find((l) => l.id === 'PAD_EDGE') ?? attachment.locations[0];
-    return { ...location.result, feLocation: { id: location.id, label: location.label } };
+    return wrcFeReference({ ...state, loads: { ...state.loadCases[state.activeCase].loads } });
   }
   function feKey() {
     const c = state.loadCases[state.activeCase];
@@ -273,9 +267,8 @@ export function mountWrcCalculator(host) {
       ...LOADS.map((l) => c.loads[l.key])]);
   }
   function runFe() {
-    if (isRectangular(state)) return; // round footprint only; the button is disabled
     const reference = feReference();
-    if (!reference.ok) { fe = { key: feKey(), status: 'error', error: 'The WRC calculation for this case is blocked, so there is nothing to compare.' }; renderFe(); return; }
+    if (reference.feMode === WRC_FE_MODE.BLOCKED) { fe = { key: feKey(), status: 'error', error: 'The WRC calculation for this case is blocked, so there is nothing to compare.' }; renderFe(); return; }
     if (!LOADS.some((l) => reference.loadsBase[l.key])) {
       fe = { key: feKey(), status: 'error', error: 'This case has no loads, so there is nothing to compare.' }; renderFe(); return;
     }
@@ -295,7 +288,7 @@ export function mountWrcCalculator(host) {
       worker.terminate();
       fe = event.data.ok
         ? { key, status: 'done', reference, result: event.data.result }
-        : { key, status: 'error', error: event.data.error };
+        : { key, status: 'error', error: feErrorText(event.data.error) };
       renderFe();
     };
     worker.onerror = (event) => {
@@ -309,12 +302,19 @@ export function mountWrcCalculator(host) {
   function renderFe() {
     const slot = $('[data-slot="feResult"]');
     const button = $('[data-act="runFe"]');
-    const rectangular = isRectangular(state);
-    button.disabled = fe?.status === 'running' || rectangular;
-    let scope = '';
-    if (rectangular) scope = 'Not available for a rectangular attachment yet: the FE model has a round footprint only.';
-    else if (hasPad(state)) scope = 'With a pad, the FE model checks the pad edge: the pad is the rigid attachment on the bare shell. The check at the attachment (shell + pad) is not cross-checked.';
-    $('[data-slot="feScope"]').textContent = scope;
+    button.disabled = fe?.status === 'running';
+    const now = feReference();
+    const scope = [];
+    if (isRectangular(state)) {
+      scope.push('For a rectangular attachment the FE model is a stiff plate the size of the footprint, carrying the loads. '
+        + 'Its corners concentrate stress, so the highest value next to a corner is shown separately; it depends on the mesh.');
+    }
+    if (now.feMode === WRC_FE_MODE.FE_ONLY) {
+      scope.push(`WRC 537 has no result for this ${attachmentNoun(state)} (${feOnlyReasonText(now.reasons)}), so the FE model gives the only stresses here. `
+        + 'For a plate welded straight to the shell, enter the weld footprint as the width: plate thickness plus both weld legs.');
+    }
+    if (hasPad(state)) scope.push('With a pad, the FE model checks the pad edge: the pad is the rigid attachment on the bare shell. The check at the attachment (shell + pad) is not cross-checked.');
+    $('[data-slot="feScope"]').textContent = scope.join(' ');
     if (!fe) { slot.innerHTML = ''; return; }
     const stale = fe.key !== feKey();
     if (fe.status === 'running') {
@@ -324,19 +324,32 @@ export function mountWrcCalculator(host) {
     if (fe.status === 'error') { slot.innerHTML = `<p class="wrc__bad">${escapeHtml(fe.error)}</p>`; return; }
     const r = fe.result;
     const ref = fe.reference;
-    const wrcGov = ref.governing;
-    const ratio = r.feGoverning.fe / wrcGov.stressIntensity;
-    slot.innerHTML = `
-      ${stale ? '<p class="wrc__notes">Inputs have changed since this run. Run it again to compare the current case.</p>' : ''}
-      <table class="wrc__table wrc__fetable"><thead><tr><th>Point</th><th>WRC 537 SI</th><th>Shell FE SI</th><th>FE / WRC</th></tr></thead>
+    const caseName = escapeHtml(state.loadCases[state.activeCase].name);
+    const meshText = `Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF, solved in ${fmt(r.milliseconds / 1000, 0)} s.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·Rm) was assumed.` : ''}`;
+    const padText = ref.feLocation?.id === 'PAD_EDGE' ? ' Compared at the pad edge (shell only).' : '';
+    let table;
+    if (ref.feMode === WRC_FE_MODE.FE_ONLY) {
+      table = `<table class="wrc__table wrc__fetable wrc__fetable--only"><thead><tr><th>Point</th><th>σφ circ.</th><th>σx long.</th><th>τ shear</th><th>Shell FE SI</th></tr></thead>
+      <tbody>${r.rows.map((row) => `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${fmt(row.feCircumferential, 2)}</td><td>${fmt(row.feLongitudinal, 2)}</td><td>${fmt(row.feShear, 2)}</td><td><b>${fmt(row.fe, 2)}</b></td></tr>`).join('')}</tbody>
+      <caption>MPa, all six loads of case "${caseName}", without pressure or Kn/Kb. FE only: WRC 537 has no result for this ${attachmentNoun(state)}.${padText} Highest of the 8 points: FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location}. ${meshText}</caption></table>`;
+    } else {
+      const wrcGov = ref.governing;
+      const ratio = r.feGoverning.fe / wrcGov.stressIntensity;
+      table = `<table class="wrc__table wrc__fetable"><thead><tr><th>Point</th><th>WRC 537 SI</th><th>Shell FE SI</th><th>FE / WRC</th></tr></thead>
       <tbody>${r.rows.map((row, i) => {
         const w = ref.rows[i].stressIntensity;
         return `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${fmt(w, 2)}</td><td><b>${fmt(row.fe, 2)}</b></td><td>${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td></tr>`;
       }).join('')}</tbody>
-      <caption>MPa, all six loads of case "${escapeHtml(state.loadCases[state.activeCase].name)}", without pressure or Kn/Kb.${ref.feLocation?.id === 'PAD_EDGE' ? ' Compared at the pad edge (shell only).' : ''} Governing: WRC ${fmt(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
-      Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF, solved in ${fmt(r.milliseconds / 1000, 0)} s.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·Rm) was assumed.` : ''}</caption></table>
+      <caption>MPa, all six loads of case "${caseName}", without pressure or Kn/Kb.${padText} Governing: WRC ${fmt(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
+      ${meshText}</caption></table>`;
+    }
+    const peak = r.edgePeak ? `<p class="wrc__fepeak">${escapeHtml(feEdgePeakText(r, ref.feMode === WRC_FE_MODE.COMPARE ? ref.governing.stressIntensity : null))}</p>` : '';
+    slot.innerHTML = `
+      ${stale ? '<p class="wrc__notes">Inputs have changed since this run. Run it again to compare the current case.</p>' : ''}
+      ${table}
+      ${peak}
       ${r.field ? buildFeContourHtml(r.field, { caption: FE_CONTOUR_CAPTION }) : ''}
-      <p class="wrc__help">${FE_METHOD_NOTE}</p>`;
+      <p class="wrc__help">${r.rectangular ? FE_LUG_METHOD_NOTE : FE_METHOD_NOTE}</p>`;
     const contour = slot.querySelector('.fe-contour');
     if (contour && r.field) attachContourHover(contour, r.field);
   }
@@ -354,11 +367,10 @@ export function mountWrcCalculator(host) {
         const s = point.x;
         const x = -point.y;
         const hit = triangleAt(field, s, x);
-        const r = Math.hypot(s, x);
         if (hit) {
           readout.textContent = `${surface === 'u' ? 'Outside' : 'Inside'} surface: ${hit[surface].toFixed(2)} MPa at s = ${Math.round(s)} mm, x = ${Math.round(x)} mm (element average).`;
         } else {
-          readout.textContent = r < field.attachmentRadius ? 'Inside the attachment: not part of the shell result.' : idle;
+          readout.textContent = insideAttachment(field, s, x) ? 'Inside the attachment: not part of the shell result.' : idle;
         }
       });
       svg.addEventListener('mouseleave', () => { readout.textContent = idle; });
@@ -474,6 +486,16 @@ function attachmentNoun(c) {
   if (isTrunnion(c)) return 'trunnion';
   if (isRectangular(c)) return 'lug';
   return 'nozzle';
+}
+
+/** Plain text for the FE model's own refusals; anything else is shown as it came. */
+const FE_ERROR_TEXT = Object.freeze({
+  PATCH_OUTSIDE_CYLINDER: 'The FE model needs room around the attachment that does not fit between the cylinder ends. Move the attachment away from the end, or give a longer cylinder.',
+  PATCH_WRAPS_CIRCUMFERENCE: 'The attachment is too large around the shell for the FE model.',
+});
+function feErrorText(message) {
+  const key = Object.keys(FE_ERROR_TEXT).find((k) => String(message).includes(k));
+  return key ? FE_ERROR_TEXT[key] : message;
 }
 
 /** The Table 7/8 interpolation spread of one location (roadmap PL-01), as one line under the governing value. */

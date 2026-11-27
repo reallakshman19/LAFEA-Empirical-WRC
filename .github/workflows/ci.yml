@@ -20,7 +20,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Lint (app code)
-        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-nozzle-fe-check.mjs scripts/wrc-nozzle-fe-shear-check.mjs scripts/bundle-size-check.mjs scripts/lafea-plate-form-check.mjs scripts/lafea-mesher-speed-check.mjs src/core/lafea-meshing/constrained-delaunay-t6.js src/core/shared-primitives/canonical-json-sha256.js scripts/wrc-pvelite-wrc297-reference-check.mjs scripts/wrc-app-status-content-check.mjs scripts/wrc-pad-check.mjs scripts/wrc-lug-check.mjs scripts/wrc-trunnion-check.mjs e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js
+        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-nozzle-fe-check.mjs scripts/wrc-nozzle-fe-shear-check.mjs scripts/bundle-size-check.mjs scripts/lafea-plate-form-check.mjs scripts/lafea-mesher-speed-check.mjs src/core/lafea-meshing/constrained-delaunay-t6.js src/core/shared-primitives/canonical-json-sha256.js scripts/wrc-pvelite-wrc297-reference-check.mjs scripts/wrc-app-status-content-check.mjs scripts/wrc-pad-check.mjs scripts/wrc-lug-check.mjs scripts/wrc-trunnion-check.mjs scripts/wrc-lug-fe-check.mjs scripts/wrc-lug-fe-route-check.mjs e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js
       - name: Isolation checks
         run: npm run check:boundary
       - name: Build

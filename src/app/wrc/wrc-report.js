@@ -5,9 +5,11 @@
  * at both shell locations: at the attachment (shell + pad) and at the pad edge.
  */
 import {
-  WRC_BENDING_CLASS, WRC_LOCATION_TEXT, WRC_PAD_METHOD_TEXT, WRC_TIER_TEXT, WRC_TRUNNION_CONSTRUCTION, deriveWrcGeometry, fmt, isTrunnion,
+  WRC_BENDING_CLASS, WRC_FE_MODE, WRC_LOCATION_TEXT, WRC_PAD_METHOD_TEXT, WRC_TIER_TEXT, WRC_TRUNNION_CONSTRUCTION, deriveWrcGeometry, fmt, isTrunnion,
 } from './wrc-calc.js';
-import { FE_CONTOUR_CAPTION, FE_METHOD_NOTE, buildFeContourHtml } from './fe-contour.js';
+import {
+  FE_CONTOUR_CAPTION, FE_LUG_METHOD_NOTE, FE_METHOD_NOTE, buildFeContourHtml, feEdgePeakText, feOnlyReasonText,
+} from './fe-contour.js';
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -39,19 +41,30 @@ function asAttachment(result) {
 function feSection(fe, number) {
   const r = fe.result;
   const ref = fe.reference;
-  const wrcGov = ref.governing;
-  return `<h2>${number}. Shell FE cross-check (LAFEA shell solver)</h2>
-<div class="muted">Case "${esc(fe.caseName)}": all six loads, without pressure or K<sub>n</sub>/K<sub>b</sub>.${ref.feLocation?.id === 'PAD_EDGE' ? ' Compared at the pad edge: the pad is the rigid attachment on the bare shell; the check at the attachment (shell + pad) is not cross-checked.' : ''} Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·R<sub>m</sub>) was assumed.` : ''}</div>
-<table>
-<tr><th>Point</th><th class="n">WRC 537 SI</th><th class="n">Shell FE SI</th><th class="n">FE / WRC</th><th class="n">FE σ<sub>φ</sub></th><th class="n">FE σ<sub>x</sub></th><th class="n">FE τ</th></tr>
-${r.rows.map((row, index) => {
+  const feOnly = ref.feMode === WRC_FE_MODE.FE_ONLY;
+  const wrcGov = feOnly ? null : ref.governing;
+  const head = feOnly
+    ? `FE only: WRC 537 has no result for this attachment (${esc(feOnlyReasonText(ref.reasons))}), so these are the only stresses for this case.`
+    : '';
+  const rows = r.rows.map((row, index) => {
+    const gov = row.location === r.feGoverning.location ? ' class="gov"' : '';
+    const parts = `<td class="n">${fmt(row.feCircumferential, 3)}</td><td class="n">${fmt(row.feLongitudinal, 3)}</td><td class="n">${fmt(row.feShear, 3)}</td>`;
+    if (feOnly) return `<tr${gov}><td>${row.location}</td><td class="n">${fmt(row.fe, 3)}</td>${parts}</tr>`;
     const w = ref.rows[index].stressIntensity;
-    return `<tr${row.location === r.feGoverning.location ? ' class="gov"' : ''}><td>${row.location}</td><td class="n">${fmt(w, 3)}</td><td class="n">${fmt(row.fe, 3)}</td><td class="n">${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td><td class="n">${fmt(row.feCircumferential, 3)}</td><td class="n">${fmt(row.feLongitudinal, 3)}</td><td class="n">${fmt(row.feShear, 3)}</td></tr>`;
-  }).join('')}
+    return `<tr${gov}><td>${row.location}</td><td class="n">${fmt(w, 3)}</td><td class="n">${fmt(row.fe, 3)}</td><td class="n">${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td>${parts}</tr>`;
+  }).join('');
+  return `<h2>${number}. Shell FE ${feOnly ? 'result' : 'cross-check'} (LAFEA shell solver)</h2>
+<div class="muted">${head ? `${head} ` : ''}Case "${esc(fe.caseName)}": all six loads, without pressure or K<sub>n</sub>/K<sub>b</sub>.${ref.feLocation?.id === 'PAD_EDGE' ? ' Compared at the pad edge: the pad is the rigid attachment on the bare shell; the check at the attachment (shell + pad) is not cross-checked.' : ''} Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·R<sub>m</sub>) was assumed.` : ''}</div>
+<table>
+<tr><th>Point</th>${feOnly ? '' : '<th class="n">WRC 537 SI</th>'}<th class="n">Shell FE SI</th>${feOnly ? '' : '<th class="n">FE / WRC</th>'}<th class="n">FE σ<sub>φ</sub></th><th class="n">FE σ<sub>x</sub></th><th class="n">FE τ</th></tr>
+${rows}
 </table>
-<p><b>Governing: WRC ${fmt(wrcGov.stressIntensity, 3)} MPa at ${wrcGov.location}; FE ${fmt(r.feGoverning.fe, 3)} MPa at ${r.feGoverning.location} (FE / WRC = ${fmt(r.feGoverning.fe / wrcGov.stressIntensity, 2)}).</b></p>
+<p><b>${feOnly
+    ? `Highest of the 8 points: FE ${fmt(r.feGoverning.fe, 3)} MPa at ${r.feGoverning.location}.`
+    : `Governing: WRC ${fmt(wrcGov.stressIntensity, 3)} MPa at ${wrcGov.location}; FE ${fmt(r.feGoverning.fe, 3)} MPa at ${r.feGoverning.location} (FE / WRC = ${fmt(r.feGoverning.fe / wrcGov.stressIntensity, 2)}).`}</b></p>
+${r.edgePeak ? `<p>${esc(feEdgePeakText(r, wrcGov?.stressIntensity ?? null))}</p>` : ''}
 ${r.field ? `<div class="contour">${buildFeContourHtml(r.field, { caption: esc(FE_CONTOUR_CAPTION) })}</div>` : ''}
-<p class="muted">${esc(FE_METHOD_NOTE)}</p>`;
+<p class="muted">${esc(r.rectangular ? FE_LUG_METHOD_NOTE : FE_METHOD_NOTE)}</p>`;
 }
 
 function locationTable(r, isGov) {
@@ -199,7 +212,7 @@ ${warnings.length ? `<h2>Notes</h2><ul>${warnings.map((w) => `<li>${esc(w)}</li>
 <ul>
 <li>Host cylindrical shell stress at the attachment juncture${padded ? ' and at the pad edge' : ''} only. Stresses in the ${trunnion ? 'trunnion' : 'attachment, nozzle'}${padded ? ', pad or pad welds' : ' or its weld'} are not calculated.</li>
 ${padded ? '<li>The pad is checked with the two-location method (shell + pad at the attachment, shell alone at the pad edge). WRC 537 has no pad rule; this is common practice, and it assumes the pad is fully welded and acts with the shell.</li>' : ''}
-${g0.rectangular ? '<li>Rectangular attachment: WRC 537 gives no method for torsion M<sub>T</sub> (§4.3.4), so torsion is not accepted. Tables 6–8 hold approximately for 0.25 ≤ β<sub>1</sub>/β<sub>2</sub> ≤ 4; factors between the printed rows are interpolated (engineering judgement). Stresses in the lug, its welds or its pad are not calculated.</li>' : ''}
+${g0.rectangular ? '<li>Rectangular attachment: WRC 537 gives no method for torsion M<sub>T</sub> (§4.3.4), so torsion is not accepted. Tables 6–8 hold approximately for 0.25 ≤ β<sub>1</sub>/β<sub>2</sub> ≤ 4; factors between the printed rows are interpolated (engineering judgement). Torsion and footprints outside that range can be run with the shell FE model alone, which models the footprint as a stiff plate; its corner values depend on the mesh. Stresses in the lug, its welds or its pad are not calculated.</li>' : ''}
 <li>Pressure adds the thin-shell membrane stress only. ${trunnion ? 'A trunnion does not open the shell; the local stress from it restraining the shell\'s pressure growth is not included.' : 'The extra pressure stress at the edge of the opening is not included.'}</li>
 ${trunnion ? '<li>Trunnion: WRC 537 §4.2.2 has no solid/hollow selector for cylindrical shells, so the shell stress depends only on the outside diameter. The attachment is treated as rigid at the shell.</li>' : ''}
 <li>${S ? 'The code check is a screening check with user-entered allowables and the ASME VIII-2 Part 5 stress categories. It is not a full code assessment (no fatigue, ratcheting or nozzle reinforcement check).' : 'No code acceptance check has been made, because no allowable stress was entered.'}</li>

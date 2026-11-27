@@ -531,6 +531,62 @@ and §4.3.4 itself gives "a pipe" as the example round attachment. So a trunnion
 CAESAR II case, and solid = hollow. Not done: entering the support load at the trunnion's free end and moving it
 to the shell (the moment arm). Its signs need the WRC 537 Figure 2 axes checked first.
 
+**2026-11-27: PL-04, FE for lugs.** `src/app/lafea/lug-shell.js` is the round nozzle model with a rectangular
+footprint:
+- rings run from the footprint edge out to a rectangle d = 1.5·max(c1, c2)/0.875 further out, so the
+  footprint corners are mesh nodes;
+- the footprint is a stiff plate (4× the shell thickness, as for the nozzle plug);
+- all six loads go onto its interior nodes as statically exact forces about the centre: P uniform, Mc and Ml
+  linear, Vc and Vl uniform, Mt as a couple. A long, narrow plug is not rigid, so a centre point load would bend
+  it; spreading the load is also how WRC 537's rectangular solution applies it.
+
+Stresses at A–D are extrapolated to the middle of each edge, with the same sign conventions as the nozzle model.
+Every single load gives the WRC 537 sign at every point it loads; torsion (refused by WRC 537 on a lug) gives the
+sign of WRC 537's round-attachment torsion at all 8 points.
+
+FE / WRC, maximum over the 8 points, one load at a time (shell 1500 × 12, γ 62):
+
+| Footprint | P | Vc | Vl | Mc | Ml |
+|---|---|---|---|---|---|
+| 200 along × 100 around (the app example, β1/β2 0.5) | 0.71 | 0.36 | 0.50 | 0.66 | 0.71 |
+| 200 along × 60 around (β1/β2 0.3) | 0.64 | | | 0.60 | 0.74 |
+| 100 along × 200 around (β1/β2 2) | 0.78 | | | 0.89 | 0.50 |
+| 100 × 100 square | 0.76 | | | 0.66 | 0.57 |
+| WRC-equivalent round plug, r0 = 50/0.875 (nozzle model) | 1.31 | | | 1.27 | 0.92 |
+
+WRC 537 gives a square the stresses of the round attachment with r0 = c/0.875. With both stiff, FE does not. At
+the middle of the square's edges it finds 0.53× the round plug's edge stress (Mc). The highest element next to
+a corner is 1.22× the round plug's edge stress. So a stiff rectangle carries much of its load at the corners:
+WRC 537 overstates the stress at the middle of a lug's edges and understates it at the corners.
+
+The corner of a stiff rectangle is a stress singularity in a shell model, so the corner value is shown
+separately and labelled mesh-dependent. Sensitivity, run once (too slow for every check run):
+- mesh: 24 divisions and 15 rings (16 050 DOF, against 8 950) change the 8-point maxima by under 1.2%, but the
+  corner value by 21–28%;
+- plug stiffness: a 12×-thick plug lowers the 8-point maxima by 4–8% on the example, and by up to 13% on a
+  28 mm wide thin plate.
+
+On a real lug, the weld fillet sets the corner stress.
+
+The FE route (`wrcFeReference`):
+- **Compare.** The lug WRC 537 solves, at the pad edge when there is a pad. That includes a thin plate on a pad:
+  the pad edge is still a WRC 537 case even when the shell + pad location is refused.
+- **FE only.** A lug refused only for WRC 537's own lug limits: torsion, β1/β2 outside 0.25–4, Mc/ML below γ 15,
+  or a term β outside 0.05–0.5. The panel and report then show the FE stresses alone, say why, and remind the
+  user to enter a thin plate's weld footprint (plate thickness plus both weld legs).
+- **Blocked.** Round attachments outside WRC 537, γ outside the curves, the length rules and input errors stay
+  blocked.
+
+Example: a 200 × 28 mm plate with torsion gives FE 199.91 MPa at Au, and its corner value is 363.51 MPa.
+
+Checks:
+- `scripts/wrc-lug-fe-check.mjs`: the mesh, the load resultants, signs, frozen maxima and ratios,
+  superposition;
+- `scripts/wrc-lug-fe-route-check.mjs`: routing, the thin plate, square vs round, report and contour;
+- an e2e test for the FE-only route in the browser.
+
+No simple torsion formula was added (see NEXT-PHASE-PLAN.md).
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

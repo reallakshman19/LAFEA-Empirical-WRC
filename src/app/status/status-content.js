@@ -40,7 +40,7 @@ export const STATUS_VISION = Object.freeze({
 /** What can be used today, one line per area. */
 export const STATUS_TODAY = Object.freeze([
   Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments, nozzles or trunnions (γ 5–300, β 0.05–0.5), and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases.' }),
-  Object.freeze({ area: 'Shell-FE cross-check', state: 'USABLE', text: 'Solves the same nozzle with LAFEA shell elements in about 30 s, compares the 8 points and draws a stress-intensity contour. Reports a ratio, not a pass/fail.' }),
+  Object.freeze({ area: 'Shell-FE cross-check', state: 'USABLE', text: 'Solves the same nozzle, trunnion or lug with LAFEA shell elements in about 30 s, compares the 8 points and draws a stress-intensity contour. Reports a ratio, not a pass/fail. For a lug WRC 537 refuses (a thin plate, torsion), it gives the only answer.' }),
   Object.freeze({ area: 'LAFEA plate form', state: 'USABLE', text: 'Plane-stress rectangular plate, with or without a central round hole: edge supports and loads, automatic mesh, convergence study, Kt.' }),
   Object.freeze({ area: 'LAFEA workbench', state: 'PARTIAL', text: 'Worked cantilever example and the plate form go end to end. Other geometry needs stage JSON. Shell and trunnion stages are not wired to a form.' }),
   Object.freeze({ area: 'Universal canvas', state: 'NOT_STARTED', text: 'There is no drawing canvas yet; the LAFEA viewports only display models and results. First scope decided: cylindrical shells with nozzles, trunnions and lugs.' }),
@@ -81,9 +81,9 @@ export const KNOWN_ISSUES = Object.freeze([
     + 'the shell is blocked; moments on a non-square lug need γ ≥ 15. Table 7/8 factors between printed rows are '
     + 'interpolated (judgement), and some printed rows are approximate; the result shows the spread with the nearest printed '
     + 'rows instead, and flags it when wider than 10% (a narrow lug under Mc can reach about 22%).',
-    'Use your licensed program or LAFEA FE for these cases.',
-    'Lugs added 2026-11-27 (hand-checked against the bulletin equations). The FE cross-check for a rectangular '
-    + 'footprint is planned (PL-04), and a lug benchmark is ready to run (PL-02). Spheres come later.'),
+    'Run the shell-FE model for these lugs (it takes the blocked cases on its own), or use your licensed program.',
+    'Lugs added 2026-11-27 (hand-checked against the bulletin equations), with a rectangular-footprint FE model the same '
+    + 'day (PL-04). A lug benchmark is ready to run (PL-02). Spheres come later.'),
   issue('KI-04', 'WRC calculator', 'MEDIUM', 'Reinforcing pads use the two-location method',
     'WRC 537 has no pad rule. The calculator checks the shell twice, as PV Elite does: at the attachment with '
     + 'shell + pad thickness, and at the pad edge with the shell alone and the pad diameter. This assumes the pad '
@@ -116,10 +116,12 @@ export const KNOWN_ISSUES = Object.freeze([
     'Planned with the UI finish.'),
   // Shell-FE cross-check
   issue('KI-10', 'Shell-FE cross-check', 'MEDIUM', 'Simplified FE model',
-    'A near-rigid round plug on a full cylinder with clamped ends. Pressure and Kn/Kb are not modelled; with a pad '
-    + 'it checks the pad edge only (36-inch example: FE/WRC 1.17, same governing point). '
-    + 'On the CAESAR II case FE/WRC is 0.95 (Ml) to 1.40 (Mc), so it reports a ratio, not a pass/fail.',
-    'Read a large ratio as a reason to look closer.',
+    'A near-rigid round plug, or a stiff plate the size of a lug footprint, on a full cylinder with clamped ends. '
+    + 'Pressure and Kn/Kb are not modelled; with a pad it checks the pad edge only (36-inch example: FE/WRC 1.17, '
+    + 'same governing point). On the CAESAR II case FE/WRC is 0.95 (Ml) to 1.40 (Mc). On four lug shapes FE finds 0.50–0.89 '
+    + 'of WRC at the middle of the edges and more than WRC at the corners, where the value depends on the mesh '
+    + '(+21–28% from 16 to 24 divisions) and on a real lug is set by the weld. So it reports a ratio, not a pass/fail.',
+    'Read a large ratio, or a corner value well above WRC, as a reason to look closer.',
     'Kept as is; the canvas will let FE use the real geometry.'),
   issue('KI-11', 'Shell-FE cross-check', 'LOW', 'Loosened solver tolerances',
     'The iterative solver (Jacobi-preconditioned CG) cannot meet the core\'s default 1e-8 equilibrium tolerance '
@@ -174,24 +176,20 @@ export const KNOWN_ISSUES = Object.freeze([
  * Near-term improvements, in the recommended order: what, why, size (S under ½ day, M 1–2 days, L 3+ days)
  * and what it needs. PL-02 to PL-05 finish and prove the first production scope (nozzles, trunnions and
  * lugs on cylinders); the cheapest, strongest evidence comes first and FE covers what nothing else does.
- * PL-01 (interpolation spread for lugs) and PL-03 (trunnions) were done on 2026-11-27 and are now part of the calculator.
+ * PL-01 (interpolation spread for lugs), PL-03 (trunnions) and PL-04 (FE for lugs) were done on 2026-11-27 and are now
+ * part of the calculator.
  */
 export const PLANNED_IMPROVEMENTS = Object.freeze([
   plan('PL-02', 'Lug benchmark from your licensed program', 'S', 'Your runs of 3 lug cases with WRC 537 (docs/LUG-BENCHMARK-REQUEST.md)',
-    'The only real WRC 537 evidence for lugs: the same footprints run in PV Elite or similar, compared point by point.',
+    'The only real WRC 537 evidence for lugs: the same footprints run in PV Elite or similar, compared point by point. '
+    + 'FE (PL-04) gives only a ratio, and on lugs it differs from WRC 537 in kind: less at the middle of the edges, more at the corners.',
     ['Cases ready: L1 (γ 100, β1/β2 2, printed factors), L2 (γ 62, ratio 0.5, interpolated), L3 (γ 50, ratio 0.25, edge of range), optional L4 with a pad',
       'Freeze each report as a JSON reference and check our 8 points against it, as for the CAESAR II nozzle',
       'Trace any large difference to its load term: interpolation, curve reading or convention']),
-  plan('PL-04', 'FE for lugs', 'M', 'Nothing',
-    'Gives lugs the same FE comparison as nozzles, and an answer where WRC 537 has none (thin plates, torsion).',
-    ['Shell-FE mesh with a rectangular footprint, blending out to the round patch',
-      'Checks: a square footprint matches the equivalent round plug; mesh refinement; FE/WRC ratios for 3–4 lug shapes frozen',
-      'FE as the route for lugs WRC 537 blocks: β1/β2 outside 0.25–4 and torsion. The corner peak is labelled mesh-dependent',
-      'No simple torsion formula is planned: a shear-flow estimate misses the shell bending. Say if you want it as a labelled screening value']),
   plan('PL-05', 'A code method for thin plate lugs', 'M', 'Your copy of the standard, and which one: EN 13445-3 (clause 16) or PD 5500 (Annex G)',
     'Thin plates welded straight to the shell are the most common lug and are outside WRC 537; a code method written for them is a cheaper everyday answer than FE.',
     ['Confirm the method\'s range and formulas from your copy', 'Implement it as a separate, labelled route next to WRC 537',
-      'Check it against the standard\'s worked example, if it has one, and against FE (PL-04)']),
+      'Check it against the standard\'s worked example, if it has one, and against the lug FE model (PL-04, done)']),
   plan('PL-06', 'Finish the UI', 'L', 'Nothing',
     'One look and layout across the WRC calculator, the LAFEA tab and this page.',
     ['Custody and authority text moved into a "Technical details" drawer', 'Plain example defaults in the advanced workflow',
@@ -265,6 +263,7 @@ export const DECISIONS_MADE = Object.freeze([
   '2026-11-27: lug data comes from the licensed WRC 537 bulletin: Tables 6–8 as extracted in docs/emp1, the equations from the PDF.',
   '2026-11-27: reinforcing pads before lugs.',
   '2026-11-27: lugs in the WRC calculator, within the WRC 537 rules; cases outside them are blocked and sent to FE.',
+  '2026-11-27: lugs WRC 537 refuses (thin plates, torsion) get a shell-FE answer, labelled FE only. No simple torsion formula.',
 ]);
 
 function issue(id, area, severity, title, what, workaround, status) {
