@@ -18,10 +18,14 @@
  * "Full EMP.1 workflow (advanced)" sub-tab opens. The WRC calculator stays in the first load.
  * scripts/bundle-size-check.mjs keeps the first-load JS under 500 kB.
  */
+import './theme.css';
 import './app.css';
 import '../lafea-app/app.css';
 import { mountWrcCalculator } from './wrc/wrc-panel.js';
 import { mountStatusView } from './status/status-panel.js';
+import { markSelectedTab, wireTabKeys } from './ui-tabs.js';
+
+const APP_TITLE = 'LAFEA + Empirical/WRC';
 
 let lafeaModulesPromise = null;
 
@@ -67,6 +71,8 @@ function deferLafeaMount(host, mount) {
 
   function tryMount() {
     if (destroyed || instance || !modules || !isShown(host)) return;
+    // The EMP.1 workbench adds itself to the host, so take the loading message out first.
+    host.querySelector(':scope > [data-role="lafea-loading"]')?.remove();
     try {
       instance = mount(modules);
       settle('resolve', instance);
@@ -186,42 +192,65 @@ export function mountApp(root) {
   const doc = root.ownerDocument;
   const controllers = new Map();
 
+  // Keyboard users can jump past the tabs to the open view.
+  const skip = doc.createElement('a');
+  skip.className = 'app-skip';
+  skip.href = '#';
+  skip.textContent = 'Skip to content';
+  skip.addEventListener('click', (event) => {
+    event.preventDefault();
+    entries.find((entry) => !entry.host.hidden)?.host.focus();
+  });
+
   const nav = doc.createElement('nav');
   nav.className = 'app-nav';
-  nav.setAttribute('aria-label', 'Application views');
+  nav.setAttribute('aria-label', 'Application');
   const brand = doc.createElement('span');
   brand.className = 'app-nav__brand';
-  brand.textContent = 'LAFEA + Empirical/WRC';
-  nav.append(brand);
+  brand.textContent = APP_TITLE;
+  const tablist = doc.createElement('div');
+  tablist.className = 'app-nav__tabs';
+  tablist.setAttribute('role', 'tablist');
+  tablist.setAttribute('aria-label', 'Application views');
+  nav.append(brand, tablist);
 
   const views = doc.createElement('div');
   views.className = 'app-views';
-  root.replaceChildren(nav, views);
+  root.replaceChildren(skip, nav, views);
 
+  // Each view is a tab (Left/Right between them, Enter to open) and a link: #LAFEA, #EMPIRICAL, #STATUS.
   const entries = APP_VIEWS.map((view) => {
     const button = doc.createElement('button');
     button.type = 'button';
     button.className = 'app-nav__tab';
+    button.id = `app-tab-${view.id}`;
     button.dataset.appNav = view.id;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-controls', `app-view-${view.id}`);
     button.title = view.title;
     button.textContent = view.label;
     button.addEventListener('click', () => activate(view.id));
-    nav.append(button);
+    tablist.append(button);
 
     const host = doc.createElement('main');
     host.className = 'app-view';
+    host.id = `app-view-${view.id}`;
     host.dataset.appView = view.id;
+    host.setAttribute('aria-labelledby', button.id);
+    host.tabIndex = -1;
     host.hidden = true;
     views.append(host);
     return { view, button, host };
   });
+  wireTabKeys(tablist, () => entries.map((entry) => entry.button));
 
   function activate(viewId) {
     const target = entries.find((entry) => entry.view.id === viewId) ?? entries[0];
-    for (const entry of entries) {
-      const active = entry === target;
-      entry.host.hidden = !active;
-      entry.button.setAttribute('aria-pressed', String(active));
+    for (const entry of entries) entry.host.hidden = entry !== target;
+    markSelectedTab(entries.map((entry) => entry.button), target.button);
+    doc.title = `${target.view.label} · ${APP_TITLE}`;
+    if (hashView() !== target.view.id) {
+      try { globalThis.history?.replaceState(null, '', `#${target.view.id}`); } catch { /* address bar optional */ }
     }
     if (!controllers.has(target.view.id)) {
       const mount = VIEW_MOUNTERS[target.view.id];
@@ -238,8 +267,14 @@ export function mountApp(root) {
 
   let initial = null;
   try { initial = globalThis.localStorage?.getItem(STORAGE_KEY) ?? null; } catch { /* storage optional */ }
-  const fromHash = (globalThis.location?.hash ?? '').replace(/^#/, '').toUpperCase();
-  activate(APP_VIEWS.some((v) => v.id === fromHash) ? fromHash : initial);
+  activate(hashView() ?? initial);
+
+  // A link or the address bar can switch views without a reload.
+  const onHashChange = () => {
+    const id = hashView();
+    if (id && entries.find((entry) => entry.view.id === id)?.host.hidden) activate(id);
+  };
+  globalThis.addEventListener?.('hashchange', onHashChange);
 
   return Object.freeze({
     activate,
@@ -252,11 +287,18 @@ export function mountApp(root) {
     },
     getActiveViewId: () => entries.find((e) => !e.host.hidden)?.view.id ?? null,
     destroy() {
+      globalThis.removeEventListener?.('hashchange', onHashChange);
       for (const controller of controllers.values()) controller.destroy();
       controllers.clear();
       root.replaceChildren();
     },
   });
+}
+
+/** The view named by the address bar's #fragment (any case), or null. */
+function hashView() {
+  const id = (globalThis.location?.hash ?? '').replace(/^#/, '').toUpperCase();
+  return APP_VIEWS.some((view) => view.id === id) ? id : null;
 }
 
 const EMPIRICAL_SUBVIEW_KEY = 'lafea-emp-app/empirical-subview';
@@ -268,6 +310,7 @@ export function mountEmpiricalView(host) {
   const tabs = doc.createElement('div');
   tabs.className = 'app-subnav';
   tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Empirical views');
   const calcHost = doc.createElement('div');
   calcHost.dataset.empiricalSubview = 'WRC';
   const workflowHost = doc.createElement('div');
@@ -284,21 +327,24 @@ export function mountEmpiricalView(host) {
     const button = doc.createElement('button');
     button.type = 'button';
     button.className = 'app-subnav__tab';
+    button.id = `empirical-tab-${sub.id}`;
     button.dataset.empiricalNav = sub.id;
     button.setAttribute('role', 'tab');
+    button.setAttribute('aria-controls', `empirical-panel-${sub.id}`);
     button.textContent = sub.label;
     button.addEventListener('click', () => show(sub.id));
     tabs.append(button);
+    sub.panel.id = `empirical-panel-${sub.id}`;
+    sub.panel.setAttribute('role', 'tabpanel');
+    sub.panel.setAttribute('aria-labelledby', button.id);
     return button;
   });
+  wireTabKeys(tabs, () => buttons);
 
   function show(id) {
     const target = subviews.find((sub) => sub.id === id) ?? subviews[0];
-    subviews.forEach((sub, index) => {
-      const active = sub === target;
-      sub.panel.hidden = !active;
-      buttons[index].setAttribute('aria-selected', String(active));
-    });
+    subviews.forEach((sub) => { sub.panel.hidden = sub !== target; });
+    markSelectedTab(buttons, buttons[subviews.indexOf(target)]);
     if (target.id === 'WORKFLOW') {
       workflow ??= deferLafeaMount(workflowHost,
         ({ LafeaStandaloneController }) => new LafeaStandaloneController(workflowHost, { ...options }).init());

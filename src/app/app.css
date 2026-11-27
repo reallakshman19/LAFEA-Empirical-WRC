@@ -7,9 +7,9 @@ body,
 
 body {
   min-width: 320px;
-  background: #020711;
-  color: #dbe5f4;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
 }
 
 #app-root {
@@ -17,14 +17,31 @@ body {
   flex-direction: column;
 }
 
+.app-skip {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 20;
+  padding: 6px 12px;
+  border: 1px solid var(--ui-accent);
+  border-radius: var(--ui-radius);
+  background: var(--ui-control);
+  color: var(--ui-text);
+  font: 13px/1.2 var(--ui-font);
+  text-decoration: none;
+}
+.app-skip:focus { top: 6px; }
+
 .app-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  background: #07101f;
-  border-bottom: 1px solid #1c2a40;
-  font: 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  gap: 4px 12px;
+  min-height: var(--ui-nav-height);
+  box-sizing: border-box;
+  padding: 4px 12px;
+  background: var(--ui-panel);
+  border-bottom: 1px solid var(--ui-line);
+  font: 13px/1.2 var(--ui-font);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -33,33 +50,41 @@ body {
 .app-nav__brand {
   color: #9fb3d1;
   font-weight: 600;
-  margin-right: 12px;
+  white-space: nowrap;
+}
+
+.app-nav__tabs {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .app-nav__tab {
   appearance: none;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--ui-radius);
   background: transparent;
-  color: #c9d6ea;
-  padding: 6px 12px;
+  color: var(--ui-text-soft);
+  padding: 7px 12px;
   font: inherit;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .app-nav__tab:hover {
-  background: #0e1a2e;
+  background: var(--ui-control);
 }
 
-.app-nav__tab[aria-pressed='true'] {
-  background: #13243f;
-  border-color: #2b4a78;
+.app-nav__tab[aria-selected='true'] {
+  background: var(--ui-control-hover);
+  border-color: var(--ui-control-line);
   color: #ffffff;
 }
 
-.app-nav__tab:focus-visible {
-  outline: 2px solid #4c8dff;
-  outline-offset: 1px;
+/* Phones: the tabs need the whole bar. */
+@media (max-width: 560px) {
+  .app-nav__brand { display: none; }
 }
 
 .app-views,
@@ -67,6 +92,8 @@ body {
   flex: 1;
   min-height: 0;
 }
+/* The view takes focus from "Skip to content"; the tabs already show which view is open. */
+.app-view:focus { outline: none; }
 
 .app-view [data-role='lafea-mock'],
 .app-view [data-role='lafea-benchmark'] {
@@ -77,27 +104,42 @@ body {
   display: flex;
   gap: 4px;
   padding: 8px 16px 0;
-  border-bottom: 1px solid #1c2a40;
-  font: 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  border-bottom: 1px solid var(--ui-line);
+  font: 13px/1.2 var(--ui-font);
+  overflow-x: auto;
 }
 
 .app-subnav__tab {
   appearance: none;
   border: 1px solid transparent;
   border-bottom: none;
-  border-radius: 6px 6px 0 0;
+  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
   background: transparent;
   color: #9fb3d1;
   padding: 7px 14px;
   font: inherit;
+  white-space: nowrap;
   cursor: pointer;
 }
 
+.app-subnav__tab:hover { color: var(--ui-text); }
+
 .app-subnav__tab[aria-selected='true'] {
-  background: #07101f;
-  border-color: #2b4a78;
+  background: var(--ui-panel);
+  border-color: var(--ui-control-line);
   color: #ffffff;
 }
+
+/* Buttons in the plate form and example bar look like the WRC calculator's. */
+.app-examplebar button,
+.app-plate button {
+  font: inherit; color: inherit; background: var(--ui-control); border: 1px solid var(--ui-control-line);
+  border-radius: var(--ui-radius); padding: 5px 10px; cursor: pointer;
+}
+.app-examplebar button:hover:not(:disabled),
+.app-plate button:hover:not(:disabled) { background: var(--ui-control-hover); }
+.app-examplebar button:disabled,
+.app-plate button:disabled { opacity: .5; cursor: default; }
 
 .app-examplebar {
   display: flex;
@@ -105,64 +147,58 @@ body {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  border-bottom: 1px solid #1c2a40;
-  background: #07101f;
-  color: #dbe5f4;
-  font: 13px/1.35 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  border-bottom: 1px solid var(--ui-line);
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font: 13px/1.35 var(--ui-font);
 }
-.app-examplebar__label { color: #8ea2c0; text-transform: uppercase; font-size: 11px; letter-spacing: .05em; }
-.app-examplebar button {
-  font: inherit; color: inherit; background: #0e1a2e; border: 1px solid #2b4a78; border-radius: 6px;
-  padding: 4px 10px; cursor: pointer;
-}
-.app-examplebar button:hover:not(:disabled) { background: #13243f; }
-.app-examplebar button:disabled { opacity: .5; cursor: default; }
-.app-examplebar__status { color: #8ea2c0; flex: 1 1 320px; }
-.app-examplebar__status[data-tone='ok'] { color: #7fd1a8; }
-.app-examplebar__status[data-tone='warn'] { color: #e0b955; }
-.app-examplebar__status[data-tone='bad'] { color: #f08a87; }
+.app-examplebar__label { color: var(--ui-muted); text-transform: uppercase; font-size: 12px; letter-spacing: .04em; }
+.app-examplebar__status { color: var(--ui-muted); flex: 1 1 320px; }
+.app-examplebar__status[data-tone='ok'] { color: var(--ui-ok-text); }
+.app-examplebar__status[data-tone='warn'] { color: var(--ui-warn-text); }
+.app-examplebar__status[data-tone='bad'] { color: var(--ui-bad-text); }
 
-/* LAFEA plate input form */
-.app-plate { margin: 0; padding: 8px 16px; border-bottom: 1px solid #1c2a40; color: #c9d6ea; font-size: 13px; }
+/* LAFEA plate input form: the same type and controls as the WRC calculator. */
+.app-plate { margin: 0; padding: 8px 16px; border-bottom: 1px solid var(--ui-line); color: var(--ui-text); font: 14px/1.45 var(--ui-font); }
 .app-plate > summary { cursor: pointer; padding: 2px 0; }
-.app-plate > summary span { color: #8ea2c0; margin-left: 6px; }
+.app-plate > summary span { color: var(--ui-muted); margin-left: 6px; }
 .app-plate__form { margin-top: 8px; display: grid; gap: 10px; max-width: 980px; }
 .app-plate__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px 16px; }
-.app-plate__grid label { display: flex; flex-direction: column; gap: 3px; color: #8ea2c0; }
-.app-plate__grid label span { display: flex; align-items: center; gap: 6px; color: #8ea2c0; }
-.app-plate input, .app-plate select { background: #0b1424; color: #e6edf7; border: 1px solid #2a3a55; border-radius: 4px; padding: 4px 6px; font: inherit; }
+.app-plate__grid label { display: flex; flex-direction: column; gap: 3px; color: var(--ui-muted); }
+.app-plate__grid label span { display: flex; align-items: center; gap: 6px; color: var(--ui-muted); }
+.app-plate input, .app-plate select {
+  background: var(--ui-input); color: var(--ui-text); border: 1px solid var(--ui-input-line); border-radius: var(--ui-radius);
+  padding: 5px 8px; font: inherit; font-variant-numeric: tabular-nums;
+}
+.app-plate select { background: var(--ui-control); border-color: var(--ui-control-line); }
 .app-plate input[type='number'] { width: 110px; }
 .app-plate input[type='checkbox'] { width: auto; }
 .app-plate__edges { border-collapse: collapse; width: 100%; }
-.app-plate__edges th, .app-plate__edges td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid #1c2a40; font-weight: normal; }
-.app-plate__edges th { color: #8ea2c0; }
-.app-plate__edges small, .app-plate__help { color: #8ea2c0; }
-.app-plate__probe { border: 1px solid #1c2a40; border-radius: 6px; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
-.app-plate__probe legend { color: #8ea2c0; padding: 0 4px; }
+.app-plate__edges th, .app-plate__edges td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--ui-line); font-weight: normal; }
+.app-plate__edges th { color: var(--ui-muted); font-size: 12px; }
+.app-plate__edges small, .app-plate__help { color: var(--ui-muted); }
+.app-plate__probe { border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.app-plate__probe legend { color: var(--ui-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 0 4px; }
 .app-plate__probe span { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.app-plate__help { margin: 0; }
+.app-plate__help { margin: 0; font-size: 13px; }
 .app-plate__actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.app-plate button {
-  font: inherit; color: inherit; background: #0e1a2e; border: 1px solid #2b4a78; border-radius: 6px;
-  padding: 4px 10px; cursor: pointer;
-}
-.app-plate button:hover:not(:disabled) { background: #13243f; }
-.app-plate button:disabled { opacity: .5; cursor: default; }
 /* The layout rules above set display, which would override the hidden attribute. */
 .app-plate [hidden] { display: none !important; }
-.app-plate__errors { margin: 0; padding-left: 18px; color: #f08a87; }
+.app-plate__errors { margin: 0; padding-left: 18px; color: var(--ui-bad-text); }
 .app-plate__errors:empty { display: none; }
 .app-plate__result p { margin: 4px 0; }
 .app-plate__levels { border-collapse: collapse; }
-.app-plate__levels th, .app-plate__levels td { padding: 3px 12px 3px 0; text-align: right; border-bottom: 1px solid #1c2a40; font-variant-numeric: tabular-nums; }
+.app-plate__levels th, .app-plate__levels td { padding: 3px 12px 3px 0; text-align: right; border-bottom: 1px solid var(--ui-line); font-variant-numeric: tabular-nums; }
 .app-plate__levels th:first-child, .app-plate__levels td:first-child { text-align: left; }
-.app-plate__kt { color: #7fd1a8; }
-.app-plate__note { color: #8ea2c0; }
-.app-plate__bad { color: #f08a87; }
+.app-plate__kt { color: var(--ui-ok-text); }
+.app-plate__note { color: var(--ui-muted); }
+.app-plate__bad { color: var(--ui-bad-text); }
+/* Narrow screens: the edge table scrolls instead of squeezing its inputs. */
+.app-plate__edges-wrap { overflow-x: auto; }
 
 /* Shown while the LAFEA workbench is fetched on first use. */
-.app-loading { margin: 0; padding: 24px 16px; color: #8ea2c0; }
-.app-loading--error { color: #f08a87; }
+.app-loading { margin: 0; padding: 24px 16px; color: var(--ui-muted); }
+.app-loading--error { color: var(--ui-bad-text); }
 .app-loading--error p { margin: 0 0 8px; }
 
 /* The EMP.1 workflow has its own Empirical tab, and LAFEA.6 (weld profile) is not implemented. */

@@ -48,6 +48,7 @@ const LOADS = [
 ];
 
 const SHORT_LOCATION = Object.freeze({ ATTACHMENT: '', JUNCTION: 'shell + pad', PAD_EDGE: 'pad edge' });
+const TIER_SHORT = Object.freeze({ SOURCE_QUALIFIED: 'γ = 5 row', TABULATED_ROW: 'tabulated γ row', INTERPOLATED: 'interpolated γ' });
 
 export function mountWrcCalculator(host) {
   const doc = host.ownerDocument;
@@ -58,6 +59,7 @@ export function mountWrcCalculator(host) {
 
   host.classList.add('wrc');
   host.innerHTML = `
+    <h1 class="ui-sr-only">WRC 537 local stress calculator</h1>
     <div class="wrc__bar">
       <label class="wrc__title">Case <input data-k="title" type="text" maxlength="120"></label>
       <select data-act="example" aria-label="Load an example">
@@ -77,7 +79,11 @@ export function mountWrcCalculator(host) {
       <input type="file" accept=".json,application/json" data-act="file" hidden>
     </div>
     <div class="wrc__body">
-      <form class="wrc__inputs" autocomplete="off" novalidate>
+      <div class="wrc__summary" data-role="wrc-summary">
+        <span data-slot="summary"></span>
+        <button type="button" data-act="toResults">Results ↓</button>
+      </div>
+      <form class="wrc__inputs" autocomplete="off" novalidate aria-label="Inputs">
         <div data-slot="fields"></div>
         <fieldset class="wrc__group">
           <legend>Load cases at the attachment (WRC 537 axes)</legend>
@@ -106,7 +112,8 @@ export function mountWrcCalculator(host) {
           <p class="wrc__help">WRC 537 tabulates γ = ${WRC_GAMMA_GRID.join(', ')}. Any other γ is interpolated between the two nearest rows.</p>
         </fieldset>
       </form>
-      <section class="wrc__results" aria-live="polite">
+      <section class="wrc__results" aria-labelledby="wrc-results-heading">
+        <h2 class="ui-sr-only wrc__results-h" id="wrc-results-heading" tabindex="-1">Results</h2>
         <div class="wrc__derived" data-slot="derived"></div>
         <div data-slot="envelope"></div>
         <div data-slot="status"></div>
@@ -117,11 +124,12 @@ export function mountWrcCalculator(host) {
           <p class="wrc__help">Solves this geometry with a thin-shell FE model: a rigid attachment (round, or a stiff plate the size of a rectangular footprint) on a cylinder with clamped ends, about 10 000 DOF. It uses all six of this case's loads (P, Vc, Vl, Mc, Ml, Mt), but not pressure or Kn/Kb. It compares stress intensity at the 8 WRC points and draws the FE stress around the attachment. It takes about 1–2 minutes and runs in the background.</p>
           <p class="wrc__help" data-slot="feScope"></p>
           <button type="button" data-act="runFe">Run shell FE cross-check</button>
-          <div data-slot="feResult" aria-live="polite"></div>
+          <div data-slot="feResult"></div>
         </section>
         <div data-slot="notes"></div>
       </section>
-    </div>`;
+    </div>
+    <p class="ui-sr-only" role="status" data-role="wrc-live"></p>`;
 
   // Build geometry fields grouped
   const groups = new Map();
@@ -150,7 +158,22 @@ export function mountWrcCalculator(host) {
     $('[data-casename]').value = activeCase().name;
     renderCaseTabs();
   }
+  /** Drawing the case buttons again drops the keyboard focus: note which case button had it… */
+  function caseFocus() {
+    const el = doc.activeElement;
+    if (!el?.matches?.('button[data-case]') || !host.contains(el)) return null;
+    return { el, selector: `${el.closest('.wrc__envelope') ? '.wrc__envelope' : '.wrc__cases'} button[data-case="${el.dataset.case}"]` };
+  }
+  /** …and put it back on the new button for the same case. */
+  function restoreCaseFocus(saved) {
+    if (saved && !saved.el.isConnected) $(saved.selector)?.focus();
+  }
   function renderCaseTabs() {
+    const saved = caseFocus();
+    drawCaseTabs();
+    restoreCaseFocus(saved);
+  }
+  function drawCaseTabs() {
     $('[data-slot="caseTabs"]').innerHTML = `${state.loadCases.map((c, i) => `
       <button type="button" data-case="${i}" class="${i === state.activeCase ? 'is-active' : ''}" aria-pressed="${i === state.activeCase}">${escapeHtml(c.name)}</button>`).join('')}
       <button type="button" data-act="addCase" title="Copy this case as a new one"${state.loadCases.length >= MAX_CASES ? ' disabled' : ''}>+ Add case</button>
@@ -173,6 +196,7 @@ export function mountWrcCalculator(host) {
   }
 
   function render() {
+    const savedFocus = caseFocus();
     batch = calculateWrc537Cases(state);
     result = batch.cases[state.activeCase].result; // calculateWrcAttachment: one location, or two with a pad
     let type = 'ROUND';
@@ -229,7 +253,43 @@ export function mountWrcCalculator(host) {
     $('[data-slot="notes"]').innerHTML = `
       ${result.warnings.length ? `<ul class="wrc__notes">${result.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>` : ''}
       <p class="wrc__help">Only stress in the shell at the attachment${hasPad(state) ? ' and at the pad edge' : ''} is calculated, not in the ${attachmentNoun(state)}${hasPad(state) ? ', pad or its welds' : ' or its weld'}. Pressure adds the thin-shell membrane stress only.</p>`;
+    renderSummary(result.ok ? tierClass : 'bad');
+    restoreCaseFocus(savedFocus);
     save(state);
+  }
+
+  /**
+   * The governing result in one line: in the strip that stays in view when the form and the results
+   * are in one column (a tablet held upright, a phone), and, as a sentence, for screen readers.
+   */
+  function renderSummary(tone) {
+    const multi = batch.cases.length > 1 ? `${activeCase().name}: ` : '';
+    const cc = result.ok ? result.codeCheck : null;
+    let line;
+    let spoken;
+    if (result.ok) {
+      const gov = result.governing;
+      const where = result.padded ? `, ${gov.label.toLowerCase()}` : '';
+      line = `${multi}governing ${fmt(gov.stressIntensity, 2)} MPa at ${gov.location}${where} · ${TIER_SHORT[result.tier]}${cc ? ` · code check ${cc.pass ? 'PASS' : 'FAIL'}` : ''}`;
+      spoken = `${multi}governing stress intensity ${fmt(gov.stressIntensity, 2)} MPa at point ${gov.location}${where}.${cc ? ` Code check ${cc.pass ? 'passes' : 'fails'}.` : ''}`;
+    } else {
+      line = `${multi}not calculated: ${result.reasons[0]?.text ?? 'check the inputs.'}`;
+      spoken = `${multi}not calculated. ${result.reasons[0]?.text ?? ''}`;
+    }
+    const strip = $('[data-role="wrc-summary"]');
+    strip.className = `wrc__summary wrc__summary--${tone}`;
+    strip.querySelector('[data-slot="summary"]').textContent = line.charAt(0).toUpperCase() + line.slice(1);
+    announce(spoken.charAt(0).toUpperCase() + spoken.slice(1));
+  }
+
+  /** Says `text` to screen readers once typing pauses, instead of reading the whole results panel. */
+  let announceTimer = null;
+  function announce(text) {
+    clearTimeout(announceTimer);
+    announceTimer = setTimeout(() => {
+      const live = $('[data-role="wrc-live"]');
+      if (live && live.textContent !== text) live.textContent = text;
+    }, 500);
   }
 
   function renderEnvelope() {
@@ -243,12 +303,12 @@ export function mountWrcCalculator(host) {
         const pl = r.ok ? Math.max(...r.locations.flatMap((l) => l.result.rows.map((row) => row.membraneIntensity))) : NaN;
         const gov = r.ok && batch.governing && batch.governing.name === c.name && r.governing.stressIntensity === batch.governing.stressIntensity;
         return `<tr data-case="${i}" class="${i === state.activeCase ? 'is-active' : ''}${gov ? ' is-gov' : ''}">
-          <td>${escapeHtml(c.name)}</td>
+          <td><button type="button" class="wrc__linkbtn" data-case="${i}"${i === state.activeCase ? ' aria-current="true"' : ''}>${escapeHtml(c.name)}</button></td>
           <td>${r.ok ? `<b>${fmt(r.governing.stressIntensity, 2)}</b>` : '<span class="wrc__bad">not calculated</span>'}</td>
           <td>${r.ok ? `${r.governing.location}${r.padded ? ` <small>${SHORT_LOCATION[r.governing.locationId]}</small>` : ''}` : '—'}</td><td>${fmt(pl, 2)}</td>
           ${hasCheck ? `<td>${r.codeCheck ? ratioCell(r.codeCheck.worst) : '—'}</td>` : ''}</tr>`;
       }).join('')}</tbody>
-      <caption>All load cases, MPa. Click a case to see its detail. ${batch.governing ? `Envelope: ${escapeHtml(batch.governing.name)}, ${fmt(batch.governing.stressIntensity, 2)} MPa at ${batch.governing.location}${batch.governing.locationId === 'ATTACHMENT' ? '' : ` ${SHORT_LOCATION[batch.governing.locationId]}`}.` : ''}${batch.codeCheck ? ` Code check: <b class="${batch.codeCheck.pass ? 'wrc__ok' : 'wrc__bad'}">${batch.codeCheck.pass ? 'all cases pass' : 'fails'}</b> (worst: ${escapeHtml(batch.codeCheck.worstCase)}).` : ''}</caption></table>`;
+      <caption>All load cases, MPa. Pick a case to see its detail. ${batch.governing ? `Envelope: ${escapeHtml(batch.governing.name)}, ${fmt(batch.governing.stressIntensity, 2)} MPa at ${batch.governing.location}${batch.governing.locationId === 'ATTACHMENT' ? '' : ` ${SHORT_LOCATION[batch.governing.locationId]}`}.` : ''}${batch.codeCheck ? ` Code check: <b class="${batch.codeCheck.pass ? 'wrc__ok' : 'wrc__bad'}">${batch.codeCheck.pass ? 'all cases pass' : 'fails'}</b> (worst: ${escapeHtml(batch.codeCheck.worstCase)}).` : ''}</caption></table>`;
   }
 
   /**
@@ -280,8 +340,11 @@ export function mountWrcCalculator(host) {
     }
     const key = feKey();
     const started = Date.now();
+    const what = reference.feMode === WRC_FE_MODE.FE_ONLY ? 'Shell FE run' : 'Shell FE cross-check';
     fe = { key, status: 'running', reference, started };
     renderFe();
+    announce(`${what} started. It takes about 1 to 2 minutes.`);
+    // The seconds counter is not announced; the start and the end are.
     const tick = setInterval(() => { if (fe?.status === 'running') renderFe(); }, 1000);
     worker.onmessage = (event) => {
       clearInterval(tick);
@@ -290,12 +353,16 @@ export function mountWrcCalculator(host) {
         ? { key, status: 'done', reference, result: event.data.result }
         : { key, status: 'error', error: feErrorText(event.data.error) };
       renderFe();
+      announce(fe.status === 'done'
+        ? `${what} finished: highest FE stress intensity ${fmt(fe.result.feGoverning.fe, 2)} MPa at point ${fe.result.feGoverning.location}.`
+        : `${what} failed. ${fe.error}`);
     };
     worker.onerror = (event) => {
       clearInterval(tick);
       worker.terminate();
       fe = { key, status: 'error', error: event.message || 'The background solver failed.' };
       renderFe();
+      announce(`${what} failed. ${fe.error}`);
     };
     worker.postMessage({ wrcResult: JSON.parse(JSON.stringify(reference)), options: { plugFactor: 4 } });
   }
@@ -360,7 +427,8 @@ export function mountWrcCalculator(host) {
     readout.textContent = idle;
     for (const svg of contour.querySelectorAll('svg[data-surface]')) {
       const surface = svg.dataset.surface;
-      svg.addEventListener('mousemove', (event) => {
+      // Pointer events: a mouse moving over the plot, or a finger tapping or dragging on a tablet.
+      const read = (event) => {
         const matrix = svg.getScreenCTM();
         if (!matrix) return;
         const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
@@ -372,8 +440,10 @@ export function mountWrcCalculator(host) {
         } else {
           readout.textContent = insideAttachment(field, s, x) ? 'Inside the attachment: not part of the shell result.' : idle;
         }
-      });
-      svg.addEventListener('mouseleave', () => { readout.textContent = idle; });
+      };
+      svg.addEventListener('pointermove', read);
+      svg.addEventListener('pointerdown', read);
+      svg.addEventListener('pointerleave', (event) => { if (event.pointerType === 'mouse') readout.textContent = idle; });
     }
   }
 
@@ -401,7 +471,14 @@ export function mountWrcCalculator(host) {
     if (event.target.matches('[data-casename]')) renderCaseTabs();
     render();
   });
-  form.addEventListener('change', () => { state = readForm(); render(); });
+  // 'input' has already drawn the result; a 'change' on leaving a box that changes nothing must not draw it
+  // again, or the case button the keyboard focus is moving to is replaced under it.
+  form.addEventListener('change', () => {
+    const next = readForm();
+    if (JSON.stringify(next) === JSON.stringify(state)) return;
+    state = next;
+    render();
+  });
   form.addEventListener('submit', (event) => event.preventDefault());
 
   host.addEventListener('click', (event) => {
@@ -409,13 +486,20 @@ export function mountWrcCalculator(host) {
     if (caseEl) { selectCase(Number(caseEl.dataset.case)); return; }
     const act = event.target.closest('[data-act]')?.dataset.act;
     if (act === 'runFe') { runFe(); return; }
+    if (act === 'toResults') {
+      $('.wrc__results').scrollIntoView({ block: 'start' });
+      $('#wrc-results-heading').focus({ preventScroll: true });
+      return;
+    }
     if (act === 'addCase' && state.loadCases.length < MAX_CASES) {
       state.loadCases.push({ name: `Case ${state.loadCases.length + 1}`, loads: { ...activeCase().loads } });
       selectCase(state.loadCases.length - 1);
+      $('[data-casename]').focus();
     }
     if (act === 'deleteCase' && state.loadCases.length > 1) {
       state.loadCases.splice(state.activeCase, 1);
       selectCase(Math.min(state.activeCase, state.loadCases.length - 1));
+      $(`.wrc__cases button[data-case="${state.activeCase}"]`)?.focus();
     }
     if (act === 'save') downloadFile(`${slug(state.title)}.wrc.json`, JSON.stringify({ schema: CASE_SCHEMA, case: state }, null, 2), 'application/json');
     if (act === 'open') $('[data-act="file"]').click();
@@ -478,7 +562,7 @@ export function mountWrcCalculator(host) {
     getBatch: () => batch,
     getFe: () => fe,
     setCase,
-    destroy() { host.replaceChildren(); host.classList.remove('wrc'); },
+    destroy() { clearTimeout(announceTimer); host.replaceChildren(); host.classList.remove('wrc'); },
   };
 }
 
@@ -525,8 +609,9 @@ function rectTermsTable(r, locationId) {
     <tbody>${rows.join('')}</tbody><caption>Rectangular attachment: β1 = ${fmt(r.rectangular.beta1, 4)}, β2 = ${fmt(r.rectangular.beta2, 4)}, β1/β2 = ${fmt(r.rectangular.ratio, 3)}. Each term is read on its curve at its own β, and that β is used in its stress formula.</caption></table>`;
 }
 
+/** A derived value. Out of range, its allowed range is written out too: a tooltip alone is lost on a tablet. */
 function chip(label, value, tone = '', title = '') {
-  return `<div class="wrc__chip ${tone ? `wrc__chip--${tone}` : ''}" title="${title}"><span>${label}</span><b>${value}</b></div>`;
+  return `<div class="wrc__chip ${tone ? `wrc__chip--${tone}` : ''}" title="${title}"><span>${label}</span><b>${value}</b>${tone === 'bad' && title ? `<em>${title}</em>` : ''}</div>`;
 }
 function cloneCase(c) { return JSON.parse(JSON.stringify(c)); }
 function ratioCell(item) {

@@ -23,6 +23,14 @@ the build in CI if the first-load JS grows past 500 kB. `globalThis.LafeaEmpApp`
 `await LafeaEmpApp.whenReady('LAFEA')` waits for the workbench, and the LAFEA view's
 `loadExample`, `solveExample` and `getState` now return promises.
 
+**Screens and keyboard.**
+- **One look.** The calculator, the plate form and the status page share one look (`src/app/theme.css`).
+- **Screen sizes.** On a laptop the WRC form and results sit side by side. On a tablet held upright or a phone
+  they stack, and a strip under the app bar keeps the governing result in view.
+- **Links.** Each view has a link: `#LAFEA`, `#EMPIRICAL` or `#STATUS`.
+- **Keyboard.** The tabs work with the arrow keys and Enter, and "Skip to content" is the first Tab stop.
+- **Screen readers.** They hear the governing result as one sentence when typing pauses.
+
 ## LAFEA example
 
 The LAFEA tab has an example bar:
@@ -235,12 +243,12 @@ Results after Phase 5.4 (2026-11-26), on Windows with Node 22 and Chrome:
 | Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **309 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field), `node scripts/wrc-lug-fe-check.mjs` (lug model, all six loads), `node scripts/wrc-lug-fe-route-check.mjs` (FE-only route, square vs round) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
-| Browser e2e (21 specs, 50 tests) | `npx playwright test` (dev server) | **42 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, LAFEA example, plate form, status page) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js` | **15 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
+| Browser e2e (22 specs, 59 tests) | `npx playwright test` (dev server) | **51 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
+| App e2e (WRC calculator, LAFEA example, plate form, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **19 pass** on the dev server. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
-| First-load size | `npm run check:bundle-size` (after `build`) | pass: 167.1 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 171.6 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 13 KNOWN checks that `check:all`
 skips, each with a plain reason:

@@ -167,29 +167,29 @@ export function mountLafeaView(host, options = {}) {
         <label>Shape <select data-plate="shape">
           <option value="HOLE">Plate with a central round hole</option>
           <option value="RECT">Rectangular plate</option></select></label>
-        <label>Length L (along x) <span><input data-plate="length" type="number" step="any" min="0"> mm</span></label>
-        <label>Height H (along y) <span><input data-plate="height" type="number" step="any" min="0"> mm</span></label>
-        <label>Thickness t <span><input data-plate="thickness" type="number" step="any" min="0"> mm</span></label>
-        <label data-plate-hole>Hole diameter d <span><input data-plate="holeDiameter" type="number" step="any" min="0"> mm</span></label>
-        <label>Young's modulus E <span><input data-plate="elasticModulus" type="number" step="any" min="0"> MPa</span></label>
-        <label>Poisson's ratio ν <span><input data-plate="poissonRatio" type="number" step="any" min="0" max="0.5"></span></label>
-        <label>Mesh size h <span><input data-plate="meshSize" type="number" step="any" min="0"> mm</span></label>
+        <label>Length L (along x) <span><input data-plate="length" type="number" step="any" min="0" inputmode="decimal"> mm</span></label>
+        <label>Height H (along y) <span><input data-plate="height" type="number" step="any" min="0" inputmode="decimal"> mm</span></label>
+        <label>Thickness t <span><input data-plate="thickness" type="number" step="any" min="0" inputmode="decimal"> mm</span></label>
+        <label data-plate-hole>Hole diameter d <span><input data-plate="holeDiameter" type="number" step="any" min="0" inputmode="decimal"> mm</span></label>
+        <label>Young's modulus E <span><input data-plate="elasticModulus" type="number" step="any" min="0" inputmode="decimal"> MPa</span></label>
+        <label>Poisson's ratio ν <span><input data-plate="poissonRatio" type="number" step="any" min="0" max="0.5" inputmode="decimal"></span></label>
+        <label>Mesh size h <span><input data-plate="meshSize" type="number" step="any" min="0" inputmode="decimal"> mm</span></label>
       </div>
-      <table class="app-plate__edges">
+      <div class="app-plate__edges-wrap"><table class="app-plate__edges">
         <thead><tr><th>Edge</th><th>Support</th><th>Normal stress σn <small>MPa, + = tension</small></th><th>Shear τ <small>MPa</small></th></tr></thead>
         <tbody>${PLATE_EDGES.map((id) => `
           <tr><td>${EDGE_LABEL[id]}</td>
-            <td><select data-edge="${id}" data-field="support">${Object.entries(PLATE_SUPPORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></td>
-            <td><input data-edge="${id}" data-field="normal" type="number" step="any"></td>
-            <td><input data-edge="${id}" data-field="shear" type="number" step="any"> <small>in ${SHEAR_HINT[id]}</small></td></tr>`).join('')}
+            <td><select data-edge="${id}" data-field="support" aria-label="${EDGE_LABEL[id]} edge: support">${Object.entries(PLATE_SUPPORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></td>
+            <td><input data-edge="${id}" data-field="normal" type="number" step="any" inputmode="decimal" aria-label="${EDGE_LABEL[id]} edge: normal stress σn, MPa, + = tension"></td>
+            <td><input data-edge="${id}" data-field="shear" type="number" step="any" inputmode="decimal" aria-label="${EDGE_LABEL[id]} edge: shear τ, MPa, in ${SHEAR_HINT[id]}"> <small>in ${SHEAR_HINT[id]}</small></td></tr>`).join('')}
         </tbody>
-      </table>
+      </table></div>
       <fieldset class="app-plate__probe">
         <legend>Result point (checked by the convergence study)</legend>
         <label><input type="checkbox" data-plate-probe="auto"> Automatic: total displacement at the middle of the most loaded edge. (For a hole, the peak stress and Kt at the hole edge are reported as well.)</label>
         <span data-plate-probe-custom>
-          <label>x <input data-plate-probe="x" type="number" step="any"> mm</label>
-          <label>y <input data-plate-probe="y" type="number" step="any"> mm</label>
+          <label>x <input data-plate-probe="x" type="number" step="any" inputmode="decimal"> mm</label>
+          <label>y <input data-plate-probe="y" type="number" step="any" inputmode="decimal"> mm</label>
           <label>Quantity <select data-plate-probe="quantityId">${Object.entries(PLATE_PROBE_QUANTITIES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}</select></label>
         </span>
       </fieldset>

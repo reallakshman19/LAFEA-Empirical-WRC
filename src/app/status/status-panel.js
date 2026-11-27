@@ -41,7 +41,11 @@ export function mountStatusView(host) {
     const button = el('button', 'status__toc-link', section.label);
     button.type = 'button';
     button.dataset.statusJump = section.id;
-    button.addEventListener('click', () => root.querySelector(`[data-status-section='${section.id}']`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    // Scroll to the section and move the focus to its heading, so keyboard and screen-reader users land there too.
+    button.addEventListener('click', () => {
+      root.querySelector(`[data-status-section='${section.id}']`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      root.querySelector(`#status-h-${section.id}`)?.focus({ preventScroll: true });
+    });
     toc.append(button);
   }
   header.append(toc);
@@ -53,6 +57,7 @@ export function mountStatusView(host) {
     node.setAttribute('aria-labelledby', `status-h-${id}`);
     const heading = el('h2', 'status__h2', title);
     heading.id = `status-h-${id}`;
+    heading.tabIndex = -1;
     node.append(heading);
     if (intro) node.append(el('p', 'status__intro', intro));
     root.append(node);

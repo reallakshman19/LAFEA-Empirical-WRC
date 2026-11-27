@@ -21,7 +21,7 @@ A Vite 7 vanilla-JS app (ES modules, `base: './'`, no runtime npm dependencies) 
 
 Most of `src/` (490 modules) is extracted upstream code. **New code written here** is only:
 
-- `src/app/` — `main.js`, `app.css`, `wrc/*`, `lafea/*`;
+- `src/app/` — `main.js`, `app.css`, `theme.css`, `ui-tabs.js`, `wrc/*`, `lafea/*`, `status/*`;
 - `scripts/wrc-calculator-check.mjs`, `scripts/wrc-nozzle-fe-check.mjs`, `scripts/run-all-checks.mjs`, `scripts/known-upstream-failures.json`;
 - `e2e/wrc-calculator.spec.js`, `e2e/lafea-example.spec.js`;
 - `.github/workflows/ci.yml`, `.github/workflows/pages.yml`, `.gitattributes`, `index.html`, and the docs.
@@ -124,11 +124,29 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   - a 5 mm mesh level fails recovery.
 - **API:** `globalThis.LafeaEmpApp` exposes `loadExample`, `solveExample` and `getState`. The e2e tests use it.
 
+### 3.3a App shell, look and keyboard (PL-06 part 1)
+
+- **Colours and controls.** They live in `src/app/theme.css` as `--ui-*` variables. `wrc.css` and `status.css`
+  map their own `--wrc-*` / `--st-*` names onto them, so change a colour there, not in each panel. The printed
+  WRC report is standalone HTML with its own light styles.
+- **Tabs.**
+  - `src/app/ui-tabs.js` gives the view tabs and the Empirical sub-tabs the ARIA tabs pattern, with manual
+    activation: the arrow keys move the focus and Enter opens a tab. Opening LAFEA loads the 1.9 MB
+    workbench, so an arrow key must never open it.
+  - The tabs use `aria-selected`, not `aria-pressed`.
+- **View links.** `#LAFEA`, `#EMPIRICAL` and `#STATUS` open a view, from a link or the address bar, with no
+  reload. `activate()` writes the open view back with `history.replaceState`.
+- **WRC layout.** Below 900 px, `.wrc__summary` sticks under the app bar at `--ui-nav-height` (41 px); keep
+  that variable equal to the bar's height. Screen readers get `[data-role="wrc-live"]`, one sentence 500 ms
+  after typing stops. Do not put `aria-live` back on the whole results panel.
+- **Redraws.** `render()` redraws the case buttons. `caseFocus()` / `restoreCaseFocus()` keep the keyboard focus
+  on the same case.
+
 ### 3.4 CI and Pages
 
 - **`ci.yml`:**
   - **checks job:** lint → `check:boundary` → `build` → `build:lafea` → `env -u GITHUB_ACTIONS npm run check:all`;
-  - **e2e job:** wrc-calculator and lafea-example specs on Chromium.
+  - **e2e job:** the app specs on Chromium: wrc-calculator, lafea-example, lafea-plate, app-status, app-ui.
 - **`pages.yml`:** builds `dist/` and deploys on every push to `main`.
 - **Three non-obvious fixes. Do not undo them:**
   1. **`.gitattributes` `docs/emp1/*.md text eol=crlf`.** The EMP1 oracle checks hash these files, and the

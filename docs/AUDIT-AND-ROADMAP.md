@@ -587,6 +587,49 @@ Checks:
 
 No simple torsion formula was added (see NEXT-PHASE-PLAN.md).
 
+**2026-11-27: PL-06 part 1, one look, layouts and keyboard.** PL-06 (finish the UI) is split into three parts.
+This first part covers the app shell, the WRC calculator, the plate form and the status page.
+
+- **One look.** `src/app/theme.css` holds the colours, type and control styles. The calculator's and the status
+  page's own variables point at it, and the plate form and example bar now use the calculator's inputs, buttons
+  and 14 px text. The printable report keeps its own light styles.
+- **Layouts.**
+  - Laptop: the form and results stay side by side from 900 px wide, and the form takes at most 40% of the width.
+  - Tablet held upright or phone: one column, with a strip under the app bar that keeps the governing result in
+    view while the form scrolls. Its "Results ↓" button jumps to the results.
+  - Phone: the form no longer runs 58 px off a 375 px screen (fieldsets and long dropdown options now shrink).
+  - Tablet: the FE contour readout works by tap (pointer events), and an out-of-range γ, β or β1/β2 chip writes
+    out its allowed range instead of only showing it in a tooltip.
+- **Keyboard.**
+  - The view tabs and the Empirical sub-tabs follow the ARIA tabs pattern. Only the open tab is in the Tab
+    order; Left/Right/Home/End move between tabs; Enter opens one. Activation is manual because the LAFEA tab
+    loads the large workbench.
+  - "Skip to content" is the first stop on the page.
+  - Each view is a link (`#LAFEA`, `#EMPIRICAL`, `#STATUS`) that works without a reload, and the browser tab
+    title names the open view.
+  - Load cases in the envelope table are buttons. After a redraw, the keyboard focus goes back to the case that
+    was picked; leaving a box without a change no longer redraws the results.
+  - The status page's section buttons move the focus to the section heading.
+- **Screen readers.**
+  - The results panel was one live region, so every keystroke re-read the whole table. Now one sentence is said
+    once typing pauses, such as "Governing stress intensity 72.67 MPa at point Au." The FE run says when it
+    starts and finishes, not every second.
+  - The plate form's edge-table inputs had no names. Each now says its edge and quantity, for example
+    "Left (x = 0) edge: support".
+- **Bug fixed.** "Loading LAFEA…" stayed above the advanced EMP.1 workflow after it loaded.
+
+Checks:
+- new `e2e/app-ui.spec.js` (4 tests): tabs, links and skip link; the spoken result, the tablet strip and a phone
+  with nothing wider than the screen; picking load cases from the keyboard; a name on every control of the
+  calculator (four examples) and the status page;
+- the plate spec checks every plate input has a name;
+- the workflow spec checks the loading line is gone.
+
+Still to do in PL-06:
+- **Part 2:** help text on every input, and inch/lbf/psi units in the calculator and its report.
+- **Part 3:** the LAFEA workbench and the advanced workflow. Move the custody and authority text into a
+  "Technical details" drawer, use plain example defaults, and bring the same look and keyboard checks there.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

@@ -39,7 +39,7 @@ export const STATUS_VISION = Object.freeze({
 
 /** What can be used today, one line per area. */
 export const STATUS_TODAY = Object.freeze([
-  Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments, nozzles or trunnions (γ 5–300, β 0.05–0.5), and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases.' }),
+  Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments, nozzles or trunnions (γ 5–300, β 0.05–0.5), and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases. Works on a laptop, a tablet or a phone, and from the keyboard.' }),
   Object.freeze({ area: 'Shell-FE cross-check', state: 'USABLE', text: 'Solves the same nozzle, trunnion or lug with LAFEA shell elements in about 30 s, compares the 8 points and draws a stress-intensity contour. Reports a ratio, not a pass/fail. For a lug WRC 537 refuses (a thin plate, torsion), it gives the only answer.' }),
   Object.freeze({ area: 'LAFEA plate form', state: 'USABLE', text: 'Plane-stress rectangular plate, with or without a central round hole: edge supports and loads, automatic mesh, convergence study, Kt.' }),
   Object.freeze({ area: 'LAFEA workbench', state: 'PARTIAL', text: 'Worked cantilever example and the plate form go end to end. Other geometry needs stage JSON. Shell and trunnion stages are not wired to a form.' }),
@@ -191,10 +191,12 @@ export const PLANNED_IMPROVEMENTS = Object.freeze([
     ['Confirm the method\'s range and formulas from your copy', 'Implement it as a separate, labelled route next to WRC 537',
       'Check it against the standard\'s worked example, if it has one, and against the lug FE model (PL-04, done)']),
   plan('PL-06', 'Finish the UI', 'L', 'Nothing',
-    'One look and layout across the WRC calculator, the LAFEA tab and this page.',
-    ['Custody and authority text moved into a "Technical details" drawer', 'Plain example defaults in the advanced workflow',
-      'Help text on every input', 'Inch/lbf/psi units', 'Layout that works on a laptop screen and a tablet',
-      'Keyboard and screen-reader checks']),
+    'One look and layout across the WRC calculator, the LAFEA tab and this page. Part 1 done 2026-11-27: one look for the '
+    + 'calculator, the plate form and this page; layouts for a laptop, a tablet and a phone; keyboard tabs and #links; '
+    + 'a short spoken result for screen readers. Left:',
+    ['Help text on every input', 'Inch/lbf/psi units',
+      'Custody and authority text moved into a "Technical details" drawer', 'Plain example defaults in the advanced workflow',
+      'The LAFEA workbench in the same look, with keyboard and screen-reader checks there']),
   plan('PL-07', 'Evidence for interpolated γ', 'M', 'Optional: WRC 537 output from your program',
     'Turns interpolated γ from judgement into evidence (Phase 5.4).',
     ['Shell-FE sweep across γ 15–100 at two or three β values, checking that the FE/WRC ratio moves smoothly between tabulated rows',

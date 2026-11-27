@@ -54,7 +54,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: App browser tests (WRC calculator, LAFEA example and plate form, status page)
-        run: npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js
+        run: npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4

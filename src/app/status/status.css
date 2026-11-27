@@ -1,14 +1,15 @@
 .status {
-  --st-panel: #07101f;
-  --st-line: #1c2a40;
-  --st-text: #dbe5f4;
-  --st-muted: #8ea2c0;
-  --st-ok: #2f9e6b;
-  --st-warn: #c99a2e;
-  --st-bad: #d0524f;
-  --st-accent: #4c8dff;
+  /* From the app theme (src/app/theme.css). */
+  --st-panel: var(--ui-panel);
+  --st-line: var(--ui-line);
+  --st-text: var(--ui-text);
+  --st-muted: var(--ui-muted);
+  --st-ok: var(--ui-ok);
+  --st-warn: var(--ui-warn);
+  --st-bad: var(--ui-bad);
+  --st-accent: var(--ui-accent);
   color: var(--st-text);
-  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 14px/1.5 var(--ui-font);
   padding: 16px 20px 48px;
   max-width: 1180px;
   margin: 0 auto;
@@ -22,15 +23,16 @@
 .status__meta { margin: 0 0 10px; color: var(--st-muted); }
 .status__toc { display: flex; flex-wrap: wrap; gap: 6px; }
 .status__toc-link, .status__chip {
-  font: inherit; font-size: 13px; color: #c9d6ea; background: #0e1a2e; border: 1px solid #2b4a78;
+  font: inherit; font-size: 13px; color: var(--ui-text-soft); background: var(--ui-control); border: 1px solid var(--ui-control-line);
   border-radius: 999px; padding: 4px 12px; cursor: pointer;
 }
-.status__toc-link:hover, .status__chip:hover { background: #13243f; }
-.status__chip[aria-pressed='true'] { background: #1d3a66; border-color: var(--st-accent); color: #fff; }
-.status__toc-link:focus-visible, .status__chip:focus-visible { outline: 2px solid var(--st-accent); outline-offset: 1px; }
+.status__toc-link:hover, .status__chip:hover { background: var(--ui-control-hover); }
+.status__chip[aria-pressed='true'] { background: var(--ui-control-active); border-color: var(--st-accent); color: #fff; }
 
-.status__section { padding-top: 20px; scroll-margin-top: 48px; }
+.status__section { padding-top: 20px; scroll-margin-top: calc(var(--ui-nav-height) + 8px); }
 .status__h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+/* Headings take the focus from the section buttons; no ring needed. */
+.status__h2:focus { outline: none; }
 .status__h3 { margin: 4px 0 6px; font-size: 15px; font-weight: 600; }
 .status__intro { margin: 0 0 12px; color: var(--st-muted); max-width: 900px; }
 .status__counts { margin: -4px 0 10px; color: var(--st-muted); font-size: 13px; }
@@ -80,7 +82,7 @@
 .status__stage { position: relative; border: 1px solid var(--st-line); border-radius: 8px; background: var(--st-panel); padding: 10px 14px 12px; }
 .status__stage::before {
   content: ''; position: absolute; left: -26px; top: 16px; width: 12px; height: 12px; border-radius: 50%;
-  background: var(--st-accent); border: 2px solid #020711;
+  background: var(--st-accent); border: 2px solid var(--ui-bg);
 }
 .status__stage-mark { font-weight: 700; color: #a9c6ff; font-size: 13px; }
 .status__decisions li { margin: 6px 0; }
