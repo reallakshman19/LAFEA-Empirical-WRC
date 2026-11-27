@@ -563,17 +563,21 @@ function termInfo(term) {
   };
 }
 
-/** Blocking rules for a rectangular attachment that WRC 537 states (§4.2.2, §4.3.4, Tables 6–8). */
+/**
+ * Blocking rules for a rectangular attachment that WRC 537 states (§4.2.2, §4.3.4, Tables 6–8).
+ * Each is marked `feRoute`: the shell-FE model has no such limit, so it can answer these cases alone.
+ */
 function rectangularRangeReasons(g, loads, coordinate, gammaClass) {
   const out = [];
+  const push = (r) => out.push({ ...r, feRoute: true });
   const range = WRC537_RECT_RATIO_RANGE;
   if (loads.Mt !== 0) {
-    out.push(reason('TORSION',
+    push(reason('TORSION',
       'WRC 537 §4.3.4 gives no method for torsion Mt on a rectangular attachment ("acceptable methods of analyzing this situation are not available").',
       'Check the torsion by FE (LAFEA) or test, as the bulletin says. Run the other loads here with Mt = 0 only if you assess the torsion separately.'));
   }
   if (!(g.ratio >= range.minimum - 1e-12 && g.ratio <= range.maximum + 1e-12)) {
-    out.push(reason('RATIO',
+    push(reason('RATIO',
       `The footprint shape β1/β2 = c1/c2 = ${fmt(g.ratio, 3)} is outside 0.25–4, where WRC 537 Tables 6–8 hold. A thin plate welded straight to the shell is usually outside it.`,
       `Width around the shell must be between ${fmt(range.minimum * 2 * g.c2, 1)} and ${fmt(range.maximum * 2 * g.c2, 1)} mm for this length. Otherwise use FE (LAFEA). A pad does not help here: at the lug the footprint is still the plate.`));
     return out;
@@ -581,7 +585,7 @@ function rectangularRangeReasons(g, loads, coordinate, gammaClass) {
   if (gammaClass.tier === WRC_TIER.BLOCKED) return out;
   const square = Math.abs(g.ratio - 1) <= 1e-9;
   if (!square && (loads.Mc !== 0 || loads.Ml !== 0) && g.gamma < 15 - 1e-9) {
-    out.push(reason('GAMMA',
+    push(reason('GAMMA',
       `γ = ${fmt(g.gamma, 1)}: WRC 537 Tables 7 and 8 (the Mc and ML factors for a non-square attachment) start at γ = 15.`,
       'Use FE (LAFEA), or a square footprint, for Mc or ML on this shell.'));
     return out;
@@ -598,7 +602,7 @@ function rectangularRangeReasons(g, loads, coordinate, gammaClass) {
     const worst = outside.reduce((a, b) => (Math.abs(Math.log(b.term.beta / 0.2)) > Math.abs(Math.log(a.term.beta / 0.2)) ? b : a));
     const lowHigh = worst.term.beta < WRC_BETA_RANGE.minimum ? 'small' : 'large';
     const list = [...new Set(outside.map((o) => `${o.term.load} ${o.term.component} β = ${fmt(o.term.beta, 3)}`))].join('; ');
-    out.push(reason('BETA',
+    push(reason('BETA',
       `The equivalent β for some terms is outside the curves' 0.05–0.5: ${list}. The footprint is too ${lowHigh} for this shell.`,
       'Change the footprint size, or use FE (LAFEA).'));
   }
@@ -785,6 +789,32 @@ export function calculateWrc537Cases(input) {
       ? { pass: checked.length === cases.length && checked.every((c) => c.result.codeCheck.pass), worstCase: worstCheck.name, worst: worstCheck.result.codeCheck.worst }
       : null,
   };
+}
+
+/** How the shell-FE cross-check can run for a case (see wrcFeReference). */
+export const WRC_FE_MODE = Object.freeze({
+  COMPARE: 'COMPARE', // WRC 537 has a result at the FE location: compare point by point
+  FE_ONLY: 'FE_ONLY', // a rectangle WRC 537 refuses only for limits FE does not have: FE alone
+  BLOCKED: 'BLOCKED', // nothing to run (input errors, γ outside the curves, length rules, pad input)
+});
+
+/**
+ * The WRC 537 result the shell-FE model stands for, for one load case (`input.loads`), without pressure
+ * or Kn/Kb. The FE model is a rigid attachment on the bare shell, so with a pad it is the pad edge (the
+ * pad is the attachment there) and otherwise the attachment itself. The check at the attachment with
+ * shell + pad has no FE counterpart.
+ * Returns that location's calculateWrc537 result plus `feMode` and `feLocation` { id, label }; for
+ * BLOCKED, `reasons` says why.
+ */
+export function wrcFeReference(input) {
+  const attachment = calculateWrcAttachment({ ...input, designPressure: 0, Kn: 1, Kb: 1, allowableS: '' });
+  const location = attachment.locations.find((l) => l.id === 'PAD_EDGE') ?? attachment.locations[0];
+  if (!location) return { ok: false, feMode: WRC_FE_MODE.BLOCKED, reasons: attachment.reasons, feLocation: null };
+  const r = location.result;
+  const feLocation = { id: location.id, label: location.label };
+  if (r.ok) return { ...r, feMode: WRC_FE_MODE.COMPARE, feLocation };
+  const feOnly = r.geometry.rectangular && r.reasons.length > 0 && r.reasons.every((x) => x.feRoute);
+  return { ...r, feMode: feOnly ? WRC_FE_MODE.FE_ONLY : WRC_FE_MODE.BLOCKED, feLocation };
 }
 
 function explainCoreError(error) {

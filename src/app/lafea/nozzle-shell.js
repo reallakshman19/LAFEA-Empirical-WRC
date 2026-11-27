@@ -336,6 +336,9 @@ function wrcPoints(mesh, frames, byElement, positions, elementNodes) {
   return LOCATIONS.map((location) => ({ location, ...out[location] }));
 }
 
+// Shared with the rectangular-footprint model (lug-shell.js).
+export { LOCATIONS as WRC_POINT_LABELS, averageSurfaceStress, inPlane, project, shearProject, tresca, sub, cross, dot, qualificationProfile };
+
 function averageSurfaceStress(res, surface) {
   const pts = res.integrationPoints;
   const sum = { sigmaX: 0, sigmaY: 0, tauXY: 0 };

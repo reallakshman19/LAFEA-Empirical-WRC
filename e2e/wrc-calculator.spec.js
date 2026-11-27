@@ -153,11 +153,13 @@ test('a rectangular lug is solved with a β for each term, and its limits are ex
   await expect(calc.locator('.wrc__spread')).toContainText('150.10–156.26 MPa');
   await expect(calc.locator('.wrc__spread--wide')).toHaveCount(0);
   await expect(calc.locator('.wrc__notes')).toContainText('gives each load and stress component its own β');
-  await expect(calc.locator('[data-act="runFe"]')).toBeDisabled();
-  await expect(calc.locator('[data-slot="feScope"]')).toContainText('round footprint only');
+  await expect(calc.locator('[data-act="runFe"]')).toBeEnabled();
+  await expect(calc.locator('[data-slot="feScope"]')).toContainText('stiff plate the size of the footprint');
+  await expect(calc.locator('[data-slot="feScope"]')).not.toContainText('only stresses');
 
   await calc.locator('[data-load="Mt"]').fill('10');
   await expect(calc.locator('.wrc__reasons')).toContainText('no method for torsion');
+  await expect(calc.locator('[data-slot="feScope"]')).toContainText('WRC 537 has no result for this lug (torsion Mt), so the FE model gives the only stresses here');
   await calc.locator('[data-load="Mt"]').fill('0');
   await calc.locator('[data-k="attachmentWidth"]').fill('25');
   await expect(calc.locator('.wrc__reasons')).toContainText('outside 0.25–4');
@@ -165,6 +167,42 @@ test('a rectangular lug is solved with a β for each term, and its limits are ex
   await calc.locator('[data-k="attachmentType"]').selectOption('ROUND');
   await expect(calc.locator('[data-k="attachmentOutsideDiameter"]')).toBeVisible();
   await expect(calc.locator('.wrc__terms')).toHaveCount(0);
+});
+
+test('a lug WRC 537 refuses is solved by the shell FE model alone', async ({ page }) => {
+  test.setTimeout(240000);
+  const calc = page.locator('[data-empirical-subview="WRC"]');
+  await calc.locator('[data-act="example"]').selectOption('LUG_200X100');
+  // A thin plate (β1/β2 0.14) with torsion: both outside WRC 537
+  await calc.locator('[data-k="attachmentWidth"]').fill('28');
+  await calc.locator('[data-load="Mt"]').fill('800');
+  await expect(calc.locator('.wrc__reasons')).toContainText('outside 0.25–4');
+  await expect(calc.locator('[data-slot="feScope"]')).toContainText('(torsion Mt; footprint β1/β2 outside 0.25–4)');
+  await calc.locator('[data-act="runFe"]').click();
+  const table = calc.locator('.wrc__fetable--only');
+  await expect(table).toBeVisible({ timeout: 200000 });
+  await expect(table.locator('thead')).not.toContainText('WRC');
+  await expect(table.locator('caption')).toContainText('FE only: WRC 537 has no result for this lug');
+  await expect(table.locator('caption')).toContainText('Highest of the 8 points: FE 199.91 at Au');
+  await expect(calc.locator('.wrc__fepeak')).toContainText('Highest element value next to the footprint');
+  await expect(calc.locator('.wrc__fepeak')).toContainText('at a corner');
+
+  // The contour draws the footprint as a rectangle; pointing inside it says so
+  const contour = calc.locator('.fe-contour');
+  await expect(contour.locator('svg[data-surface]')).toHaveCount(2);
+  const outside = contour.locator('svg[data-surface="u"]');
+  await outside.scrollIntoViewIfNeeded();
+  const centre = await outside.evaluate((svg) => {
+    const p = new DOMPoint(0, 0).matrixTransform(svg.getScreenCTM());
+    return { x: p.x, y: p.y };
+  });
+  await page.mouse.move(centre.x, centre.y);
+  await expect(contour.locator('[data-role="fe-contour-readout"]')).toContainText('Inside the attachment');
+
+  const [download] = await Promise.all([page.waitForEvent('download'), calc.locator('[data-act="download"]').click()]);
+  const report = await (await import('node:fs/promises')).readFile(await download.path(), 'utf8');
+  expect(report).toContain('Shell FE result (LAFEA shell solver)');
+  expect(report).toContain('FE only: WRC 537 has no result for this attachment');
 });
 
 test('shell FE cross-check runs in the background and agrees on the governing point', async ({ page }) => {
