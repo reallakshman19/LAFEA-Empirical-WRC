@@ -203,7 +203,8 @@ export function mountWrcCalculator(host) {
         <div class="wrc__tier wrc__tier--${tierClass}">${WRC_TIER_TEXT[result.tier]}</div>
         <div class="wrc__gov"><span>Governing stress intensity</span>
           <strong>${fmt(gov.stressIntensity, 2)} <small>MPa</small></strong>
-          <span>at point <b>${gov.location}</b>${result.padded ? `, ${escapeHtml(gov.label.toLowerCase())}` : ''}. This is the maximum over the 8 WRC points${result.padded ? ' at each location' : ''} only.</span></div>`;
+          <span>at point <b>${gov.location}</b>${result.padded ? `, ${escapeHtml(gov.label.toLowerCase())}` : ''}. This is the maximum over the 8 WRC points${result.padded ? ' at each location' : ''} only.</span></div>
+        ${result.locations.filter((l) => l.result.factorSpread).map((l) => spreadHtml(l, result.padded)).join('')}`;
       $('[data-slot="table"]').innerHTML = result.locations.map((l) => {
         const r = l.result;
         const isGovLocation = l.id === gov.locationId;
@@ -463,6 +464,19 @@ export function mountWrcCalculator(host) {
     setCase,
     destroy() { host.replaceChildren(); host.classList.remove('wrc'); },
   };
+}
+
+/** The Table 7/8 interpolation spread of one location (roadmap PL-01), as one line under the governing value. */
+function spreadHtml(location, padded) {
+  const sp = location.result.factorSpread;
+  const skipped = sp.corners.filter((c) => c.skipped).length;
+  const where = padded ? ` ${escapeHtml(location.label.toLowerCase())}` : '';
+  if (!Number.isFinite(sp.low)) {
+    return `<p class="wrc__spread wrc__spread--wide" data-location="${location.id}">Table 7/8 interpolation spread${where}: not available, every corner run was outside the method.</p>`;
+  }
+  return `<p class="wrc__spread${sp.wide ? ' wrc__spread--wide' : ''}" data-location="${location.id}" title="The lug run again with the printed Table 7/8 rows on each side of the interpolation instead (lower or upper β1/β2 row × lower or upper γ row). Not a proven bound.">
+    Table 7/8 interpolation spread${where}: <b>${fmt(sp.low, 2)}–${fmt(sp.high, 2)} MPa</b> with the nearest printed rows instead
+    (${fmt(100 * sp.width, 1)}% of ${fmt(location.result.governing.stressIntensity, 2)} MPa${sp.wide ? ', wide: check it by FE or a benchmark' : ''})${skipped ? `; ${skipped} of ${sp.corners.length} corner runs were outside the method` : ''}.</p>`;
 }
 
 const TERM_LABEL = Object.freeze({

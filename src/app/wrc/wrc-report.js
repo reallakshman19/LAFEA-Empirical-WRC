@@ -59,6 +59,15 @@ ${r.rows.map((row) => `<tr${isGov && row.location === r.governing.location ? ' c
 </table>`;
 }
 
+/** The Table 7/8 interpolation spread of a rectangular attachment, when a factor was interpolated. */
+function spreadLine(r) {
+  const sp = r.factorSpread;
+  if (!sp) return '';
+  if (!Number.isFinite(sp.low)) return '<p class="muted">Table 7/8 interpolation spread: not available, every corner run was outside the method.</p>';
+  const corners = sp.corners.map((c) => `β1/β2 ${c.pick.ratio === 'lo' ? 'lower' : 'upper'} row, γ ${c.pick.gamma === 'lo' ? 'lower' : 'upper'} row: ${c.skipped ? `skipped (${esc(c.skipped)})` : `${fmt(c.stressIntensity, 3)} MPa at ${c.location}`}`).join('; ');
+  return `<p${sp.wide ? ' class="fail"' : ' class="muted"'}>Table 7/8 interpolation spread: governing stress ${fmt(sp.low, 3)}–${fmt(sp.high, 3)} MPa with the nearest printed rows instead of the interpolated factors (${fmt(100 * sp.width, 1)}% of ${fmt(r.governing.stressIntensity, 3)} MPa${sp.wide ? '; wide, check it by FE or a benchmark' : ''}). Corner runs: ${corners}. The corners show how much the judgement matters; they are not a proven bound.</p>`;
+}
+
 function checkTable(locations, padded) {
   const rows = locations.flatMap((l) => l.result.codeCheck.items.map((x) => `<tr><td>${esc(x.label)}</td>${padded ? `<td>${esc(l.label)}</td>` : ''}<td>${esc(x.location)}</td><td class="n">${fmt(x.value, 3)}</td><td class="n">${fmt(x.limit, 2)}</td><td>${esc(x.limitText)}</td><td class="n">${passText(x)}</td></tr>`));
   return `<table><tr><th>Category</th>${padded ? '<th>Location</th>' : ''}<th>Point</th><th class="n">Stress</th><th class="n">Limit</th><th>Basis</th><th class="n">Ratio</th></tr>
@@ -85,7 +94,7 @@ export function buildWrcReportHtml(run, { generatedAt = new Date(), appVersion =
       return `${head}<p><b>Not calculated.</b></p><ul>${r.reasons.map((x) => `<li>${esc(x.text)}${x.fix ? ` <i>${esc(x.fix)}</i>` : ''}</li>`).join('')}</ul>`;
     }
     const tables = r.locations.map((l) => `${padded ? `<h4>${esc(l.label)}: ${fmt(l.result.governing.stressIntensity, 3)} MPa at ${l.result.governing.location}</h4>` : ''}
-${locationTable(l.result, l.id === r.governing.locationId)}`).join('\n');
+${locationTable(l.result, l.id === r.governing.locationId)}${spreadLine(l.result)}`).join('\n');
     const cc = r.codeCheck;
     return `${head}
 ${tables}

@@ -118,6 +118,9 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   non-square footprint below γ = 15 (Tables 7–8 start there); any equivalent β outside 0.05–0.5.
   Table 7/8 factors between printed rows are interpolated in γ and in log(β1/β2), with factor 1 for a square.
   This is labelled engineering judgement, and factors from rows printed in parentheses are flagged as approximate.
+  The result also shows the **interpolation spread**: the governing stress with the printed rows on each side
+  of each interpolation instead (up to four corner runs). It is flagged when wider than 10%; a narrow lug under
+  Mc can reach about 22%.
   The FE cross-check is not available for a rectangular footprint yet.
 - **Pressure:** adds the thin-shell membrane stress p·Rm/T (hoop) and p·Rm/2T (longitudinal)
   at every point. This is common practice, not part of WRC 537. The extra pressure stress at
@@ -219,7 +222,7 @@ Results after Phase 5.4 (2026-11-26), on Windows with Node 22 and Chrome:
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
-| First-load size | `npm run check:bundle-size` (after `build`) | pass: 154.3 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 160.0 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 13 KNOWN checks that `check:all`
 skips, each with a plain reason:

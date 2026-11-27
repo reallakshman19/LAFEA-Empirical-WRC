@@ -305,26 +305,19 @@ export function calculateWrc537(input) {
   } catch (error) {
     return { ...base, ok: false, tier: WRC_TIER.BLOCKED, reasons: [explainCoreError(error)], warnings };
   }
-  const s = evaluated.stresses;
-  const c = evaluated.components;
-  if (g.rectangular) warnings.push(...rectangularWarnings(evaluated.rectangular, loads));
   // Thin-shell pressure membrane stress, added at every point on both surfaces.
   const pressureStress = { circumferential: pressure * g.Rm / g.T, longitudinal: pressure * g.Rm / (2 * g.T) };
-  const rows = WRC_LOCATIONS.map((location, i) => {
-    const circumferential = s.circumferential[i] + pressureStress.circumferential;
-    const longitudinal = s.longitudinal[i] + pressureStress.longitudinal;
-    const membraneCirc = c.circumferential.Pmem[i] + c.circumferential.Mcmem[i] + c.circumferential.Mlmem[i] + pressureStress.circumferential;
-    const membraneLong = c.longitudinal.Pmem[i] + c.longitudinal.Mcmem[i] + c.longitudinal.Mlmem[i] + pressureStress.longitudinal;
-    return {
-      location,
-      circumferential,
-      longitudinal,
-      shear: s.shear[i],
-      stressIntensity: pressure === 0 ? s.stressIntensity[i] : tresca(circumferential, longitudinal, s.shear[i]),
-      membraneIntensity: tresca(membraneCirc, membraneLong, s.shear[i]),
-    };
-  });
+  const rows = buildRows(evaluated, pressureStress, pressure);
   const governing = rows.reduce((best, row) => (row.stressIntensity > best.stressIntensity ? row : best), rows[0]);
+  let factorSpread = null;
+  if (g.rectangular) {
+    warnings.push(...rectangularWarnings(evaluated.rectangular, loads));
+    factorSpread = rectangularFactorSpread({ g, loads, coordinate, Kn, Kb, pressureStress, pressure, governing });
+    if (factorSpread?.wide) {
+      warnings.push(`The Table 7/8 interpolation matters for this attachment: with the nearest printed rows instead, the governing stress ranges `
+        + `${fmt(factorSpread.low, 2)}–${fmt(factorSpread.high, 2)} MPa (${fmt(100 * factorSpread.width, 1)}% of ${fmt(governing.stressIntensity, 2)}). Check it by FE or a benchmark.`);
+    }
+  }
   if (pressure !== 0) {
     warnings.push(`Pressure ${fmt(pressure, 3)} MPa adds thin-shell membrane stress p·Rm/T = ${fmt(pressureStress.circumferential, 2)} MPa (hoop) and p·Rm/2T = ${fmt(pressureStress.longitudinal, 2)} MPa (longitudinal) at every point. `
       + 'This is common practice, not part of WRC 537. The extra pressure stress at the edge of the opening is not included: check it with the code nozzle rules or FE.');
@@ -351,6 +344,7 @@ export function calculateWrc537(input) {
     scale: evaluated.scale,
     components: evaluated.components,
     rectangular: evaluated.rectangular ?? null,
+    factorSpread,
     rows,
     governing,
     pressureStress,
@@ -358,6 +352,73 @@ export function calculateWrc537(input) {
     codeCheck,
     policy: { coordinate, interpolationPolicy: EMP1_WRC537_GAMMA_INTERPOLATION_POLICY.basis },
   };
+}
+
+/** The 8 result rows: load stresses plus the pressure membrane stress, total and membrane-only (PL) Tresca. */
+function buildRows(evaluated, pressureStress, pressure) {
+  const s = evaluated.stresses;
+  const c = evaluated.components;
+  return WRC_LOCATIONS.map((location, i) => {
+    const circumferential = s.circumferential[i] + pressureStress.circumferential;
+    const longitudinal = s.longitudinal[i] + pressureStress.longitudinal;
+    const membraneCirc = c.circumferential.Pmem[i] + c.circumferential.Mcmem[i] + c.circumferential.Mlmem[i] + pressureStress.circumferential;
+    const membraneLong = c.longitudinal.Pmem[i] + c.longitudinal.Mcmem[i] + c.longitudinal.Mlmem[i] + pressureStress.longitudinal;
+    return {
+      location,
+      circumferential,
+      longitudinal,
+      shear: s.shear[i],
+      stressIntensity: pressure === 0 ? s.stressIntensity[i] : tresca(circumferential, longitudinal, s.shear[i]),
+      membraneIntensity: tresca(membraneCirc, membraneLong, s.shear[i]),
+    };
+  });
+}
+
+/** A spread wider than this share of the governing stress is flagged in the warnings. */
+export const WRC_FACTOR_SPREAD_FLAG = 0.10;
+
+/**
+ * Interpolation spread of a rectangular attachment (roadmap PL-01). When a Table 7/8 factor used by a
+ * non-zero load is interpolated, the attachment is run again with the printed rows on each side of each
+ * bracket instead: (lower or upper β1/β2 row) × (lower or upper γ row), up to four corner runs. The curves are
+ * read exactly as in the main run; only the factors change. Returns null when no factor is interpolated.
+ * The corners show how much the judgement matters; they are not a proven bound.
+ */
+function rectangularFactorSpread({ g, loads, coordinate, Kn, Kb, pressureStress, pressure, governing }) {
+  const isUsed = (t) => t.load !== 'P' && loads[t.load] !== 0;
+  const baseTerms = rectangularTerms({ beta1: g.beta1, beta2: g.beta2, gamma: g.gamma, coordinate }).terms;
+  const used = ['circ', 'long'].flatMap((f) => Object.values(baseTerms[f])).filter(isUsed);
+  if (!used.some((t) => t.factorInterpolated)) return null;
+  const corners = [];
+  const seen = new Set();
+  for (const ratio of ['lo', 'hi']) {
+    for (const gammaSide of ['lo', 'hi']) {
+      const pick = { ratio, gamma: gammaSide };
+      const terms = rectangularTerms({ beta1: g.beta1, beta2: g.beta2, gamma: g.gamma, coordinate, pick }).terms;
+      const usedTerms = ['circ', 'long'].flatMap((f) => Object.values(terms[f])).filter(isUsed);
+      const signature = usedTerms.map((t) => `${t.factor}|${t.beta}`).join(';');
+      if (seen.has(signature)) continue; // an exact dimension makes two picks identical
+      seen.add(signature);
+      const outside = usedTerms.find((t) => !(t.beta >= WRC_BETA_RANGE.minimum && t.beta <= WRC_BETA_RANGE.maximum));
+      if (outside) {
+        corners.push({ pick, skipped: `${outside.load} ${outside.component} β = ${fmt(outside.beta, 3)} is outside 0.05–0.5` });
+        continue;
+      }
+      try {
+        const rows = buildRows(evaluateRectangular(g, loads, coordinate, Kn, Kb, pick), pressureStress, pressure);
+        const gov = rows.reduce((best, row) => (row.stressIntensity > best.stressIntensity ? row : best), rows[0]);
+        corners.push({ pick, stressIntensity: gov.stressIntensity, location: gov.location });
+      } catch (error) {
+        corners.push({ pick, skipped: explainCoreError(error).text });
+      }
+    }
+  }
+  const values = corners.filter((c) => !c.skipped).map((c) => c.stressIntensity);
+  if (!values.length) return { corners, low: NaN, high: NaN, width: NaN, wide: false };
+  const low = Math.min(governing.stressIntensity, ...values);
+  const high = Math.max(governing.stressIntensity, ...values);
+  const width = (high - low) / governing.stressIntensity;
+  return { corners, low, high, width, wide: width > WRC_FACTOR_SPREAD_FLAG };
 }
 
 /** Round attachment: one β for every curve, WRC 537 Table 5. */
@@ -394,8 +455,8 @@ const ZERO_LOADS = Object.freeze({ P: 0, Vc: 0, Vl: 0, Mc: 0, Ml: 0, Mt: 0 });
  * σ = value · C · M / (Rm² β_term T) for membrane and 6 · value · M / (Rm β_term T²) for bending.
  * Shear (50–51) is evaluated through the same core with an equivalent radius: π·r·T = 4·c·T.
  */
-function evaluateRectangular(g, loads, coordinate, Kn, Kb) {
-  const rect = rectangularTerms({ beta1: g.beta1, beta2: g.beta2, gamma: g.gamma, coordinate });
+function evaluateRectangular(g, loads, coordinate, Kn, Kb, pick = null) {
+  const rect = rectangularTerms({ beta1: g.beta1, beta2: g.beta2, gamma: g.gamma, coordinate, pick });
   const ordinates = { circ: {}, long: {} };
   const provenance = { circ: {}, long: {} };
   const raw = { circ: {}, long: {} };
