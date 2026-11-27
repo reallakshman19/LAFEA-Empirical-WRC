@@ -78,7 +78,8 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
 
 - **Inputs:** plain inputs in mm, N or kN, and N·m, kN·m or N·mm:
   - shell OD, thickness and corrosion allowance;
-  - attachment type: round (OD) or rectangular (length along and width around the shell);
+  - attachment type: nozzle or trunnion (OD; a trunnion is a solid bar or a pipe), or rectangular (length along
+    and width around the shell);
   - optional reinforcing pad (round: outside diameter; rectangular: length and width; and thickness);
   - optional cylinder length and attachment position;
   - P, Vc, Vl, Mc, Ml and Mt in WRC axes, as **up to 20 named load cases**;
@@ -105,6 +106,11 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   Each location has its own γ/β badges, range checks, 8-point table and code check. The governing value,
   envelope and code check take the worse location. This assumes the pad is fully welded and acts with the
   shell; it is common practice, not a WRC rule. Pad welds and stress in the pad are not checked.
+- **Trunnions:** checked as a round attachment of their outside diameter, so a trunnion gives exactly the shell
+  stress of a nozzle with the same OD. WRC 537 §4.2.2 has no solid/hollow selector for cylindrical shells; the
+  choice is recorded and a hollow trunnion gets a note that it is treated as rigid. The notes, report and limits say
+  trunnion: a trunnion does not open the shell (no opening-edge pressure note), and stresses in the trunnion and its
+  weld are not calculated. The FE cross-check works as for a nozzle.
 - **Rectangular attachments (lugs):** WRC 537 §4.2.2 gives each load and stress component its own β, read
   on the same curves as a round attachment:
   - radial load P: equations 28–30 with the Table 6 K factor for Nφ, Nx, Mφ or Mx;
@@ -175,6 +181,8 @@ The calculator is a thin wrapper over the EMP1 core
   and 2136/25/1064.4 mm), and its pressure hoop stress within 0.03%. Shear is within 1% at all 16 points. With
   torsion alone, τ = Mt/(2π r0² T) holds at both locations by hand. It also checks that no pad gives exactly the
   old result, and checks the worst-location envelope and code check and the blocking rules.
+- **trunnions** (`scripts/wrc-trunnion-check.mjs`): trunnion = nozzle at all 8 points on the γ = 5 hand calculation
+  and the CAESAR II case; solid = hollow; the notes, pads, load cases, β limit and report;
 - **lugs** (`scripts/wrc-lug-check.mjs`):
   - Tables 6–8 in the code match the `docs/emp1` extraction (116 values, including the parentheses);
   - an independent hand calculation at γ = 100 and β1/β2 = 2, where every factor is a printed value,
@@ -214,15 +222,15 @@ Results after Phase 5.4 (2026-11-26), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **306 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **307 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
 | Browser e2e (21 specs, 49 tests) | `npx playwright test` (dev server) | **41 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, LAFEA example, plate form, status page) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js` | **13 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
+| App e2e (WRC calculator, LAFEA example, plate form, status page) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js` | **14 pass**, on the production build (`vite preview`) and the dev server. The plate test takes about 1 min. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
-| First-load size | `npm run check:bundle-size` (after `build`) | pass: 160.0 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 162.0 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 13 KNOWN checks that `check:all`
 skips, each with a plain reason:

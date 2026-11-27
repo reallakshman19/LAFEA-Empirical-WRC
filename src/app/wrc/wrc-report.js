@@ -4,7 +4,9 @@
  * or a single-location result (calculateWrc537). With a reinforcing pad, every case is reported
  * at both shell locations: at the attachment (shell + pad) and at the pad edge.
  */
-import { WRC_BENDING_CLASS, WRC_LOCATION_TEXT, WRC_PAD_METHOD_TEXT, WRC_TIER_TEXT, deriveWrcGeometry, fmt } from './wrc-calc.js';
+import {
+  WRC_BENDING_CLASS, WRC_LOCATION_TEXT, WRC_PAD_METHOD_TEXT, WRC_TIER_TEXT, WRC_TRUNNION_CONSTRUCTION, deriveWrcGeometry, fmt, isTrunnion,
+} from './wrc-calc.js';
 import { FE_CONTOUR_CAPTION, FE_METHOD_NOTE, buildFeContourHtml } from './fe-contour.js';
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
@@ -84,6 +86,7 @@ export function buildWrcReportHtml(run, { generatedAt = new Date(), appVersion =
   const i = first.input;
   const g0 = deriveWrcGeometry(i); // the shell and attachment as entered
   const padded = first.padded;
+  const trunnion = isTrunnion(i);
   const multi = batch.cases.length > 1;
   const S = Number(i.allowableS) > 0;
 
@@ -147,7 +150,7 @@ ${l.result.ok ? `<tr><td>Pressure membrane stress, hoop p·R<sub>m</sub>/T / lon
 </style></head><body>
 <h1>WRC 537 local stress: ${esc(i.title || 'Attachment on cylindrical shell')}</h1>
 <div class="muted">Generated ${esc(generatedAt.toISOString().replace('T', ' ').slice(0, 19))} UTC · LAFEA + Empirical/WRC ${esc(appVersion)}</div>
-<div class="tier"><b>Method:</b> WRC Bulletin 537 (2013), cylindrical shell, ${g0.rectangular ? 'rectangular attachment (§4.2.2, equations 28–30 and 50–51, Tables 6–8) on the Table 5 curves' : 'round attachment, Table 5'}. ${esc(WRC_TIER_TEXT[ref.tier])}${padded ? `<br>${esc(WRC_PAD_METHOD_TEXT)}` : ''}</div>
+<div class="tier"><b>Method:</b> WRC Bulletin 537 (2013), cylindrical shell, ${g0.rectangular ? 'rectangular attachment (§4.2.2, equations 28–30 and 50–51, Tables 6–8) on the Table 5 curves' : `round attachment${trunnion ? ' (trunnion)' : ''}, Table 5`}. ${esc(WRC_TIER_TEXT[ref.tier])}${padded ? `<br>${esc(WRC_PAD_METHOD_TEXT)}` : ''}</div>
 
 <h2>1. Geometry and design data</h2>
 <table>
@@ -157,7 +160,7 @@ ${l.result.ok ? `<tr><td>Pressure membrane stress, hoop p·R<sub>m</sub>/T / lon
 <tr><td>Corrosion allowance</td><td>CA</td><td class="n">${fmt(g0.ca, 2)}</td><td>mm</td></tr>
 ${g0.rectangular
     ? `<tr><td>Attachment footprint, length along / width around the shell</td><td>2c<sub>2</sub> / 2c<sub>1</sub></td><td class="n">${fmt(2 * g0.c2, 2)} / ${fmt(2 * g0.c1, 2)}</td><td>mm</td></tr>`
-    : `<tr><td>Attachment outside diameter</td><td>d</td><td class="n">${fmt(2 * g0.r0, 2)}</td><td>mm</td></tr>`}
+    : `<tr><td>${trunnion ? `Trunnion outside diameter (${esc((WRC_TRUNNION_CONSTRUCTION[i.trunnionConstruction] ?? WRC_TRUNNION_CONSTRUCTION.SOLID).toLowerCase())})` : 'Attachment outside diameter'}</td><td>d</td><td class="n">${fmt(2 * g0.r0, 2)}</td><td>mm</td></tr>`}
 ${padded && first.pad && !first.pad.rectangular ? `<tr><td>Reinforcing pad outside diameter / thickness / width</td><td>d<sub>pad</sub> / t<sub>pad</sub> / w</td><td class="n">${fmt(first.pad.outsideDiameter, 2)} / ${fmt(first.pad.thickness, 2)} / ${fmt(first.pad.width, 2)}</td><td>mm</td></tr>` : ''}
 ${padded && first.pad?.rectangular ? `<tr><td>Reinforcing pad length along / width around / thickness</td><td>—</td><td class="n">${fmt(first.pad.length, 2)} / ${fmt(first.pad.width, 2)} / ${fmt(first.pad.thickness, 2)}</td><td>mm</td></tr>` : ''}
 ${locationGeometry}
@@ -194,10 +197,11 @@ ${warnings.length ? `<h2>Notes</h2><ul>${warnings.map((w) => `<li>${esc(w)}</li>
 
 <h2>Limitations</h2>
 <ul>
-<li>Host cylindrical shell stress at the attachment juncture${padded ? ' and at the pad edge' : ''} only. Stresses in the attachment, nozzle${padded ? ', pad or pad welds' : ''} are not calculated.</li>
+<li>Host cylindrical shell stress at the attachment juncture${padded ? ' and at the pad edge' : ''} only. Stresses in the ${trunnion ? 'trunnion' : 'attachment, nozzle'}${padded ? ', pad or pad welds' : ' or its weld'} are not calculated.</li>
 ${padded ? '<li>The pad is checked with the two-location method (shell + pad at the attachment, shell alone at the pad edge). WRC 537 has no pad rule; this is common practice, and it assumes the pad is fully welded and acts with the shell.</li>' : ''}
 ${g0.rectangular ? '<li>Rectangular attachment: WRC 537 gives no method for torsion M<sub>T</sub> (§4.3.4), so torsion is not accepted. Tables 6–8 hold approximately for 0.25 ≤ β<sub>1</sub>/β<sub>2</sub> ≤ 4; factors between the printed rows are interpolated (engineering judgement). Stresses in the lug, its welds or its pad are not calculated.</li>' : ''}
-<li>Pressure adds the thin-shell membrane stress only. The extra pressure stress at the edge of the opening is not included.</li>
+<li>Pressure adds the thin-shell membrane stress only. ${trunnion ? 'A trunnion does not open the shell; the local stress from it restraining the shell\'s pressure growth is not included.' : 'The extra pressure stress at the edge of the opening is not included.'}</li>
+${trunnion ? '<li>Trunnion: WRC 537 §4.2.2 has no solid/hollow selector for cylindrical shells, so the shell stress depends only on the outside diameter. The attachment is treated as rigid at the shell.</li>' : ''}
 <li>${S ? 'The code check is a screening check with user-entered allowables and the ASME VIII-2 Part 5 stress categories. It is not a full code assessment (no fatigue, ratcheting or nozzle reinforcement check).' : 'No code acceptance check has been made, because no allowable stress was entered.'}</li>
 <li>Interpolated γ and the assumed β limit for γ above 5 are engineering judgement, not WRC rules.</li>
 </ul>
