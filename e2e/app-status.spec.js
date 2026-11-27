@@ -11,7 +11,7 @@ test('Status & roadmap tab lists known issues, planned improvements and the road
   await page.reload();
   const view = page.locator('[data-app-view="STATUS"]');
   await expect(view).toBeVisible();
-  await expect(page.locator('[data-app-nav="STATUS"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-app-nav="STATUS"]')).toHaveAttribute('aria-selected', 'true');
 
   for (const id of ['vision', 'today', 'issues', 'planned', 'roadmap', 'decisions']) {
     await expect(view.locator(`[data-status-section="${id}"]`)).toBeVisible();

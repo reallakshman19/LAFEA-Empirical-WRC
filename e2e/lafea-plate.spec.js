@@ -17,6 +17,10 @@ test('LAFEA plate form: plate with a hole in tension converges and gives Kt ≈ 
   await expect(form.locator('[data-plate="holeDiameter"]')).toBeHidden();
   await form.locator('[data-plate="shape"]').selectOption('HOLE');
   await expect(form.locator('[data-plate="holeDiameter"]')).toBeVisible();
+  // Every input and select has a name for screen readers, the edge table's included.
+  await expect(form.locator('[data-edge="LEFT"][data-field="support"]')).toHaveAccessibleName('Left (x = 0) edge: support');
+  expect(await form.locator('input:visible, select:visible').evaluateAll((els) => els
+    .filter((el) => !el.getAttribute('aria-label') && !el.labels?.length).map((el) => el.outerHTML.slice(0, 80)))).toEqual([]);
 
   // A plain reason for unusable input, and no model is built
   await form.locator('[data-plate="meshSize"]').fill('5');

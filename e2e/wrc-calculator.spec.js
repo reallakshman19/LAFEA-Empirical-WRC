@@ -35,6 +35,8 @@ test('inputs survive reload and the advanced EMP.1 workflow still mounts', async
   await page.locator('[data-empirical-nav="WORKFLOW"]').click();
   // Lazy-loaded on first open of the sub-tab.
   await expect(page.locator('[data-empirical-subview="WORKFLOW"]')).toContainText('EMP.1', { timeout: 60000 });
+  // The workbench adds itself to the sub-tab: the "Loading LAFEA…" line must be gone.
+  await expect(page.locator('[data-empirical-subview="WORKFLOW"] [data-role="lafea-loading"]')).toHaveCount(0);
 });
 
 test('the WRC calculator loads without the LAFEA workbench, which loads on first use', async ({ page }) => {
