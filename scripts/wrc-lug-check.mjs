@@ -221,4 +221,25 @@ for (const text of ['rectangular attachment (§4.2.2', 'β used', 'Table factor'
 }
 console.log('Report and load-case batch carry the rectangular data');
 
+// 8. The benchmark request (docs/LUG-BENCHMARK-REQUEST.md): every case is consistent and accepted by the calculator.
+{
+  const request = JSON.parse(readFileSync(new URL('../validation/emp1/lug-benchmark-request/lug-benchmark-cases-v1.json', import.meta.url)));
+  const doc = readFileSync(new URL('../docs/LUG-BENCHMARK-REQUEST.md', import.meta.url), 'utf8');
+  for (const c of request.cases) {
+    assert.equal(c.shellInsideDiameter, c.shellOutsideDiameter - 2 * c.shellThickness, `${c.caseId}: ID`);
+    assert.equal(c.c1HalfWidthAround, c.attachmentWidthAroundShell / 2, `${c.caseId}: c1`);
+    assert.equal(c.c2HalfLengthAlong, c.attachmentLengthAlongShell / 2, `${c.caseId}: c2`);
+    assert.equal(c.loads.Mt, 0, `${c.caseId}: no torsion on a lug`);
+    assert.ok(doc.includes(`| ${c.caseId}`), `${c.caseId} is in the request doc`);
+    const result = calculateWrcAttachment({
+      shellOutsideDiameter: c.shellOutsideDiameter, shellThickness: c.shellThickness, corrosionAllowance: 0,
+      attachmentType: 'RECTANGULAR', attachmentLength: c.attachmentLengthAlongShell, attachmentWidth: c.attachmentWidthAroundShell,
+      padLength: c.pad?.lengthAlongShell ?? '', padWidth: c.pad?.widthAroundShell ?? '', padThickness: c.pad?.thickness ?? '',
+      forceUnit: 'N', momentUnit: 'N·m', loads: c.loads, coordinate: 'LINEAR_GAMMA',
+    });
+    assert.equal(result.ok, true, `${c.caseId}: ${JSON.stringify(result.reasons)}`);
+  }
+  console.log(`Benchmark request: ${request.cases.length} cases consistent and accepted`);
+}
+
 console.log('WRC_LUG_CHECK_PASS');
