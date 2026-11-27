@@ -64,10 +64,21 @@ export const WRC_BENDING_CLASS = Object.freeze({
   PB: 'Primary Pb, PL+Pb ≤ 1.5S (conservative)',
 });
 
+/** 'ROUND' is the nozzle (kept as the stored value, so saved cases still open). */
 export const WRC_ATTACHMENT_TYPES = Object.freeze({
-  ROUND: 'Round (nozzle, trunnion)',
+  ROUND: 'Nozzle (round, opens the shell)',
+  TRUNNION: 'Trunnion (round, closed)',
   RECTANGULAR: 'Rectangular (lug, plate)',
 });
+
+export const WRC_TRUNNION_CONSTRUCTION = Object.freeze({
+  SOLID: 'Solid bar',
+  HOLLOW: 'Pipe (hollow)',
+});
+
+export const WRC_TRUNNION_METHOD_TEXT = 'Trunnion: checked as a round attachment of its outside diameter. WRC 537 §4.2.2 has no solid/hollow '
+  + 'selector for cylindrical shells, so a solid bar and a pipe of the same diameter give the same shell stress. Only the shell '
+  + 'is checked: stresses in the trunnion and its weld are not calculated.';
 
 export const WRC_RECT_METHOD_TEXT = 'Rectangular attachment: WRC 537 §4.2.2 gives each load and stress component its own β '
   + '(equations 28–30 with Table 6 for P; Tables 7 and 8 for Mc and ML), read on the same curves as a round attachment. '
@@ -91,6 +102,7 @@ export const DEFAULT_CASE = Object.freeze({
   shellThickness: 12,
   corrosionAllowance: 0,
   attachmentType: 'ROUND',
+  trunnionConstruction: 'SOLID',
   attachmentOutsideDiameter: 219.1,
   attachmentLength: '',
   attachmentWidth: '',
@@ -158,6 +170,21 @@ export const EXAMPLE_CASES = Object.freeze({
     Kn: 1.2,
     Kb: 1.2,
   }),
+  TRUNNION_10IN: Object.freeze({
+    title: '10-inch trunnion on a 24-inch pipe',
+    shellOutsideDiameter: 610,
+    shellThickness: 12.7,
+    corrosionAllowance: 0,
+    attachmentType: 'TRUNNION',
+    trunnionConstruction: 'HOLLOW',
+    attachmentOutsideDiameter: 273.1,
+    cylinderLength: '',
+    attachmentStation: '',
+    forceUnit: 'N',
+    momentUnit: 'N·m',
+    loads: Object.freeze({ P: -15000, Vc: 3000, Vl: -5000, Mc: 2500, Ml: -6000, Mt: 1000 }),
+    coordinate: 'LINEAR_GAMMA',
+  }),
   LUG_200X100: Object.freeze({
     title: 'Lug footprint 200 mm along × 100 mm around the shell',
     shellOutsideDiameter: 1500,
@@ -176,6 +203,7 @@ export const EXAMPLE_CASES = Object.freeze({
 });
 
 export function isRectangular(input) { return input?.attachmentType === 'RECTANGULAR'; }
+export function isTrunnion(input) { return input?.attachmentType === 'TRUNNION'; }
 
 const LOAD_KEYS = Object.freeze(['P', 'Vc', 'Vl', 'Mc', 'Ml', 'Mt']);
 const FORCE_KEYS = new Set(['P', 'Vc', 'Vl']);
@@ -310,6 +338,12 @@ export function calculateWrc537(input) {
   const rows = buildRows(evaluated, pressureStress, pressure);
   const governing = rows.reduce((best, row) => (row.stressIntensity > best.stressIntensity ? row : best), rows[0]);
   let factorSpread = null;
+  if (isTrunnion(input)) {
+    warnings.push(WRC_TRUNNION_METHOD_TEXT);
+    if (input.trunnionConstruction === 'HOLLOW') {
+      warnings.push('Hollow trunnion: treated as rigid at the shell, like every WRC 537 cylinder case. A large, thin-walled trunnion pipe is more flexible than that, which these curves do not model.');
+    }
+  }
   if (g.rectangular) {
     warnings.push(...rectangularWarnings(evaluated.rectangular, loads));
     factorSpread = rectangularFactorSpread({ g, loads, coordinate, Kn, Kb, pressureStress, pressure, governing });
@@ -320,7 +354,11 @@ export function calculateWrc537(input) {
   }
   if (pressure !== 0) {
     warnings.push(`Pressure ${fmt(pressure, 3)} MPa adds thin-shell membrane stress p·Rm/T = ${fmt(pressureStress.circumferential, 2)} MPa (hoop) and p·Rm/2T = ${fmt(pressureStress.longitudinal, 2)} MPa (longitudinal) at every point. `
-      + 'This is common practice, not part of WRC 537. The extra pressure stress at the edge of the opening is not included: check it with the code nozzle rules or FE.');
+      + (isTrunnion(input)
+        ? 'This is common practice, not part of WRC 537. A trunnion does not open the shell, so there is no opening-edge pressure stress; the local stress from the trunnion restraining the shell\'s pressure growth is not included.'
+        : isRectangular(input)
+          ? 'This is common practice, not part of WRC 537. The local stress from the attachment restraining the shell\'s pressure growth is not included.'
+          : 'This is common practice, not part of WRC 537. The extra pressure stress at the edge of the opening is not included: check it with the code nozzle rules or FE.'));
   }
   if (Kn !== 1 || Kb !== 1) {
     warnings.push(`User-supplied stress concentration factors: Kn = ${fmt(Kn, 3)} (membrane), Kb = ${fmt(Kb, 3)} (bending). They multiply the WRC load stresses only, not the pressure or shear stress.`);

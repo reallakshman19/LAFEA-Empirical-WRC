@@ -4,8 +4,8 @@
 import './wrc.css';
 import {
   DEFAULT_CASE, EXAMPLE_CASES, FORCE_UNITS, MOMENT_UNITS, WRC_BETA_RANGE, WRC_COORDINATES,
-  WRC_ATTACHMENT_TYPES, WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases, calculateWrcAttachment,
-  classifyGamma, deriveWrcGeometry, fmt, hasPad, isRectangular,
+  WRC_ATTACHMENT_TYPES, WRC_TRUNNION_CONSTRUCTION, WRC_BENDING_CLASS, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases, calculateWrcAttachment,
+  classifyGamma, deriveWrcGeometry, fmt, hasPad, isRectangular, isTrunnion,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
 import { FE_CONTOUR_CAPTION, FE_METHOD_NOTE, buildFeContourHtml, triangleAt } from './fe-contour.js';
@@ -19,10 +19,11 @@ const FIELDS = [
   { group: 'Shell (cylinder)', key: 'shellThickness', label: 'Nominal thickness', unit: 'mm' },
   { group: 'Shell (cylinder)', key: 'corrosionAllowance', label: 'Corrosion allowance', unit: 'mm' },
   { group: 'Attachment', key: 'attachmentType', label: 'Type', select: WRC_ATTACHMENT_TYPES },
-  { group: 'Attachment', key: 'attachmentOutsideDiameter', label: 'Outside diameter at shell', unit: 'mm', only: 'ROUND' },
+  { group: 'Attachment', key: 'trunnionConstruction', label: 'Trunnion construction', select: WRC_TRUNNION_CONSTRUCTION, only: 'TRUNNION' },
+  { group: 'Attachment', key: 'attachmentOutsideDiameter', label: 'Outside diameter at shell', unit: 'mm', only: 'ROUND TRUNNION' },
   { group: 'Attachment', key: 'attachmentLength', label: 'Length along the shell (2·c2)', unit: 'mm', only: 'RECTANGULAR' },
   { group: 'Attachment', key: 'attachmentWidth', label: 'Width around the shell (2·c1)', unit: 'mm', only: 'RECTANGULAR' },
-  { group: 'Reinforcing pad (optional)', key: 'padOutsideDiameter', label: 'Pad outside diameter', unit: 'mm', optional: true, only: 'ROUND' },
+  { group: 'Reinforcing pad (optional)', key: 'padOutsideDiameter', label: 'Pad outside diameter', unit: 'mm', optional: true, only: 'ROUND TRUNNION' },
   { group: 'Reinforcing pad (optional)', key: 'padLength', label: 'Pad length along the shell', unit: 'mm', optional: true, only: 'RECTANGULAR' },
   { group: 'Reinforcing pad (optional)', key: 'padWidth', label: 'Pad width around the shell', unit: 'mm', optional: true, only: 'RECTANGULAR' },
   { group: 'Reinforcing pad (optional)', key: 'padThickness', label: 'Pad thickness', unit: 'mm', optional: true },
@@ -63,6 +64,7 @@ export function mountWrcCalculator(host) {
         <option value="GAMMA5_ORACLE">Check case: γ = 5, hand calc</option>
         <option value="CAESAR_GAMMA48">Check case: CAESAR II, γ = 48</option>
         <option value="PAD_36IN">36-inch nozzle with reinforcing pad</option>
+        <option value="TRUNNION_10IN">Trunnion, 10-inch on a 24-inch pipe</option>
         <option value="LUG_200X100">Lug, 200 × 100 mm footprint</option>
       </select>
       <span class="wrc__spacer"></span>
@@ -127,7 +129,7 @@ export function mountWrcCalculator(host) {
   }
   host.querySelector('[data-slot="fields"]').innerHTML = [...groups].map(([group, fields]) => `
     <fieldset class="wrc__group"><legend>${group}</legend>${fields.map((f) => (f.select ? `
-      <label class="wrc__row"><span>${f.label}</span>
+      <label class="wrc__row"${f.only ? ` data-only="${f.only}"` : ''}><span>${f.label}</span>
         <select data-k="${f.key}">${Object.entries(f.select).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>` : `
       <label class="wrc__row"${f.only ? ` data-only="${f.only}"` : ''}><span>${f.label}${f.optional ? ' <small>(optional)</small>' : ''}</span>
         <input data-k="${f.key}" type="number" step="any"${f.signed ? '' : ' min="0"'} inputmode="decimal"><em>${f.unit}</em></label>`)).join('')}
@@ -171,8 +173,10 @@ export function mountWrcCalculator(host) {
   function render() {
     batch = calculateWrc537Cases(state);
     result = batch.cases[state.activeCase].result; // calculateWrcAttachment: one location, or two with a pad
-    const type = isRectangular(state) ? 'RECTANGULAR' : 'ROUND';
-    for (const row of host.querySelectorAll('[data-only]')) row.hidden = row.dataset.only !== type;
+    let type = 'ROUND';
+    if (isRectangular(state)) type = 'RECTANGULAR';
+    else if (isTrunnion(state)) type = 'TRUNNION';
+    for (const row of host.querySelectorAll('[data-only]')) row.hidden = !row.dataset.only.split(' ').includes(type);
     for (const l of LOADS) {
       host.querySelector(`[data-unit="${l.key}"]`).textContent = ['P', 'Vc', 'Vl'].includes(l.key) ? state.forceUnit : state.momentUnit;
     }
@@ -222,7 +226,7 @@ export function mountWrcCalculator(host) {
     }
     $('[data-slot="notes"]').innerHTML = `
       ${result.warnings.length ? `<ul class="wrc__notes">${result.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>` : ''}
-      <p class="wrc__help">Only stress in the shell at the attachment${hasPad(state) ? ' and at the pad edge' : ''} is calculated, not in the attachment, nozzle${hasPad(state) ? ', pad or its welds' : ''}. Pressure adds the thin-shell membrane stress only.</p>`;
+      <p class="wrc__help">Only stress in the shell at the attachment${hasPad(state) ? ' and at the pad edge' : ''} is calculated, not in the ${attachmentNoun(state)}${hasPad(state) ? ', pad or its welds' : ' or its weld'}. Pressure adds the thin-shell membrane stress only.</p>`;
     save(state);
   }
 
@@ -464,6 +468,12 @@ export function mountWrcCalculator(host) {
     setCase,
     destroy() { host.replaceChildren(); host.classList.remove('wrc'); },
   };
+}
+
+function attachmentNoun(c) {
+  if (isTrunnion(c)) return 'trunnion';
+  if (isRectangular(c)) return 'lug';
+  return 'nozzle';
 }
 
 /** The Table 7/8 interpolation spread of one location (roadmap PL-01), as one line under the governing value. */

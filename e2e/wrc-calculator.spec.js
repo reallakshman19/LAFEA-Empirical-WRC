@@ -122,6 +122,24 @@ test('a reinforcing pad is checked at the attachment and at the pad edge', async
   await expect(calc.locator('[data-slot="feScope"]')).toBeEmpty();
 });
 
+test('a trunnion is a round attachment with its own labels', async ({ page }) => {
+  const calc = page.locator('[data-empirical-subview="WRC"]');
+  await calc.locator('[data-act="example"]').selectOption('TRUNNION_10IN');
+  await expect(calc.locator('[data-k="attachmentType"]')).toHaveValue('TRUNNION');
+  await expect(calc.locator('[data-k="trunnionConstruction"]')).toBeVisible();
+  await expect(calc.locator('[data-k="attachmentOutsideDiameter"]')).toBeVisible();
+  await expect(calc.locator('[data-k="attachmentWidth"]')).toBeHidden();
+  await expect(calc.locator('.wrc__gov strong')).toHaveText('89.14 MPa');
+  await expect(calc.locator('.wrc__notes')).toContainText('no solid/hollow selector');
+  await expect(calc.locator('[data-slot="notes"]')).toContainText('not in the trunnion or its weld');
+  await expect(calc.locator('[data-act="runFe"]')).toBeEnabled();
+
+  // The same diameter as a nozzle gives the same stress; the construction choice is hidden again.
+  await calc.locator('[data-k="attachmentType"]').selectOption('ROUND');
+  await expect(calc.locator('.wrc__gov strong')).toHaveText('89.14 MPa');
+  await expect(calc.locator('[data-k="trunnionConstruction"]')).toBeHidden();
+});
+
 test('a rectangular lug is solved with a β for each term, and its limits are explained', async ({ page }) => {
   const calc = page.locator('[data-empirical-subview="WRC"]');
   await calc.locator('[data-act="example"]').selectOption('LUG_200X100');

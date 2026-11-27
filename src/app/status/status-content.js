@@ -39,7 +39,7 @@ export const STATUS_VISION = Object.freeze({
 
 /** What can be used today, one line per area. */
 export const STATUS_TODAY = Object.freeze([
-  Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments (γ 5–300, β 0.05–0.5) and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases.' }),
+  Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments, nozzles or trunnions (γ 5–300, β 0.05–0.5), and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases.' }),
   Object.freeze({ area: 'Shell-FE cross-check', state: 'USABLE', text: 'Solves the same nozzle with LAFEA shell elements in about 30 s, compares the 8 points and draws a stress-intensity contour. Reports a ratio, not a pass/fail.' }),
   Object.freeze({ area: 'LAFEA plate form', state: 'USABLE', text: 'Plane-stress rectangular plate, with or without a central round hole: edge supports and loads, automatic mesh, convergence study, Kt.' }),
   Object.freeze({ area: 'LAFEA workbench', state: 'PARTIAL', text: 'Worked cantilever example and the plate form go end to end. Other geometry needs stage JSON. Shell and trunnion stages are not wired to a form.' }),
@@ -174,7 +174,7 @@ export const KNOWN_ISSUES = Object.freeze([
  * Near-term improvements, in the recommended order: what, why, size (S under ½ day, M 1–2 days, L 3+ days)
  * and what it needs. PL-02 to PL-05 finish and prove the first production scope (nozzles, trunnions and
  * lugs on cylinders); the cheapest, strongest evidence comes first and FE covers what nothing else does.
- * PL-01 (interpolation spread for lugs) was done on 2026-11-27 and is now part of the calculator.
+ * PL-01 (interpolation spread for lugs) and PL-03 (trunnions) were done on 2026-11-27 and are now part of the calculator.
  */
 export const PLANNED_IMPROVEMENTS = Object.freeze([
   plan('PL-02', 'Lug benchmark from your licensed program', 'S', 'Your runs of 3 lug cases with WRC 537 (docs/LUG-BENCHMARK-REQUEST.md)',
@@ -182,10 +182,6 @@ export const PLANNED_IMPROVEMENTS = Object.freeze([
     ['Cases ready: L1 (γ 100, β1/β2 2, printed factors), L2 (γ 62, ratio 0.5, interpolated), L3 (γ 50, ratio 0.25, edge of range), optional L4 with a pad',
       'Freeze each report as a JSON reference and check our 8 points against it, as for the CAESAR II nozzle',
       'Trace any large difference to its load term: interpolation, curve reading or convention']),
-  plan('PL-03', 'Trunnions', 'S', 'Nothing',
-    'Completes the attachment types in the first production scope.',
-    ['Trunnion as a round attachment, solid or hollow, labelled in inputs, results and report',
-      'Same WRC 537 round-attachment route and FE cross-check as a nozzle', 'Trunnion pipe stresses stay out of scope, and are stated so']),
   plan('PL-04', 'FE for lugs', 'M', 'Nothing',
     'Gives lugs the same FE comparison as nozzles, and an answer where WRC 537 has none (thin plates, torsion).',
     ['Shell-FE mesh with a rectangular footprint, blending out to the round patch',

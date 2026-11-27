@@ -519,6 +519,18 @@ proven bound.
 So narrow lugs under Mc are where the interpolation judgement matters most. They are the first candidates for
 the lug benchmark (PL-02) and FE (PL-04).
 
+**2026-11-27: PL-03, trunnions.** WRC 537 §4.2.2 describes a round attachment on a cylinder only by r0. It
+has no solid/hollow or rigid/flexible selector (see `docs/emp1/WRC537_2013_Cylindrical_Attachment_Class_Authority.md`),
+and §4.3.4 itself gives "a pipe" as the example round attachment. So a trunnion is the round route with its own labels:
+- a solid bar or pipe choice, recorded but not changing the stress;
+- a note that a hollow trunnion is treated as rigid;
+- a pressure note without the opening-edge remark, since a trunnion does not open the shell;
+- "stresses in the trunnion and its weld are not calculated".
+
+`scripts/wrc-trunnion-check.mjs` confirms trunnion = nozzle at all 8 points on the γ = 5 hand calculation and the
+CAESAR II case, and solid = hollow. Not done: entering the support load at the trunnion's free end and moving it
+to the shell (the moment arm). Its signs need the WRC 537 Figure 2 axes checked first.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
