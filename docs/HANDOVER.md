@@ -161,6 +161,26 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   `aria-describedby`. The load help's physics (+P pushes in; Mc largest at C/D, Ml at A/B) is asserted in
   the units check.
 
+### 3.3c Workbench look, technical details and the plate form (PL-06 part 3)
+
+- **Scope everything to the app.** `src/app/lafea/workbench.css` restyles the upstream workbench only under
+  `.app-view`, so `lafea.html` and the upstream e2e specs (which run on it and on the fixture page) see no
+  change. The workbench marks many colours `!important`; an override needs `.app-view …` and `!important` too.
+  Map colours to `--ui-*` variables; keep the green/amber/red status tones.
+- **Technical details.** `src/app/lafea/tech-details.js` puts `app-tech-off` on `<html>` (default) and syncs
+  every `[data-tech-switch]`; key `lafea-emp-app/tech-details`. The hide list is in section 2 of
+  `workbench.css`. Do not hide by the class `.lafea-workbench__custody-details` alone: in the EMP.1 workflow it
+  also wraps working menus ("More actions", "Blocking evidence"). Keep scope and limitation statements visible.
+- **Mesh keyboard.** `retained-mesh-overlay.js` uses a roving tabindex (one element at `tabindex=0`).
+  `scripts/lafea-ui-guided-discretization-check.mjs` fails if that file mentions triangulate, refine, smooth,
+  repair or solver, even in a comment.
+- **Plate form units.** As in the calculator: stored in mm and MPa, `units` is display only, `writeBox()` /
+  `readBox()` keep an untouched box's exact value, and `dim()` / `lengthText()` / `stressText()` format output.
+  SI output text is unchanged except the Kt line, which now names its unit. The help-text key is shared with the
+  calculator (`lafea-emp-app/wrc-help`).
+- **Not changed:** the advanced workflow's example (E6). 19 checks and the γ = 5 hand calculation are built on
+  it; see decision 6 in NEXT-PHASE-PLAN.md.
+
 ### 3.4 CI and Pages
 
 - **`ci.yml`:**

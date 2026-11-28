@@ -664,6 +664,62 @@ Checks:
   - examples keep the units;
   - every input has a description, and the help toggle.
 
+**2026-11-28: PL-06 part 3, the LAFEA workbench, the advanced workflow and the plate form.** Closes L5 (noisy
+workbench screens) and the plate form's share of KI-09 (metric only). E6 (the advanced workflow's example) is
+left as it is, pending the owner's decision (below).
+
+- **One look.** `src/app/lafea/workbench.css` maps the workbench's colours onto the app theme: its own
+  `--workspace-*` variables, then the panels, controls, stage buttons, tables and the main action of each step
+  (the app's blue instead of teal and sky blue). The workbench marks many colours `!important`, so the overrides
+  do too. Everything is scoped to `.app-view`: the original `lafea.html` page and its upstream tests see no
+  change.
+- **Technical details** (`src/app/lafea/tech-details.js`). A switch in the LAFEA example bar and above the
+  advanced workflow, off by default and remembered. Off, the app hides:
+  - the header's custody block and stage line;
+  - the "N governed checks" lists, the technical-identifier and qualification-evidence drawers, and the
+    advanced mesh evidence;
+  - raw render codes and the "Scene Revision" line in the model view;
+  - JSON paths and the Source/status column of the input tables;
+  - the formula identity, source path and authority columns of the result table, and the solver-evidence line.
+  On, everything shows where the workbench puts it. Working menus that share the workbench's custody style
+  ("More actions", "Readiness and technical details", "Blocking evidence") are not hidden. The scope statements
+  ("Authority: … does not calculate WRC 107/537 …") and the solver limitations stay visible, because they say
+  what a result may be used for.
+- **Keyboard and screen readers** (an audit of every control in both screens, then three upstream fixes):
+  - the model view gave **every mesh element its own Tab stop**: 206 of the 297 Tab stops on the solved
+    example, and thousands on a plate. The mesh is now one Tab stop (roving tabindex): arrow keys move between
+    elements, Home and End jump to the first and last, Enter selects as before
+    (`src/workspace/lafea-canvas/retained-mesh-overlay.js`);
+  - the continuum formulation box had no name (`lafea-analysis-settings-view.js`);
+  - the model view's drawing had no name; it is now "Model view: geometry, mesh, supports and loads"
+    (`hybrid-viewport.js`);
+  - everything else already had a name, and no control had a positive tabindex or a duplicate id.
+- **Plate form.**
+  - **Units:** SI (mm, MPa) or US (in, psi), as in the calculator, reusing `src/app/wrc/wrc-units.js`. The plate
+    is stored and solved in mm, N and MPa; `units` only chooses the display. A box left alone keeps its exact
+    stored value, so SI → US → SI shows the typed values again. The model is identical in both systems (same
+    source hash, domain, mesh and study). In US the Kt example reads 15.75 × 7.874 in, a 0.7874 in hole and
+    14504 psi on the right edge, and gives the same Kt = 3.047 (44195 / 14504 psi).
+  - **Help text** under every input, the edge table and the result point, linked with `aria-describedby`. The
+    "Help text" box shares its setting with the calculator.
+
+**E6, the advanced workflow's example, is not changed.** "Run complete example" loads the γ = 5 qualification
+sample (four pressure definitions, ten reference points, a 35.43 mm attachment). 19 checks are built on it,
+including the γ = 5 hand calculation (Au 72.6728 MPa) that anchors the WRC 537 core, so making it plain would
+cut that evidence. Proposed: keep it, and treat the calculator's six examples as the plain starting points; or
+add a second, plain example next to it. Owner decision (NEXT-PHASE-PLAN, decision 6).
+
+Checks:
+- new `e2e/lafea-workbench-ui.spec.js` (3 tests):
+  - workbench: technical details hidden by default and shown and remembered when ticked, the app's background
+    and font, a name on every control, the mesh as one Tab stop with the arrow keys;
+  - advanced workflow: the same switch, its menus still shown, a name on every control;
+  - plate form: SI → US → SI, the build message and the mesh-size reason in inches, a help line on every
+    input, the help toggle remembered;
+- `scripts/lafea-plate-form-check.mjs`: units default to SI, the reason in inches (SI unchanged), and the units
+  do not change the model;
+- the upstream source checks on the three changed files still pass.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

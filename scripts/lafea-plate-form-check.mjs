@@ -12,6 +12,8 @@
  *     (Mesh sizes 32 and 28 were also run once: Kt 3.023 and 3.052, studies passed.)
  *  3. Plain plate in tension: the automatic result point (displacement at the loaded edge) converges and
  *     matches σ·L/E within 2%.
+ *  4. Display units: a plate opens in SI unless it says US, the mesh-size reason reads in inches in US
+ *     (and is unchanged in SI), and the units never change the model (source, domain, mesh, study).
  */
 import assert from 'node:assert/strict';
 import { createLafeaWorkbenchStore } from '../src/workspace/lafea-lifecycle-workbench-store.js';
@@ -44,6 +46,20 @@ assert.match(errorsFor((r) => { r.meshSize = 20; }), /too fine/);
 assert.equal(errorsFor((r) => { r.meshSize = 28; }), '', 'mesh 28 (finest 7 mm) is allowed');
 assert.match(errorsFor((r) => { r.probe = { x: 200, y: 100, quantityId: 'VON_MISES' }; }), /inside the plate material/, 'point in the hole');
 assert.throws(() => buildPlateModel({ ...clone(PLATE_DEFAULTS), length: -1 }), /Length must be a positive number/);
+
+// Display units (PL-06 part 3): SI unless US is asked for; the reasons follow them; the model does not.
+assert.equal(normalizePlateInput(clone(PLATE_DEFAULTS)).units, 'SI', 'old saved plates open in SI');
+assert.equal(normalizePlateInput({ ...clone(PLATE_DEFAULTS), units: 'XX' }).units, 'SI');
+assert.match(errorsFor((r) => { r.meshSize = 20; }), /^Mesh size 20 mm is too fine/, 'SI reason unchanged');
+assert.match(errorsFor((r) => { r.meshSize = 5.08; r.units = 'US'; }), /^Mesh size 0\.2 in is too fine/, 'US reason in inches');
+{
+  const si = buildPlateModel(clone(PLATE_DEFAULTS));
+  const us = buildPlateModel({ ...clone(PLATE_DEFAULTS), units: 'US' });
+  assert.equal(us.authority.sourceHash, si.authority.sourceHash, 'the units do not change the model source');
+  assert.deepEqual(us.domain, si.domain, 'nor the analysis domain (supports, loads)');
+  assert.deepEqual(us.meshProfile, si.meshProfile, 'nor the mesh');
+  assert.deepEqual(us.convergenceRequest, si.convergenceRequest, 'nor the convergence study');
+}
 
 function solve(raw) {
   const m = buildPlateModel(raw);

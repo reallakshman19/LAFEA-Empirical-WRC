@@ -24,6 +24,7 @@ import '../lafea-app/app.css';
 import { mountWrcCalculator } from './wrc/wrc-panel.js';
 import { mountStatusView } from './status/status-panel.js';
 import { markSelectedTab, wireTabKeys } from './ui-tabs.js';
+import { createTechSwitch } from './lafea/tech-details.js';
 
 const APP_TITLE = 'LAFEA + Empirical/WRC';
 
@@ -313,15 +314,21 @@ export function mountEmpiricalView(host) {
   tabs.setAttribute('aria-label', 'Empirical views');
   const calcHost = doc.createElement('div');
   calcHost.dataset.empiricalSubview = 'WRC';
+  // The workflow panel: the "Technical details" switch, then the EMP.1 workbench (mounted on first use).
+  const workflowPanel = doc.createElement('div');
+  workflowPanel.dataset.empiricalSubview = 'WORKFLOW';
+  const techBar = doc.createElement('div');
+  techBar.className = 'app-techbar';
+  techBar.append(createTechSwitch(doc));
   const workflowHost = doc.createElement('div');
-  workflowHost.dataset.empiricalSubview = 'WORKFLOW';
-  host.replaceChildren(tabs, calcHost, workflowHost);
+  workflowPanel.append(techBar, workflowHost);
+  host.replaceChildren(tabs, calcHost, workflowPanel);
 
   const calculator = mountWrcCalculator(calcHost);
   let workflow = null;
   const subviews = [
     { id: 'WRC', label: 'WRC 537 calculator', panel: calcHost },
-    { id: 'WORKFLOW', label: 'Full EMP.1 workflow (advanced)', panel: workflowHost },
+    { id: 'WORKFLOW', label: 'Full EMP.1 workflow (advanced)', panel: workflowPanel },
   ];
   const buttons = subviews.map((sub) => {
     const button = doc.createElement('button');

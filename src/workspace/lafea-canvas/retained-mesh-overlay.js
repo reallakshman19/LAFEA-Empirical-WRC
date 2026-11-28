@@ -17,6 +17,11 @@ export function renderLafeaRetainedMeshOverlay(input) {
   const group = svg.ownerDocument.createElementNS(SVG_NS, 'g');
   group.setAttribute('class', 'lafea-retained-mesh'); group.dataset.role = 'lafea-retained-mesh-overlay';
   group.dataset.custodyState = input.custodyState ?? 'UNKNOWN'; group.setAttribute('aria-label', 'Retained authorized analysis mesh');
+  group.setAttribute('role', 'group');
+  // One Tab stop for the whole mesh (roving tabindex): a fine mesh would otherwise need thousands of
+  // Tab presses to get past. Arrow keys move between elements, Home/End jump to the first/last one.
+  const tabStopId = mesh.elements.some((element) => String(element.elementId) === focused)
+    ? focused : String(mesh.elements[0]?.elementId ?? '');
   for (const element of mesh.elements) {
     const boundary = lafeaRetainedMeshDisplayBoundary(element, nodeMap);
     const shape = createBoundaryShape(svg.ownerDocument, boundary, transform);
@@ -26,13 +31,37 @@ export function renderLafeaRetainedMeshOverlay(input) {
     if (id === focused) classes.push('lafea-retained-mesh__element--focused');
     shape.setAttribute('class', classes.join(' ')); shape.dataset.meshElementId = id;
     shape.dataset.meshElementType = element.elementType ?? '';
-    shape.setAttribute('tabindex', '0'); shape.setAttribute('role', 'button'); shape.setAttribute('aria-label', `Analysis mesh element ${id}`);
+    shape.setAttribute('tabindex', id === tabStopId ? '0' : '-1'); shape.setAttribute('role', 'button'); shape.setAttribute('aria-label', `Analysis mesh element ${id}`);
     const focus = () => input.onFocusElement?.(element.elementId);
     shape.addEventListener('click', (event) => { event.stopPropagation(); focus(); });
-    shape.addEventListener('keydown', (event) => { if (event.key !== 'Enter' && event.key !== ' ') return; event.preventDefault(); focus(); });
+    shape.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); focus(); return; }
+      const next = meshKeyTarget(group, shape, event.key);
+      if (!next) return;
+      event.preventDefault();
+      moveMeshTabStop(group, next);
+      next.focus?.({ preventScroll: true });
+    });
     group.append(shape);
   }
   svg.append(group); return group;
+}
+
+const MESH_KEY_STEP = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+
+/** The element a navigation key moves to, or null for other keys. */
+function meshKeyTarget(group, shape, key) {
+  const shapes = [...group.querySelectorAll('[data-mesh-element-id]')];
+  if (key === 'Home') return shapes[0] ?? null;
+  if (key === 'End') return shapes.at(-1) ?? null;
+  const step = MESH_KEY_STEP[key];
+  if (!step) return null;
+  const index = shapes.indexOf(shape);
+  return shapes[Math.min(shapes.length - 1, Math.max(0, index + step))] ?? null;
+}
+
+function moveMeshTabStop(group, target) {
+  group.querySelectorAll('[data-mesh-element-id]').forEach((node) => node.setAttribute('tabindex', node === target ? '0' : '-1'));
 }
 
 export function renderLafeaBcLoadGlyphOverlay(input) {
@@ -64,6 +93,7 @@ export function renderLafeaBcLoadGlyphOverlay(input) {
 export function focusLafeaRetainedMeshElement(target, elementId) {
   const id = String(elementId), nodes = target?.querySelectorAll?.('[data-mesh-element-id]') ?? []; let found = null;
   nodes.forEach((node) => { const selected = node.dataset.meshElementId === id; node.classList.toggle('lafea-retained-mesh__element--focused', selected); if (selected) found = node; });
+  if (found) nodes.forEach((node) => node.setAttribute?.('tabindex', node === found ? '0' : '-1'));
   found?.focus?.({ preventScroll: true }); return found !== null;
 }
 

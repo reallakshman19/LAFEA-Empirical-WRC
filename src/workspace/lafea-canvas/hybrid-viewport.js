@@ -36,6 +36,9 @@ export function createHybridViewport(root, adapters) {
     'svg',
   );
   svg.dataset.layer = 'engineering-overlay';
+  // Named for screen readers; the shapes inside carry their own labels.
+  svg.setAttribute('role', 'group');
+  svg.setAttribute('aria-label', 'Model view: geometry, mesh, supports and loads');
 
   const inspector = documentRef.createElement('div');
   inspector.dataset.layer = 'accessible-inspector';
