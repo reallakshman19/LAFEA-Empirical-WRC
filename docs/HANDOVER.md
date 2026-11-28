@@ -179,7 +179,8 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   SI output text is unchanged except the Kt line, which now names its unit. The help-text key is shared with the
   calculator (`lafea-emp-app/wrc-help`).
 - **Not changed:** the advanced workflow's example (E6). 19 checks and the γ = 5 hand calculation are built on
-  it; see decision 6 in NEXT-PHASE-PLAN.md.
+  it. The owner decided on 2026-11-28 to keep it (decision 6 in NEXT-PHASE-PLAN.md), so don't simplify it.
+  The WRC calculator's six examples are the plain starting points.
 
 ### 3.4 CI and Pages
 

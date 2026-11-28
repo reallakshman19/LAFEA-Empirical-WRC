@@ -47,7 +47,7 @@ The cheapest, strongest evidence comes first, and FE covers what nothing else do
 | PL-03 | **Trunnions:** round attachment, solid or hollow, labelled. **Done 2026-11-27.** | S | nothing | Completes the attachment types |
 | PL-04 | **FE for lugs:** rectangular-footprint shell mesh; FE/WRC ratios for several shapes; FE as the route for lugs WRC 537 blocks (thin plates, torsion). **Done 2026-11-27.** FE finds less than WRC at the middle of a lug's edges and more at its corners | M | nothing | Covers what WRC 537 cannot; the corner peak is labelled mesh-dependent |
 | PL-05 | **Code method for thin plate lugs:** EN 13445-3 clause 16 or PD 5500 Annex G | M | **your copy of the standard, and which one** | Thin plates welded straight to the shell are the usual lug, and outside WRC 537 |
-| PL-06 | **Finish the UI**, then the canvas (roadmap stages A–D). In three parts. **Part 1 done 2026-11-27:** one look, laptop/tablet/phone layouts, keyboard tabs and links, a spoken result for screen readers. **Part 2 done 2026-11-27:** help text on every WRC input, inch/lbf/psi units. **Part 3 done 2026-11-28:** the LAFEA workbench and the advanced workflow in the same look, a "Technical details" switch for their custody text and codes, keyboard fixes there (the mesh is one Tab stop), and units and help text in the plate form. Left: the advanced workflow's example (decision 6) | L | decision 6 only | |
+| PL-06 | **Finish the UI**, then the canvas (roadmap stages A–D). In three parts. **Part 1 done 2026-11-27:** one look, laptop/tablet/phone layouts, keyboard tabs and links, a spoken result for screen readers. **Part 2 done 2026-11-27:** help text on every WRC input, inch/lbf/psi units. **Part 3 done 2026-11-28:** the LAFEA workbench and the advanced workflow in the same look, a "Technical details" switch for their custody text and codes, keyboard fixes there (the mesh is one Tab stop), and units and help text in the plate form. The advanced workflow keeps its example (decision 6, 2026-11-28). **Done.** | L | nothing | |
 
 A simple torsion formula for lugs is not planned. A shear-flow estimate misses the shell bending that WRC 537
 §4.3.4 warns about, so torsion goes to FE (PL-04: the FE model now takes a lug with torsion on its own) unless
@@ -118,12 +118,12 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 4. **Lug benchmark (PL-02):** can you run the cases in [LUG-BENCHMARK-REQUEST.md](LUG-BENCHMARK-REQUEST.md)
    in PV Elite (or similar) with WRC 537?
 5. **Thin plate lugs (PL-05):** do you have EN 13445-3 or PD 5500, and which should the app follow?
-6. **Advanced EMP.1 workflow example (PL-06):** its "Run complete example" loads the γ = 5 qualification sample
-   (four pressure definitions, ten reference points, a 35.43 mm attachment). 19 checks and the γ = 5 hand
-   calculation are built on it. Keep it as it is (recommended; the calculator's six examples are the plain
-   ones), or add a second, plain example next to it?
+6. **Advanced EMP.1 workflow example (PL-06):** *decided 2026-11-28: keep it as it is.* Its "Run complete example"
+   loads the γ = 5 qualification sample (four pressure definitions, ten reference points, a 35.43 mm attachment),
+   which 19 checks and the γ = 5 hand calculation are built on. The calculator's six examples are the plain
+   starting points.
 
 ## Suggested start
 
 5.1, then 5.2, then 5.3 (all done 2026-11-26), then PL-01, PL-03 and PL-04 (done 2026-11-27). PL-06 (the UI) is
-done: parts 1 and 2 on 2026-11-27 and part 3 on 2026-11-28, apart from decision 6. PL-02 and PL-05 start as soon as your runs or your standard arrive.
+done: parts 1 and 2 on 2026-11-27 and part 3 on 2026-11-28 (decision 6: keep the advanced workflow's example). PL-02 and PL-05 start as soon as your runs or your standard arrive.

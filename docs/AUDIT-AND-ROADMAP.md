@@ -706,8 +706,8 @@ left as it is, pending the owner's decision (below).
 **E6, the advanced workflow's example, is not changed.** "Run complete example" loads the γ = 5 qualification
 sample (four pressure definitions, ten reference points, a 35.43 mm attachment). 19 checks are built on it,
 including the γ = 5 hand calculation (Au 72.6728 MPa) that anchors the WRC 537 core, so making it plain would
-cut that evidence. Proposed: keep it, and treat the calculator's six examples as the plain starting points; or
-add a second, plain example next to it. Owner decision (NEXT-PHASE-PLAN, decision 6).
+cut that evidence. Owner decision 2026-11-28 (NEXT-PHASE-PLAN, decision 6): keep it, and treat the calculator's
+six examples as the plain starting points. E6 is closed as "kept by decision", and PL-06 is done.
 
 Checks:
 - new `e2e/lafea-workbench-ui.spec.js` (3 tests):

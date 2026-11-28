@@ -180,7 +180,7 @@ export const KNOWN_ISSUES = Object.freeze([
  * and what it needs. PL-02 to PL-05 finish and prove the first production scope (nozzles, trunnions and
  * lugs on cylinders); the cheapest, strongest evidence comes first and FE covers what nothing else does.
  * PL-01 (interpolation spread for lugs), PL-03 (trunnions) and PL-04 (FE for lugs) were done on 2026-11-27 and are now
- * part of the calculator.
+ * part of the calculator. PL-06 (finish the UI) was done in three parts on 2026-11-27 and 2026-11-28.
  */
 export const PLANNED_IMPROVEMENTS = Object.freeze([
   plan('PL-02', 'Lug benchmark from your licensed program', 'S', 'Your runs of 3 lug cases with WRC 537 (docs/LUG-BENCHMARK-REQUEST.md)',
@@ -193,14 +193,6 @@ export const PLANNED_IMPROVEMENTS = Object.freeze([
     'Thin plates welded straight to the shell are the most common lug and are outside WRC 537; a code method written for them is a cheaper everyday answer than FE.',
     ['Confirm the method\'s range and formulas from your copy', 'Implement it as a separate, labelled route next to WRC 537',
       'Check it against the standard\'s worked example, if it has one, and against the lug FE model (PL-04, done)']),
-  plan('PL-06', 'Finish the UI', 'L', 'Nothing',
-    'One look and layout across the WRC calculator, the LAFEA tab and this page. Part 1 done 2026-11-27: one look for the '
-    + 'calculator, the plate form and this page; layouts for a laptop, a tablet and a phone; keyboard tabs and #links; '
-    + 'a short spoken result for screen readers. Part 2 done 2026-11-27: inch/lbf/psi units and help text on every input '
-    + 'of the WRC calculator. Part 3 done 2026-11-28: the LAFEA workbench and the advanced workflow in the same look, a '
-    + '"Technical details" switch for their custody text and codes, keyboard fixes there (the mesh is one Tab stop), and '
-    + 'units and help text in the plate form. Left:',
-    ['Plain example defaults in the advanced workflow: waits on your decision (its example is the γ = 5 qualification case that 19 checks are built on)']),
   plan('PL-07', 'Evidence for interpolated γ', 'M', 'Optional: WRC 537 output from your program',
     'Turns interpolated γ from judgement into evidence (Phase 5.4).',
     ['Shell-FE sweep across γ 15–100 at two or three β values, checking that the FE/WRC ratio moves smoothly between tabulated rows',
@@ -259,7 +251,6 @@ export const OPEN_DECISIONS = Object.freeze([
   'Benchmarks: can you supply WRC 537 output (inputs and the 8-point table) from CAESAR II or PV Elite for more nozzles?',
   'Lug benchmark (PL-02): can you run the 3 cases in docs/LUG-BENCHMARK-REQUEST.md in PV Elite (or similar) with WRC 537?',
   'Thin plate lugs (PL-05): do you have EN 13445-3 or PD 5500, and which should the app follow?',
-  'Advanced EMP.1 workflow example (PL-06): keep its γ = 5 qualification example, which 19 checks and the hand calculation are built on, or add a second, plain example next to it?',
 ]);
 
 /** Decisions already made, with their date. */
@@ -271,6 +262,7 @@ export const DECISIONS_MADE = Object.freeze([
   '2026-11-27: reinforcing pads before lugs.',
   '2026-11-27: lugs in the WRC calculator, within the WRC 537 rules; cases outside them are blocked and sent to FE.',
   '2026-11-27: lugs WRC 537 refuses (thin plates, torsion) get a shell-FE answer, labelled FE only. No simple torsion formula.',
+  '2026-11-28: the advanced EMP.1 workflow keeps its γ = 5 qualification example (19 checks and the hand calculation are built on it); the WRC calculator\'s six examples are the plain starting points.',
 ]);
 
 function issue(id, area, severity, title, what, workaround, status) {
