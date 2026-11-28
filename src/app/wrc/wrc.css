@@ -86,8 +86,8 @@
 .wrc__vessel-wrap { overflow-x: auto; margin-top: 10px; }
 .wrc__vessel td:nth-child(2) { white-space: nowrap; }
 .wrc__vessel tr.is-active td { background: var(--ui-control); }
-.wrc__sketch, .wrc__unrolled { margin-bottom: 10px; }
-.wrc__sketch > summary, .wrc__unrolled > summary { cursor: pointer; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.wrc__sketch, .wrc__unrolled, .wrc__preview3d { margin-bottom: 10px; }
+.wrc__sketch > summary, .wrc__unrolled > summary, .wrc__preview3d > summary { cursor: pointer; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 .vsketch { margin: 0; padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-panel); }
 .vsketch__views { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; color: var(--ui-muted); }
 .vsketch__view { max-width: 100%; height: auto; font-family: var(--ui-font); }
@@ -119,6 +119,14 @@
 .vunroll__name { font-size: 11px; fill: var(--ui-muted, #8ea2c0); pointer-events: none; }
 .vunroll__att.is-active .vunroll__name { fill: var(--ui-accent, #4c8dff); font-weight: 600; }
 .vunroll__readout { margin: 6px 0 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+/* Canvas A6: the 3-D preview (view only). */
+.v3d { padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-panel); }
+.v3d__bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.v3d__bar button { padding: 3px 10px; font-size: 13px; min-width: 32px; }
+.v3d__hint { color: var(--wrc-muted); font-size: 12px; }
+.v3d__canvas { display: block; max-width: 100%; border-radius: var(--ui-radius); cursor: grab; touch-action: none; }
+.v3d__canvas:active { cursor: grabbing; }
+.v3d__canvas:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 .vunroll__caption { margin-top: 4px; color: var(--wrc-muted); font-size: 12px; }
 .wrc__derived { display: grid; gap: 8px; margin-bottom: 10px; }
 .wrc__derived-set { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -813,6 +813,39 @@ Checks:
 - `scripts/wrc-app-status-content-check.mjs`: the canvas row says attachments move on the unrolled view, that
   sizes and loads are still typed, and that A4–A6 are still to come.
 
+**2026-11-28: canvas step A6, a 3-D preview of the vessel.** Approved by the owner after A3 merged. View only.
+- `src/app/wrc/vessel-3d.js`: meshes from the same inputs as the sketch, in mm, x along the shell and z up, an
+  angle θ pointing along (0, −sin θ, cos θ) so 90° faces the first view as in the side view. The shell's
+  outside and inside surfaces (short pieces along) and end rings; round attachments as tubes (a solid trunnion
+  capped) and lugs as blocks, each starting exactly where it meets the shell or its pad and reaching the
+  sketch's drawn height; pads as curved plates with their edge. Names at the tips, faint when behind the shell;
+  "end 1" marks where positions are measured from. A sentence for screen readers says what it shows and from
+  where.
+- `src/app/wrc/software-3d.js`, ported from Pdf-Hub (MIT, commit 74fcb94) as plain JS on a 2-D canvas: the
+  orbit camera, the perspective projection, the scene's centre and span, far-to-near drawing. Changed here,
+  each found by looking at the result: the view fits the vessel's box on the canvas (Pdf-Hub's fixed distance
+  left it a third of the width); the shade is mixed into the colour, not drawn transparent; a face's normal is
+  the mean of its corners' (one corner's striped the shell); a positive tilt looks down (Pdf-Hub's signs put
+  the eye below). Sorting alone let a big face of the shell cover a nozzle on top of it, so drawing is in
+  layers, each far to near: the shell's faces turned away, parts behind it, its faces toward the eye, pads,
+  then attachments on the near side (the shell is convex, so this is exact for parts standing on it).
+- Panel: "3-D preview" is folded under the layout; opening it the first time fetches the module (a separate
+  chunk; nothing imports it statically). It follows every redraw: typing, picking or moving an attachment.
+  Drag or the arrow keys turn it (Shift: 5° steps), + and − zoom, Home or "Reset view" returns to the first view.
+
+Checks:
+- new `scripts/wrc-vessel-3d-check.mjs` (in `check:all`, 9 checks): the angle convention; every shell point on
+  the outside or inside radius over the length; every attachment point on the shell (or pad) or at its top, on
+  its own side; pads on the shell; solid trunnions capped; right is +x, up is +z, a positive tilt is from above,
+  the vessel fits the canvas from three views; from above the top nozzle is drawn over the shell and the bottom
+  lug under it, the reverse from below, layers in order and each far to near, a pad under its nozzle; the cases
+  are not changed; the sentence in SI and US; no static import of the preview;
+- new `e2e/wrc-3d.spec.js` (2 tests): nothing fetched until opened, then drawn (pixels differ from the
+  background); keys, Home, drag, zoom and "Reset view"; follows the selection and typing; not fetched twice;
+  fits a phone screen;
+- `scripts/wrc-app-status-content-check.mjs`: the canvas row says A6 is done and only a view, and lists A4 and
+  A5 as still to come.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

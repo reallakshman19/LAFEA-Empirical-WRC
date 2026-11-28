@@ -132,6 +132,14 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   - or focus it and use the arrow keys: one grid line at a time, a small step with Shift;
   - moving changes the attachment's position along and around, the same two inputs as in the form, and
     nothing else. The grid, lock and snap logic is ported from Pdf-Hub (MIT).
+- **3-D preview** (canvas step A6, `src/app/wrc/vessel-3d.js`, `software-3d.js`), folded under the layout:
+  - the shell (wall and open ends), every attachment and pad, the selected one highlighted, names at the
+    tips (faint for one behind the shell), and "end 1" where the positions are measured from;
+  - drag to turn it, or focus it and use the arrow keys (Shift for small steps); + and − zoom; Home or
+    "Reset view" goes back to the first view, from the 90° side like the sketch;
+  - view only: it reads the inputs and follows them as you type or move an attachment;
+  - its code is fetched the first time it is opened, so the first load does not grow. The renderer is ported
+    from Pdf-Hub (MIT) as plain JS on a 2-D canvas, with no WebGL or three.js.
 - **Inputs:**
   - shell OD, thickness and corrosion allowance;
   - attachment type: nozzle or trunnion (OD; a trunnion is a solid bar or a pipe), or rectangular (length along
@@ -285,19 +293,19 @@ dependencies**.
 
 ## Tests
 
-Results after canvas step A3 (2026-11-28), on Windows with Node 22 and Chrome:
+Results after canvas step A6 (2026-11-28), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **313 pass** in CI, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). Locally 311 pass: the 2 B01 route checks need `python3`, and without it they show as SKIPPED. |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **314 pass** in CI, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). Locally 312 pass: the 2 B01 route checks need `python3`, and without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field), `node scripts/wrc-lug-fe-check.mjs` (lug model, all six loads), `node scripts/wrc-lug-fe-route-check.mjs` (FE-only route, square vs round) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
-| Browser e2e (28 specs, 71 tests) | `npx playwright test` (dev server) | The app specs below all pass; the 18 upstream specs were last run for PL-06 part 3 (32 pass, 8 fail) and are not touched by the canvas. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, WRC units and help text, WRC sketch, vessel with several attachments, moving them on the unrolled shell, LAFEA example, plate form, workbench look/technical details/keyboard, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/wrc-units-help.spec.js e2e/wrc-sketch.spec.js e2e/wrc-vessel.spec.js e2e/wrc-unrolled.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/lafea-workbench-ui.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **31 pass** on the dev server. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
+| Browser e2e (29 specs, 73 tests) | `npx playwright test` (dev server) | The app specs below all pass; the 18 upstream specs were last run for PL-06 part 3 (32 pass, 8 fail) and are not touched by the canvas. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
+| App e2e (WRC calculator, WRC units and help text, WRC sketch, vessel with several attachments, moving them on the unrolled shell, 3-D preview, LAFEA example, plate form, workbench look/technical details/keyboard, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/wrc-units-help.spec.js e2e/wrc-sketch.spec.js e2e/wrc-vessel.spec.js e2e/wrc-unrolled.spec.js e2e/wrc-3d.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/lafea-workbench-ui.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **33 pass** on the dev server. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
-| First-load size | `npm run check:bundle-size` (after `build`) | pass: 216.5 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 217.6 kB of JS (limit 500 kB); the 3-D preview (11.4 kB) loads when opened; the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 13 KNOWN checks that `check:all`
 skips, each with a plain reason:

@@ -100,6 +100,7 @@ export function mountWrcCalculator(host) {
   let fe = null; // { key, status: 'running' | 'done' | 'error', reference, result, error }
   let drag = null; // canvas A3: an attachment being moved on the unrolled view
   let snapOn = true;
+  let preview3d = null; // canvas A6: the 3-D preview, loaded the first time it is opened
 
   host.classList.add('wrc');
   host.innerHTML = `
@@ -137,6 +138,9 @@ export function mountWrcCalculator(host) {
         <p class="wrc__fieldhelp" id="wrc-help-unrolled">Drag an attachment to move it, or focus it and use the arrow keys. It snaps to the grid and lines up with the other attachments; hold Shift to move only along or only around, Alt to move freely. Esc while dragging puts it back. This changes its position along and around, as in the form.</p>
         <label class="wrc__helptoggle wrc__snap"><input type="checkbox" data-act="snapToggle" checked> Snap to the grid and the other attachments</label>
         <div class="vunroll" data-slot="unrolled" aria-describedby="wrc-help-unrolled"></div>
+      </details>
+      <details class="wrc__preview3d" data-role="preview3d"><summary>3-D preview</summary>
+        <div class="v3d" data-slot="preview3d"></div>
       </details>
       <div data-slot="vesselTable"></div>
     </section>
@@ -412,6 +416,7 @@ export function mountWrcCalculator(host) {
       ${n > 1 ? '<button type="button" data-act="deleteAttachment" title="Delete the selected attachment">Delete attachment</button>' : ''}`;
     $('[data-slot="sketch"]').innerHTML = buildVesselSketchHtml(state, { others: otherCases(), count: n });
     $('[data-slot="vesselTable"]').innerHTML = n > 1 ? vesselTableHtml() : '';
+    if (preview3d && $('[data-role="preview3d"]').open) preview3d.update(cases, vessel.active);
     if (focusSel && !focusedAtt.isConnected) $(focusSel)?.focus({ preventScroll: true });
   }
   function attachmentSize(c) {
@@ -880,6 +885,21 @@ export function mountWrcCalculator(host) {
     // Up and down change the angle only: an attachment with no position along yet keeps none.
     moveTo(axis === 'x' || at.placed ? x : state.attachmentStation, y);
     announce(positionText(layoutNow(), state));
+  });
+
+  // Canvas A6: the 3-D preview's code is fetched the first time it is opened, so the first load does not grow.
+  $('[data-role="preview3d"]').addEventListener('toggle', async (event) => {
+    if (!event.target.open) return;
+    if (preview3d) { preview3d.update(allCases(), vessel.active); return; }
+    const slot = $('[data-slot="preview3d"]');
+    slot.innerHTML = '<p class="vsketch__empty" data-role="preview3d-loading">Loading the 3-D preview…</p>';
+    try {
+      const { createVesselPreview } = await import('./vessel-3d.js');
+      preview3d = createVesselPreview(slot);
+      preview3d.update(allCases(), vessel.active);
+    } catch {
+      slot.innerHTML = '<p class="vsketch__empty" data-role="preview3d-error">The 3-D preview could not be loaded. Check the connection, then close and open "3-D preview" again.</p>';
+    }
   });
 
   writeForm();

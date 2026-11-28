@@ -231,6 +231,21 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   of `resolveLineEndpoint`: lock, then another attachment, then the grid.
 - The e2e test must scroll the drawing into view before `page.mouse` drags, and `screenOf` reads the scale
   from the drawn surface, so it does not hard-code pixels.
+- The Vessel box is now about 1300 px tall on a tablet: e2e tests that scroll into the form must scroll by the
+  form's position (`.wrc__body`), not a fixed distance (see `e2e/app-ui.spec.js`).
+
+### 3.3g Canvas step A6: 3-D preview (`src/app/wrc/vessel-3d.js`, `software-3d.js`)
+
+- **Loaded on demand:** the panel's `toggle` handler does `await import('./vessel-3d.js')` the first time the
+  details opens. Do not import either file statically anywhere, or it joins the first load;
+  `wrc-vessel-3d-check.mjs` fails if anything does.
+- **View only:** `vesselScene(cases, active)` reads the cases; `renderCanvas()` calls `preview3d.update` when
+  the details is open. Heights come from the sketch's `stubHeight`, so 2-D and 3-D agree.
+- **Drawing order is by layer, then depth** (`renderScene`): an item is the convex `body` (the shell, split
+  face by face by whether it faces the eye) or a part with an `anchor` { p, n } (an attachment, or a pad with
+  `under: true`). Keep new parts anchored, or they are drawn on top of everything.
+- **Camera:** azimuth 0 looks from −y (the 90° side), positive elevation looks down. The view fits the scene's
+  box; `zoom` scales that fit.
 
 ### 3.4 CI and Pages
 
