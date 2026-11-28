@@ -115,8 +115,8 @@ function describe(ctx, view) {
   return `${view}: shell of outside diameter ${len(g.OD)} and thickness ${len(g.tn)}${g.ca ? ` (corrosion allowance ${len(g.ca)})` : ''};${many} ${noun} ${size}${where}${angle}${pad}.`;
 }
 
-/** An attachment's drawn height (not an input): enough to read, small next to the shell. */
-function stubHeight(g, OD) {
+/** An attachment's drawn height (not an input): enough to read, small next to the shell. The 3-D preview uses it too. */
+export function stubHeight(g, OD) {
   if (!g.attachmentOk) return 0;
   const base = g.kind === 'RECTANGULAR' ? 0.5 * g.along : 0.6 * g.along;
   return Math.min(Math.max(base, 0.12 * OD), 0.45 * OD);

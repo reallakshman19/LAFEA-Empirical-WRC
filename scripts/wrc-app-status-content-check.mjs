@@ -3,8 +3,9 @@
  *  - every entry has its required fields, a unique id and a known severity, size or state;
  *  - facts the page states match their sources: the tabulated γ rows, the KNOWN-check count in
  *    scripts/known-upstream-failures.json, and the PV Elite WRC 297 ratios recorded in docs;
- *  - the universal canvas is "partial" (steps A1–A3: the sketch, several attachments, moving them on an
- *    unrolled view) and the page does not claim more: sizes and loads are typed, A4–A6 are still to come.
+ *  - the universal canvas is "partial" (steps A1–A3 and A6: the sketch, several attachments, moving them on
+ *    an unrolled view, a 3-D preview) and the page does not claim more: sizes and loads are typed, A4 and A5
+ *    are still to come.
  * The file name contains "wrc" so check:all picks it up.
  */
 import assert from 'node:assert/strict';
@@ -31,7 +32,9 @@ assert.equal(canvas?.state, 'PARTIAL');
 assert.match(canvas.text, /A1/u);
 assert.match(canvas.text, /A3: attachments are moved on an unrolled view/u, 'the canvas row says attachments can be moved on the drawing');
 assert.match(canvas.text, /Sizes and loads are still typed in the form/u, 'and does not claim more than moving');
-assert.match(canvas.text, /Still to come:[^.]*A4[^.]*A5[^.]*A6/u, 'A4–A6 named as still to come');
+assert.match(canvas.text, /A6: a 3-D preview of the vessel, view only/u, 'the 3-D preview is done and only a view');
+assert.match(canvas.text, /Still to come:[^.]*A4[^.]*A5/u, 'A4 and A5 named as still to come');
+assert.doesNotMatch(canvas.text.slice(canvas.text.indexOf('Still to come')), /A6/u, 'A6 no longer listed as to come');
 
 unique(KNOWN_ISSUES.map((i) => i.id), 'known issues');
 for (const item of KNOWN_ISSUES) {

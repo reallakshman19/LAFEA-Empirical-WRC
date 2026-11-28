@@ -20,7 +20,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Lint (app code)
-        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-units-check.mjs scripts/wrc-nozzle-fe-check.mjs scripts/wrc-nozzle-fe-shear-check.mjs scripts/bundle-size-check.mjs scripts/lafea-plate-form-check.mjs scripts/lafea-mesher-speed-check.mjs src/core/lafea-meshing/constrained-delaunay-t6.js src/core/shared-primitives/canonical-json-sha256.js scripts/wrc-pvelite-wrc297-reference-check.mjs scripts/wrc-app-status-content-check.mjs scripts/wrc-pad-check.mjs scripts/wrc-lug-check.mjs scripts/wrc-trunnion-check.mjs scripts/wrc-lug-fe-check.mjs scripts/wrc-lug-fe-route-check.mjs e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/lafea-workbench-ui.spec.js scripts/wrc-sketch-check.mjs e2e/wrc-sketch.spec.js scripts/wrc-vessel-check.mjs e2e/wrc-vessel.spec.js scripts/wrc-unrolled-check.mjs e2e/wrc-unrolled.spec.js src/workspace/lafea-canvas/retained-mesh-overlay.js src/workspace/lafea-canvas/hybrid-viewport.js
+        run: npx eslint src/app scripts/wrc-calculator-check.mjs scripts/wrc-units-check.mjs scripts/wrc-nozzle-fe-check.mjs scripts/wrc-nozzle-fe-shear-check.mjs scripts/bundle-size-check.mjs scripts/lafea-plate-form-check.mjs scripts/lafea-mesher-speed-check.mjs src/core/lafea-meshing/constrained-delaunay-t6.js src/core/shared-primitives/canonical-json-sha256.js scripts/wrc-pvelite-wrc297-reference-check.mjs scripts/wrc-app-status-content-check.mjs scripts/wrc-pad-check.mjs scripts/wrc-lug-check.mjs scripts/wrc-trunnion-check.mjs scripts/wrc-lug-fe-check.mjs scripts/wrc-lug-fe-route-check.mjs e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/lafea-workbench-ui.spec.js scripts/wrc-sketch-check.mjs e2e/wrc-sketch.spec.js scripts/wrc-vessel-check.mjs e2e/wrc-vessel.spec.js scripts/wrc-unrolled-check.mjs e2e/wrc-unrolled.spec.js scripts/wrc-vessel-3d-check.mjs e2e/wrc-3d.spec.js src/workspace/lafea-canvas/retained-mesh-overlay.js src/workspace/lafea-canvas/hybrid-viewport.js
       - name: Isolation checks
         run: npm run check:boundary
       - name: Build
@@ -54,7 +54,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: App browser tests (WRC calculator, sketch and canvas, LAFEA example and plate form, status page)
-        run: npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js e2e/wrc-units-help.spec.js e2e/lafea-workbench-ui.spec.js e2e/wrc-sketch.spec.js e2e/wrc-vessel.spec.js e2e/wrc-unrolled.spec.js
+        run: npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js e2e/wrc-units-help.spec.js e2e/lafea-workbench-ui.spec.js e2e/wrc-sketch.spec.js e2e/wrc-vessel.spec.js e2e/wrc-unrolled.spec.js e2e/wrc-3d.spec.js
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
