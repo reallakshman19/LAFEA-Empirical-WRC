@@ -181,6 +181,14 @@ body {
 .app-plate__probe legend { color: var(--ui-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 0 4px; }
 .app-plate__probe span { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .app-plate__help { margin: 0; font-size: 13px; }
+/* Units, the help toggle, and a help line under each input (PL-06 part 3). */
+.app-plate__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.app-plate__bar label { display: flex; align-items: center; gap: 6px; color: var(--ui-muted); }
+.app-plate__bar .app-plate__fieldhelp { flex-basis: 100%; }
+.app-plate__field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.app-plate__fieldhelp { margin: 0; font-size: 12px; line-height: 1.35; color: var(--ui-muted); }
+.app-plate--nohelp .app-plate__fieldhelp { display: none; }
+.app-plate em[data-plate-unit] { font-style: normal; }
 .app-plate__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The layout rules above set display, which would override the hidden attribute. */
 .app-plate [hidden] { display: none !important; }

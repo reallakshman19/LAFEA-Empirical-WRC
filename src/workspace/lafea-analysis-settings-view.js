@@ -172,6 +172,7 @@ function formulationControl(root, stageValue, control, handlers) {
 
   const select = element(root, 'select');
   select.dataset.role = 'lafea3-formulation-select';
+  select.setAttribute('aria-label', 'Continuum formulation');
   select.disabled = !control.editable || typeof handlers.onApplyJson !== 'function';
   if (!control.current) {
     const placeholder = element(root, 'option', null, control.sourcePresent

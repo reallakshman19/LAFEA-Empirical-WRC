@@ -24,11 +24,17 @@ the build in CI if the first-load JS grows past 500 kB. `globalThis.LafeaEmpApp`
 `loadExample`, `solveExample` and `getState` now return promises.
 
 **Screens and keyboard.**
-- **One look.** The calculator, the plate form and the status page share one look (`src/app/theme.css`).
+- **One look.** The calculator, the plate form, the status page, the LAFEA workbench and the advanced EMP.1
+  workflow share one look (`src/app/theme.css`; the workbench's colours are mapped in
+  `src/app/lafea/workbench.css`, so the original `lafea.html` page keeps its own).
+- **Technical details.** The LAFEA workbench and the advanced workflow hide their internal codes, JSON paths,
+  custody and qualification records until you tick "Technical details" (in the LAFEA example bar or above the
+  workflow). The choice is remembered.
 - **Screen sizes.** On a laptop the WRC form and results sit side by side. On a tablet held upright or a phone
   they stack, and a strip under the app bar keeps the governing result in view.
 - **Links.** Each view has a link: `#LAFEA`, `#EMPIRICAL` or `#STATUS`.
-- **Keyboard.** The tabs work with the arrow keys and Enter, and "Skip to content" is the first Tab stop.
+- **Keyboard.** The tabs work with the arrow keys and Enter, and "Skip to content" is the first Tab stop. In
+  the LAFEA model view the whole mesh is one Tab stop; the arrow keys move between its elements.
 - **Screen readers.** They hear the governing result as one sentence when typing pauses.
 
 ## LAFEA example
@@ -58,6 +64,10 @@ You can also use the workbench's own Run and Convergence steps after loading.
 - **Checks:** it explains any input it can't use. For example, supports that let the plate slide or
   rotate, a load on a fixed edge, a hole that is too big, or a mesh that would take too long.
 - **Saving:** the inputs are remembered in the browser.
+- **Units:** SI (mm, MPa) or US (in, psi). The model is always built and solved in mm, N and MPa; the units
+  only change what the form and the results show, and switching back shows the typed values again.
+- **Help text** under every input, read by screen readers with it. "Help text" hides the lines; the choice is
+  shared with the WRC calculator.
 
 It uses the same domain-first route as the example. "Solve + convergence study" then reports:
 
@@ -250,8 +260,8 @@ Results after PL-06 part 2 (2026-11-27), on Windows with Node 22 and Chrome:
 | Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **310 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field), `node scripts/wrc-lug-fe-check.mjs` (lug model, all six loads), `node scripts/wrc-lug-fe-route-check.mjs` (FE-only route, square vs round) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
-| Browser e2e (24 specs, 62 tests) | `npx playwright test` (dev server) | **54 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, WRC units and help text, LAFEA example, plate form, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/wrc-units-help.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **22 pass** on the dev server. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
+| Browser e2e (25 specs, 65 tests) | `npx playwright test` (dev server) | **57 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
+| App e2e (WRC calculator, WRC units and help text, LAFEA example, plate form, workbench look/technical details/keyboard, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/wrc-units-help.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/lafea-workbench-ui.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **25 pass** on the dev server. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |

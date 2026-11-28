@@ -5,7 +5,7 @@
  * docs/AUDIT-AND-ROADMAP.md, docs/NEXT-PHASE-PLAN.md and scripts/known-upstream-failures.json.
  */
 
-export const STATUS_UPDATED = '2026-11-27';
+export const STATUS_UPDATED = '2026-11-28';
 
 export const STATUS_VISION = Object.freeze({
   title: 'Where this app is going',
@@ -41,8 +41,8 @@ export const STATUS_VISION = Object.freeze({
 export const STATUS_TODAY = Object.freeze([
   Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments, nozzles or trunnions (γ 5–300, β 0.05–0.5), and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases. SI or US units (in, lbf, psi), help text on every input. Works on a laptop, a tablet or a phone, and from the keyboard.' }),
   Object.freeze({ area: 'Shell-FE cross-check', state: 'USABLE', text: 'Solves the same nozzle, trunnion or lug with LAFEA shell elements in about 30 s, compares the 8 points and draws a stress-intensity contour. Reports a ratio, not a pass/fail. For a lug WRC 537 refuses (a thin plate, torsion), it gives the only answer.' }),
-  Object.freeze({ area: 'LAFEA plate form', state: 'USABLE', text: 'Plane-stress rectangular plate, with or without a central round hole: edge supports and loads, automatic mesh, convergence study, Kt.' }),
-  Object.freeze({ area: 'LAFEA workbench', state: 'PARTIAL', text: 'Worked cantilever example and the plate form go end to end. Other geometry needs stage JSON. Shell and trunnion stages are not wired to a form.' }),
+  Object.freeze({ area: 'LAFEA plate form', state: 'USABLE', text: 'Plane-stress rectangular plate, with or without a central round hole: edge supports and loads, automatic mesh, convergence study, Kt. SI or US units (in, psi), help text on every input.' }),
+  Object.freeze({ area: 'LAFEA workbench', state: 'PARTIAL', text: 'Worked cantilever example and the plate form go end to end. Other geometry needs stage JSON. Shell and trunnion stages are not wired to a form. Same look as the rest of the app; internal codes and custody text stay hidden until you tick "Technical details".' }),
   Object.freeze({ area: 'Universal canvas', state: 'NOT_STARTED', text: 'There is no drawing canvas yet; the LAFEA viewports only display models and results. First scope decided: cylindrical shells with nozzles, trunnions and lugs.' }),
 ]);
 
@@ -110,10 +110,11 @@ export const KNOWN_ISSUES = Object.freeze([
     + 'load bending is classified. It is not a full code assessment, and there is no fatigue check.',
     'Use it to find the governing case, then do the code assessment.',
     'Fatigue is on the roadmap (stage D).'),
-  issue('KI-09', 'WRC calculator', 'LOW', 'Metric units only',
-    'Inputs are mm, N or kN, and N·m, kN·m or N·mm. There are no inch, lbf or psi inputs.',
-    'Convert before entering.',
-    'Planned with the UI finish.'),
+  issue('KI-09', 'LAFEA', 'LOW', 'The LAFEA workbench is metric only',
+    'The WRC calculator and the plate form show SI or US units (in, lbf, psi). The workbench\'s own stage inputs, '
+    + 'results and the advanced EMP.1 workflow stay in mm, N and MPa.',
+    'Use the plate form, or convert before editing stage inputs.',
+    'US units in the calculator (2026-11-27) and the plate form (2026-11-28). The canvas (roadmap stage A) will use one units setting everywhere.'),
   // Shell-FE cross-check
   issue('KI-10', 'Shell-FE cross-check', 'MEDIUM', 'Simplified FE model',
     'A near-rigid round plug, or a stiff plate the size of a lug footprint, on a full cylinder with clamped ends. '
@@ -155,11 +156,13 @@ export const KNOWN_ISSUES = Object.freeze([
     'The WRC cross-check builds its own shell mesh and is not affected.',
     'Open real gaps, inherited from upstream.'),
   // Whole app
-  issue('KI-17', 'Whole app', 'MEDIUM', 'Workbench screens are noisy',
-    'The LAFEA workbench and the advanced EMP.1 workflow show custody and authority text and raw status codes. '
-    + 'The advanced workflow also starts with odd example defaults and runs only the γ = 5 route.',
+  issue('KI-17', 'Whole app', 'LOW', 'Workbench screens still use specialist wording',
+    'Internal codes, JSON paths and custody records are hidden until you tick "Technical details", but some '
+    + 'sentences in the LAFEA workbench still speak of "governed" sources and authority. The advanced EMP.1 workflow '
+    + 'opens on its γ = 5 qualification example (four pressure definitions, ten reference points, a 35.43 mm attachment) '
+    + 'and runs only the γ = 5 route.',
     'Use the WRC calculator and the plate form for everyday work.',
-    'Planned with the UI finish.'),
+    'Technical details switch added 2026-11-28. The example is unchanged: 19 checks and the γ = 5 hand calculation are built on it (open decision).'),
   issue('KI-18', 'Whole app', 'LOW', 'Work is saved per tab, in this browser',
     'WRC cases and plate inputs are kept in browser storage, and WRC cases can be saved as files. '
     + 'There is no single project file for both tabs.',
@@ -194,10 +197,10 @@ export const PLANNED_IMPROVEMENTS = Object.freeze([
     'One look and layout across the WRC calculator, the LAFEA tab and this page. Part 1 done 2026-11-27: one look for the '
     + 'calculator, the plate form and this page; layouts for a laptop, a tablet and a phone; keyboard tabs and #links; '
     + 'a short spoken result for screen readers. Part 2 done 2026-11-27: inch/lbf/psi units and help text on every input '
-    + 'of the WRC calculator. Left (part 3):',
-    ['Custody and authority text moved into a "Technical details" drawer', 'Plain example defaults in the advanced workflow',
-      'The LAFEA workbench in the same look, with keyboard and screen-reader checks there',
-      'Help text and units in the plate form']),
+    + 'of the WRC calculator. Part 3 done 2026-11-28: the LAFEA workbench and the advanced workflow in the same look, a '
+    + '"Technical details" switch for their custody text and codes, keyboard fixes there (the mesh is one Tab stop), and '
+    + 'units and help text in the plate form. Left:',
+    ['Plain example defaults in the advanced workflow: waits on your decision (its example is the γ = 5 qualification case that 19 checks are built on)']),
   plan('PL-07', 'Evidence for interpolated γ', 'M', 'Optional: WRC 537 output from your program',
     'Turns interpolated γ from judgement into evidence (Phase 5.4).',
     ['Shell-FE sweep across γ 15–100 at two or three β values, checking that the FE/WRC ratio moves smoothly between tabulated rows',
@@ -256,6 +259,7 @@ export const OPEN_DECISIONS = Object.freeze([
   'Benchmarks: can you supply WRC 537 output (inputs and the 8-point table) from CAESAR II or PV Elite for more nozzles?',
   'Lug benchmark (PL-02): can you run the 3 cases in docs/LUG-BENCHMARK-REQUEST.md in PV Elite (or similar) with WRC 537?',
   'Thin plate lugs (PL-05): do you have EN 13445-3 or PD 5500, and which should the app follow?',
+  'Advanced EMP.1 workflow example (PL-06): keep its γ = 5 qualification example, which 19 checks and the hand calculation are built on, or add a second, plain example next to it?',
 ]);
 
 /** Decisions already made, with their date. */

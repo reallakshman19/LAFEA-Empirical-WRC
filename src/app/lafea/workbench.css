@@ -1,0 +1,156 @@
+/*
+ * The LAFEA workbench and the advanced EMP.1 workflow inside the app (roadmap PL-06 part 3).
+ * Everything here is scoped to .app-view, so the original lafea.html page keeps its own look.
+ *
+ * 1. One look: the workbench's colours, controls and type follow the app theme (theme.css).
+ *    The workbench marks many of its colours !important, so these overrides do too.
+ * 2. Technical details off (html.app-tech-off, see tech-details.js): hide custody, authority and
+ *    identity text from the main screens.
+ */
+
+/* ---- 1. One look ----------------------------------------------------------------------------- */
+.app-view .lafea-workbench {
+  --workspace-text: var(--ui-text);
+  --workspace-canvas: var(--ui-bg);
+  --workspace-muted: var(--ui-muted);
+  --workspace-border: var(--ui-line);
+  --workspace-panel: var(--ui-panel);
+  font-family: var(--ui-font);
+}
+
+/* Panels and cards */
+.app-view .lafea-workbench :is(.lafea-engineering-overview, .lafea-guided-shell__nav, .lafea-result-highlights,
+  .lafea-mesh-workspace-summary, .lafea-doc-table-view, .lafea-result-empty, .lafea-engineering-evidence-drawer) {
+  background: var(--ui-panel) !important;
+  border-color: var(--ui-line) !important;
+  box-shadow: none !important;
+}
+.app-view .lafea-workbench :is(.lafea-engineering-overview__card, .lafea-result-highlight, .lafea-mesh-workspace-summary__metric,
+  .lafea-numerical-verification__summary-item, .lafea-viewport-mode-panel__item, .lafea-engineering-overview__qualification-grid > div,
+  .lafea-diagnostics__item) {
+  background: var(--ui-input) !important;
+  border-color: var(--ui-line) !important;
+}
+.app-view .lafea-workbench [data-lafea-slot='toolbar'] {
+  background: var(--ui-panel);
+  border-color: var(--ui-line);
+}
+.app-view .lafea-workbench :is(.lafea-workbench__header, .lafea-workbench__truth, .lafea-engineering-overview__qualification,
+  .lafea-discretization__advanced-evidence, .lafea-numerical-verification__evidence) {
+  border-color: var(--ui-line);
+}
+
+/* Controls: the calculator's buttons, selects and inputs */
+.app-view .lafea-workbench :is(button, select) {
+  background: var(--ui-control);
+  border-color: var(--ui-control-line);
+  border-radius: var(--ui-radius);
+  color: var(--ui-text);
+}
+.app-view .lafea-workbench button:hover:not(:disabled) { background: var(--ui-control-hover); }
+.app-view .lafea-workbench :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), textarea) {
+  background: var(--ui-input);
+  border-color: var(--ui-input-line);
+  border-radius: var(--ui-radius);
+  color: var(--ui-text);
+}
+.app-view .lafea-workbench .lafea-doc-grid :is(input[type='text'], input[type='number']) {
+  background: var(--ui-input);
+  border-color: var(--ui-input-line);
+}
+.app-view .lafea-workbench .lafea-doc-grid input:focus { border-color: var(--ui-accent); }
+.app-view .lafea-workbench .lafea-doc-apply-btn {
+  background: var(--ui-control) !important;
+  border-color: var(--ui-control-line) !important;
+  color: var(--ui-text) !important;
+}
+
+/* The main action of each step: the app's accent instead of teal and sky blue */
+.app-view .lafea-workbench :is(.lafea-button--primary, [data-role='lafea-run'], .lafea-engineering-overview__run,
+  .lafea-mesh-config__btn--primary, [data-toolbar-primary='true']):not(:disabled) {
+  background: var(--ui-control-active) !important;
+  border-color: var(--ui-accent) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+.app-view .lafea-workbench :is(.lafea-button--primary, [data-role='lafea-run'], .lafea-engineering-overview__run):not(:disabled):hover {
+  background: var(--ui-control-hover) !important;
+}
+
+/* Stage buttons: like the app's tabs */
+.app-view .lafea-workbench .lafea-workbench__stages button {
+  background: var(--ui-control) !important;
+  border-color: var(--ui-control-line) !important;
+  color: var(--ui-text-soft) !important;
+}
+.app-view .lafea-workbench .lafea-workbench__stages button[aria-current='step'] {
+  background: var(--ui-control-hover) !important;
+  border-color: var(--ui-accent) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 -2px 0 var(--ui-accent) !important;
+}
+.app-view .lafea-workbench .lafea-mesh-config__chip.is-active {
+  background: var(--ui-control-active);
+  border-color: var(--ui-accent);
+}
+
+/* Tables and headings: plain text colours, the app's lines */
+.app-view .lafea-workbench :is(th, td) { border-color: var(--ui-line); }
+.app-view .lafea-workbench :is(.lafea-doc-grid th, .lafea-result-table--english th) {
+  background: var(--ui-control);
+  color: var(--ui-muted);
+}
+.app-view .lafea-workbench .lafea-doc-grid { background: var(--ui-panel); }
+.app-view .lafea-workbench :is(.lafea-doc-table-section h4, .lafea-result-limitations-title, .lafea-mesh-config__gates-title) {
+  color: var(--ui-text-soft);
+}
+.app-view .lafea-workbench .lafea-ui-icon,
+.app-view .lafea-workbench :is(.lafea-guided-workflow__icon, .lafea-engineering-evidence-drawer__icon) { color: var(--ui-muted); }
+
+/* One focus ring, as in the rest of the app */
+.app-view .lafea-workbench :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ui-accent) !important;
+  outline-offset: 1px;
+}
+/* The focused mesh element (keyboard) */
+.app-view .lafea-workbench [data-mesh-element-id]:focus-visible { outline: none !important; stroke: var(--ui-accent); stroke-width: 3; }
+
+/* ---- 2. Technical details off ------------------------------------------------------------------ */
+.app-tech-off .app-view .lafea-workbench :is(
+  .lafea-workbench__header .panel-eyebrow,
+  .lafea-workbench__header .lafea-workbench__custody-details,
+  .lafea-guided-workflow__technical,
+  details[data-role='lafea-technical-evidence'],
+  .lafea-discretization__advanced-evidence,
+  [data-role='lafea-live-result-blocked-status'] ul,
+  [data-layer='accessible-inspector'] > p:first-child,
+  .lafea-doc-path,
+  .lafea-doc-table-notice,
+  .lafea-doc-identity-register > p,
+  .lafea-analysis-settings__intro,
+  .lafea-result-highlights__solver
+) {
+  display: none !important;
+}
+/* The Source/status column of the input tables, and the formula, source path and authority columns of
+   the result table. */
+.app-tech-off .app-view .lafea-workbench .lafea-doc-grid--governed :is(th, td):nth-child(4),
+.app-tech-off .app-view .lafea-workbench .lafea-result-table :is(th, td):nth-child(n + 4) {
+  display: none;
+}
+
+/* The switch itself, in the example bar and above the EMP.1 workflow */
+.app-techswitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.app-techbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 16px 0;
+  font: 13px/1.35 var(--ui-font);
+}

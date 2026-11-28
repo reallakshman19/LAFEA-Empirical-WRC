@@ -30,6 +30,7 @@ import {
 } from '../../workspace/lafea-continuum-analysis-domain.js';
 import { requireLafeaStageComposition } from '../../workspace/lafea-stage-composition-root.js';
 import { issueLafeaSourceAuthority } from '../../workspace/lafea-source-authority.js';
+import { MM_PER_IN } from '../wrc/wrc-units.js';
 
 export const PLATE_EDGES = Object.freeze(['LEFT', 'RIGHT', 'BOTTOM', 'TOP']);
 export const PLATE_SUPPORTS = Object.freeze({
@@ -95,6 +96,8 @@ export function normalizePlateInput(raw = {}) {
     : null;
   return {
     title: String(raw.title ?? base.title).slice(0, 120),
+    // Display units only (SI: mm, MPa; US: in, psi). Every value here is stored in mm and MPa.
+    units: raw.units === 'US' ? 'US' : 'SI',
     shape: raw.shape === 'RECT' ? 'RECT' : 'HOLE',
     length: num(raw.length ?? base.length),
     height: num(raw.height ?? base.height),
@@ -147,7 +150,8 @@ export function validatePlateInput(p) {
     }
   }
   const elements = estimateElements(p);
-  need(elements <= MAX_FINE_ELEMENTS, `Mesh size ${p.meshSize} mm is too fine for this plate (about ${Math.round(elements)} elements on the finest of the 3 levels). Use a larger mesh size.`);
+  const meshText = p.units === 'US' ? `${Number((p.meshSize / MM_PER_IN).toPrecision(4))} in` : `${p.meshSize} mm`;
+  need(elements <= MAX_FINE_ELEMENTS, `Mesh size ${meshText} is too fine for this plate (about ${Math.round(elements)} elements on the finest of the 3 levels). Use a larger mesh size.`);
   if (p.probe) {
     need(Number.isFinite(p.probe.x) && Number.isFinite(p.probe.y), 'The result point needs both x and y.');
     need(insidePlate(p, p.probe.x, p.probe.y), 'The result point must be inside the plate material (not on an edge or in the hole).');
