@@ -253,7 +253,7 @@ dependencies**.
 
 ## Tests
 
-Results after PL-06 part 2 (2026-11-27), on Windows with Node 22 and Chrome:
+Results after PL-06 part 3 (2026-11-28), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
