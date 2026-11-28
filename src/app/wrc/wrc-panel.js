@@ -9,6 +9,8 @@ import {
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
 import { buildVesselSketchHtml } from './vessel-sketch.js';
+import { buildUnrolledHtml, positionOf, positionText, toModel, unrolledLayout } from './vessel-unrolled.js';
+import { nextGridLine, snapMove, wrapAngle } from './canvas-snap.js';
 import {
   EXAMPLE_VESSELS, MAX_ATTACHMENTS, MAX_CASES, addAttachment, caseFor, checkVessel, cleanAngle, normalizeCase, normalizeVessel,
   removeAttachment, vesselFile, vesselFromCase, vesselFromFile, withCase,
@@ -96,6 +98,8 @@ export function mountWrcCalculator(host) {
   let batch = null;
   let result = null;
   let fe = null; // { key, status: 'running' | 'done' | 'error', reference, result, error }
+  let drag = null; // canvas A3: an attachment being moved on the unrolled view
+  let snapOn = true;
 
   host.classList.add('wrc');
   host.innerHTML = `
@@ -129,6 +133,11 @@ export function mountWrcCalculator(host) {
       <div class="wrc__atts" role="group" aria-label="Attachments on this shell" aria-describedby="wrc-help-attachments" data-slot="attachments"></div>
       <p class="wrc__fieldhelp" id="wrc-help-attachments">Pick an attachment to edit it in the form below. The shell, pressure, allowables and method settings are shared by all of them; type, size, pad, position, Kn/Kb and load cases belong to each one.</p>
       <details class="wrc__sketch" open><summary>Sketch</summary><div data-slot="sketch"></div></details>
+      <details class="wrc__unrolled" open><summary>Layout: the shell unrolled</summary>
+        <p class="wrc__fieldhelp" id="wrc-help-unrolled">Drag an attachment to move it, or focus it and use the arrow keys. It snaps to the grid and lines up with the other attachments; hold Shift to move only along or only around, Alt to move freely. Esc while dragging puts it back. This changes its position along and around, as in the form.</p>
+        <label class="wrc__helptoggle wrc__snap"><input type="checkbox" data-act="snapToggle" checked> Snap to the grid and the other attachments</label>
+        <div class="vunroll" data-slot="unrolled" aria-describedby="wrc-help-unrolled"></div>
+      </details>
       <div data-slot="vesselTable"></div>
     </section>
     <div class="wrc__body">
@@ -378,11 +387,24 @@ export function mountWrcCalculator(host) {
   /** The other attachments as cases, for the sketch and the report. */
   const otherCases = () => vessel.attachments.map((_, i) => i).filter((i) => i !== vessel.active).map((i) => caseFor(vessel, i));
 
-  /** Canvas A2: the attachment buttons, the sketch of the whole shell and the table of all attachments. */
+  /** Every attachment as the calculator's case, in the vessel's units. */
+  function allCases() { return vessel.attachments.map((_, i) => caseFor(vessel, i)); }
+
+  /**
+   * Canvas A2–A3: the attachment buttons, the sketch of the whole shell, the unrolled layout and the table
+   * of all attachments.
+   */
   function renderCanvas() {
-    const focusedAtt = doc.activeElement?.closest?.('[data-attachment]');
-    const focusSel = focusedAtt && host.contains(focusedAtt)
-      ? `${focusedAtt.closest('.wrc__vessel') ? '.wrc__vessel' : '.wrc__atts'} [data-attachment="${focusedAtt.dataset.attachment}"]` : null;
+    const focusedAtt = doc.activeElement?.closest?.('[data-attachment], [data-move]');
+    let focusSel = null;
+    if (focusedAtt && host.contains(focusedAtt)) {
+      focusSel = focusedAtt.dataset.move !== undefined ? `[data-move="${focusedAtt.dataset.move}"]`
+        : `${focusedAtt.closest('.wrc__vessel') ? '.wrc__vessel' : '.wrc__atts'} [data-attachment="${focusedAtt.dataset.attachment}"]`;
+    }
+    const cases = allCases();
+    $('[data-slot="unrolled"]').innerHTML = buildUnrolledHtml(cases, vessel.active, {
+      layout: unrolledLayout(cases, { span: drag?.span }), how: drag?.how ?? null,
+    });
     const n = vessel.attachments.length;
     $('[data-slot="attachments"]').innerHTML = `${vessel.attachments.map((a, i) => `
       <button type="button" data-attachment="${i}" class="${i === vessel.active ? 'is-active' : ''}" aria-pressed="${i === vessel.active}">${escapeHtml(a.attachmentName)} <small>${escapeHtml(attachmentSize(caseFor(vessel, i)))}</small></button>`).join('')}
@@ -390,7 +412,7 @@ export function mountWrcCalculator(host) {
       ${n > 1 ? '<button type="button" data-act="deleteAttachment" title="Delete the selected attachment">Delete attachment</button>' : ''}`;
     $('[data-slot="sketch"]').innerHTML = buildVesselSketchHtml(state, { others: otherCases(), count: n });
     $('[data-slot="vesselTable"]').innerHTML = n > 1 ? vesselTableHtml() : '';
-    if (focusSel && !focusedAtt.isConnected) $(focusSel)?.focus();
+    if (focusSel && !focusedAtt.isConnected) $(focusSel)?.focus({ preventScroll: true });
   }
   function attachmentSize(c) {
     const u = unitSystem(c);
@@ -702,6 +724,7 @@ export function mountWrcCalculator(host) {
       return;
     }
     if (act === 'runFe') { runFe(); return; }
+    if (act === 'snapToggle') { snapOn = event.target.checked; return; }
     if (act === 'helpToggle') {
       showHelp = event.target.checked;
       try { globalThis.localStorage?.setItem(HELP_KEY, showHelp ? 'on' : 'off'); } catch { /* storage optional */ }
@@ -751,6 +774,112 @@ export function mountWrcCalculator(host) {
     } catch (error) {
       globalThis.alert?.(`Could not open the file: ${error.message}`);
     }
+  });
+
+  // Canvas A3: move the selected attachment on the unrolled view, by pointer or by keyboard. The listeners
+  // are on the slot, which stays while the drawing inside it is redrawn on every move.
+  const unrolled = $('[data-slot="unrolled"]');
+  const clean = (v) => Math.round(v * 1e6) / 1e6;
+  function layoutNow() { return unrolledLayout(allCases(), { span: drag?.span }); }
+  /** The pointer on the shell (mm along, degrees around), through the SVG's own scaling. */
+  function pointerAt(event, layout) {
+    const m = unrolled.querySelector('svg')?.getScreenCTM?.();
+    if (!m) return null;
+    const pt = new DOMPoint(event.clientX, event.clientY).matrixTransform(m.inverse());
+    return toModel(layout, pt.x, pt.y);
+  }
+  /** The snap settings: the grid, the other attachments to line up with, and an 8 px capture radius. */
+  function snapOptions(layout) {
+    const targets = vessel.attachments.map((_, i) => i).filter((i) => i !== vessel.active).map((i) => {
+      const c = caseFor(vessel, i);
+      const p = positionOf(layout, c);
+      return { x: p.placed ? p.x : NaN, y: p.y, name: c.attachmentName };
+    });
+    return {
+      grid: layout.grid, targets, range: [0, layout.span],
+      fine: { x: layout.u.id === 'SI' ? 1 : 0.1 * layout.u.mmPer, y: 1 },
+      capture: { x: 8 / layout.s, y: 8 / layout.sy }, px: { x: layout.s, y: layout.sy },
+    };
+  }
+  /** The selected attachment's position along and around set, the two form boxes with it, and all redrawn. */
+  function moveTo(x, y) {
+    state = { ...state, attachmentStation: x, attachmentAngle: y };
+    for (const key of ['attachmentStation', 'attachmentAngle']) $(`[data-k="${key}"]`).value = shown(key, U());
+    render();
+  }
+  unrolled.addEventListener('pointerdown', (event) => {
+    if (!event.target.closest('[data-move]') || event.button !== 0 || drag) return;
+    // Where attachments overlap, the selected one is grabbed first.
+    const under = doc.elementsFromPoint?.(event.clientX, event.clientY) ?? [];
+    const el = under.map((e) => e.closest?.('[data-move]')).find((m) => m && Number(m.dataset.move) === vessel.active)
+      ?? event.target.closest('[data-move]');
+    event.preventDefault();
+    const index = Number(el.dataset.move);
+    if (index !== vessel.active) selectAttachment(index);
+    const layout = layoutNow();
+    const at = pointerAt(event, layout);
+    $(`[data-move="${vessel.active}"]`)?.focus({ preventScroll: true });
+    if (!at) return;
+    const p = positionOf(layout, state);
+    drag = {
+      pointerId: event.pointerId, span: layout.span, layout, how: null, moved: false,
+      down: { x: event.clientX, y: event.clientY }, grab: { x: p.x - at.x, y: p.y - at.y }, anchor: { x: p.x, y: p.y },
+      start: { station: state.attachmentStation, angle: state.attachmentAngle },
+    };
+    try { unrolled.setPointerCapture(event.pointerId); } catch { /* a pointer that is already up: the drag ends on pointerup anyway */ }
+  });
+  unrolled.addEventListener('pointermove', (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    // A click that wobbles a pixel or two does not move anything.
+    if (!drag.moved && Math.hypot(event.clientX - drag.down.x, event.clientY - drag.down.y) < 4) return;
+    const at = pointerAt(event, drag.layout);
+    if (!at) return;
+    const res = snapMove({ x: at.x + drag.grab.x, y: at.y + drag.grab.y }, {
+      ...snapOptions(drag.layout), anchor: drag.anchor, lock: event.shiftKey, snap: snapOn && !event.altKey,
+    });
+    const same = drag.moved && res.x === Number(state.attachmentStation) && res.y === cleanAngle(state.attachmentAngle)
+      && JSON.stringify(res.how) === JSON.stringify(drag.how?.how);
+    drag.moved = true;
+    drag.how = res;
+    if (!same) moveTo(res.x, res.y);
+  });
+  /** The end of a drag: kept, or with Esc (or a cancelled pointer) put back where it started. */
+  function endDrag(cancel) {
+    const d = drag;
+    drag = null;
+    if (unrolled.hasPointerCapture?.(d.pointerId)) unrolled.releasePointerCapture(d.pointerId);
+    if (!d.moved) { render(); return; }
+    if (cancel) moveTo(d.start.station, d.start.angle);
+    else render();
+    announce(cancel ? `Move cancelled. ${positionText(layoutNow(), state)}` : `Moved. ${positionText(layoutNow(), state)}`);
+  }
+  unrolled.addEventListener('pointerup', (event) => { if (drag && event.pointerId === drag.pointerId) endDrag(false); });
+  unrolled.addEventListener('pointercancel', (event) => { if (drag && event.pointerId === drag.pointerId) endDrag(true); });
+  unrolled.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && drag) { event.preventDefault(); endDrag(true); return; }
+    const el = event.target.closest?.('[data-move]');
+    if (!el || drag) return;
+    const index = Number(el.dataset.move);
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (index !== vessel.active) selectAttachment(index);
+      return;
+    }
+    const step = { ArrowLeft: ['x', -1], ArrowRight: ['x', 1], ArrowUp: ['y', -1], ArrowDown: ['y', 1] }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    if (index !== vessel.active) selectAttachment(index);
+    const layout = layoutNow();
+    const fine = snapOptions(layout).fine;
+    const at = positionOf(layout, state);
+    let { x, y } = at;
+    const [axis, dir] = step;
+    // To the next grid line, or with Shift a small step (1 mm or 0.1 in along, 1° around).
+    if (axis === 'x') x = clean(Math.min(Math.max(event.shiftKey ? x + dir * fine.x : nextGridLine(x, layout.grid.x, dir), 0), layout.span));
+    else y = clean(wrapAngle(event.shiftKey ? y + dir * fine.y : nextGridLine(y, layout.grid.y, dir)));
+    // Up and down change the angle only: an attachment with no position along yet keeps none.
+    moveTo(axis === 'x' || at.placed ? x : state.attachmentStation, y);
+    announce(positionText(layoutNow(), state));
   });
 
   writeForm();

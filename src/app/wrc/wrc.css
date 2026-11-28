@@ -86,13 +86,40 @@
 .wrc__vessel-wrap { overflow-x: auto; margin-top: 10px; }
 .wrc__vessel td:nth-child(2) { white-space: nowrap; }
 .wrc__vessel tr.is-active td { background: var(--ui-control); }
-.wrc__sketch { margin-bottom: 10px; }
-.wrc__sketch > summary { cursor: pointer; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.wrc__sketch, .wrc__unrolled { margin-bottom: 10px; }
+.wrc__sketch > summary, .wrc__unrolled > summary { cursor: pointer; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 .vsketch { margin: 0; padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-panel); }
 .vsketch__views { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; color: var(--ui-muted); }
 .vsketch__view { max-width: 100%; height: auto; font-family: var(--ui-font); }
 .vsketch__caption { margin-top: 4px; color: var(--wrc-muted); font-size: 12px; }
 .vsketch__empty { margin: 0 0 10px; color: var(--wrc-muted); font-size: 13px; }
+/* Canvas A3: the shell unrolled, attachments moved by pointer or keyboard. */
+.wrc__snap { margin: 0 0 6px; font-size: 13px; }
+.vunroll { padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-panel); overflow-x: auto; }
+.vunroll__svg { display: block; max-width: 100%; height: auto; font-family: var(--ui-font); user-select: none; }
+.vunroll__surface { fill: var(--ui-control-line, #2b4a78); fill-opacity: 0.18; }
+.vunroll__grid { stroke: var(--ui-muted, #8ea2c0); stroke-opacity: 0.18; stroke-width: 1; }
+.vunroll__grid--major { stroke-opacity: 0.45; }
+.vunroll__end { stroke: var(--ui-text-soft, #c9d6ea); stroke-width: 2.2; }
+.vunroll__end--open { stroke-width: 1.2; stroke-dasharray: 3 3; }
+.vunroll__tick { font-size: 10px; fill: var(--ui-muted, #8ea2c0); }
+.vunroll__guide { stroke: var(--ui-accent, #4c8dff); stroke-opacity: 0.55; stroke-width: 1; stroke-dasharray: 6 4; pointer-events: none; }
+.vunroll__guide.is-aligned { stroke: var(--ui-warn-text, #e0b955); stroke-opacity: 1; stroke-dasharray: none; }
+.vunroll__att { cursor: grab; touch-action: none; outline: none; }
+.vunroll__att:active { cursor: grabbing; }
+.vunroll__foot { fill: var(--ui-muted, #8ea2c0); fill-opacity: 0.2; stroke: var(--ui-muted, #8ea2c0); stroke-width: 1; }
+.vunroll__foot--solid { fill-opacity: 0.5; }
+.vunroll__foot--unplaced { stroke-dasharray: 4 3; }
+.vunroll__pad { fill: var(--ui-warn, #c99a2e); fill-opacity: 0.25; stroke: var(--ui-warn, #c99a2e); stroke-width: 1; }
+.vunroll__att.is-active .vunroll__foot { fill: var(--ui-accent, #4c8dff); fill-opacity: 0.35; stroke: var(--ui-accent, #4c8dff); stroke-width: 1.6; }
+.vunroll__att.is-active .vunroll__pad { fill-opacity: 0.5; }
+.vunroll__hit { fill: transparent; }
+.vunroll__ring { fill: none; stroke: var(--ui-accent, #4c8dff); stroke-width: 2; stroke-opacity: 0; }
+.vunroll__att:focus-visible .vunroll__ring { stroke-opacity: 1; }
+.vunroll__name { font-size: 11px; fill: var(--ui-muted, #8ea2c0); pointer-events: none; }
+.vunroll__att.is-active .vunroll__name { fill: var(--ui-accent, #4c8dff); font-weight: 600; }
+.vunroll__readout { margin: 6px 0 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.vunroll__caption { margin-top: 4px; color: var(--wrc-muted); font-size: 12px; }
 .wrc__derived { display: grid; gap: 8px; margin-bottom: 10px; }
 .wrc__derived-set { display: flex; flex-wrap: wrap; gap: 8px; }
 .wrc__derived-label { width: 100%; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }

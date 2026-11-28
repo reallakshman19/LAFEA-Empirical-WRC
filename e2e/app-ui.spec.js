@@ -73,8 +73,10 @@ test('the WRC result is spoken once and kept in view on a tablet', async ({ page
   const strip = calc.locator('[data-role="wrc-summary"]');
   await expect(strip).toBeVisible();
   await expect(strip).toContainText('Governing 72.67 MPa at Au · γ = 5 row');
-  // It stays just under the app bar while the form scrolls.
-  await page.mouse.wheel(0, 1500);
+  // It stays just under the app bar while the form scrolls: scroll well into the form, wherever the Vessel box
+  // above it ends (its height depends on the sketch, the unrolled view and the fonts).
+  const intoForm = await page.evaluate(() => document.querySelector('.wrc__body').getBoundingClientRect().top + 600);
+  await page.mouse.wheel(0, intoForm);
   await expect.poll(() => page.evaluate(() => {
     const top = document.querySelector('[data-role="wrc-summary"]').getBoundingClientRect().top;
     return Math.round(top - document.querySelector('.app-nav').getBoundingClientRect().bottom);

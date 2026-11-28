@@ -781,6 +781,38 @@ Checks:
   the table with the focus kept; shared and own inputs; add, rename, delete; kept after a reload; save to a
   file and open it again; an old case file opens as one attachment with the γ = 5 result.
 
+**2026-11-28: canvas step A3, moving attachments on the unrolled shell.** Approved by the owner after A2 merged.
+- `src/app/wrc/vessel-unrolled.js`: the outside of the shell cut along the top (0°) and laid flat, position along
+  left to right, angle around top to bottom. Footprints and pads at true size (along × arc length around); one
+  that crosses the 0°/360° cut is drawn at both edges. The strip is 150–300 px high: a long thin shell would be
+  too thin to scale, so it is stretched around and the caption gives the factor. A grid of a round step along
+  (at most 40 cells, in the case's units) and 15° around.
+- `src/app/wrc/canvas-snap.js`, ported from Pdf-Hub (MIT, commit 74fcb94) as plain JS: the grid snap
+  (`snapToOrthogonalGrid`, one spacing per axis), the one-axis lock (`applyOrthoConstraint`, weighed in pixels),
+  lining up with another attachment within an 8 px capture radius (`findSnapTarget`, per axis, the angle the
+  short way round), and their order from `resolveLineEndpoint` (lock, then another attachment, then the grid).
+- In the panel, under the sketch: drag an attachment to move it (it is picked first); Shift holds one axis, Alt
+  or the "Snap" box turns snapping off, Esc puts it back. A wobble under 4 px is a click, not a move. Where
+  attachments overlap, the selected one is grabbed. The scale is held during a drag. Each attachment is a
+  focusable element: the arrow keys move it to the next grid line, Shift+arrow a small step (1 mm or 0.1 in,
+  1°); Enter picks it; the new position is announced. Tab goes through them in order.
+- Moving sets the attachment's position along and angle around, the same two inputs as the form, which
+  follows; nothing else changes. The angle is for the drawing; position along only enters the §4.5.2
+  end-distance check. Positions are held between the shell's ends.
+
+Checks:
+- new `scripts/wrc-unrolled-check.mjs` (in `check:all`, 16 checks): the ported snaps behave as in Pdf-Hub;
+  `snapMove`'s order, lock, snap-off rounding, the ends and the cut; drawing ↔ shell coordinates round-trip;
+  the worked vessel to scale and a long pipe stretched with its caption; the grid step in SI and US; every
+  attachment drawn, named, focusable and movable, N1 at 0° shown at both edges; the guides and readout name
+  what it lined up with; moving N2 leaves its stresses and the other attachments unchanged, and too near an
+  end the §4.5.2 check still applies;
+- new `e2e/wrc-unrolled.spec.js` (2 tests): a real mouse drag lands on the grid and updates the form, table and
+  sketch; lining up with an off-grid attachment on both axes; Shift; Esc during a drag; snap off; arrow keys,
+  Shift+arrow, across 0°, focus kept, the announcement, Tab and Enter, kept after a reload;
+- `scripts/wrc-app-status-content-check.mjs`: the canvas row says attachments move on the unrolled view, that
+  sizes and loads are still typed, and that A4–A6 are still to come.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
