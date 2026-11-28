@@ -35,16 +35,23 @@ export const FE_LUG_METHOD_NOTE = 'FE: CST/DKT thin-shell triangles, with the fo
   + 'The corner value is a singularity of this model: it rises as the mesh is refined, and on a real lug the weld fillet sets it. '
   + 'Treat a large FE / WRC ratio, or a corner value well above WRC, as a reason to look closer, not as a pass or fail.';
 
+/** SI display units, the default everywhere here (see wrc-units.js for US customary). */
+const SI_UNITS = Object.freeze({ id: 'SI', length: 'mm', stress: 'MPa', mmPer: 1, mpaPer: 1 });
+/** A coordinate in display units: whole mm, or inches to 0.1. */
+const coordText = (mm, u) => (u.id === 'SI' ? String(Math.round(mm)) : (mm / u.mmPer).toFixed(1));
+
 /**
  * The edge peak of a rectangular-footprint run (crossCheckWrc537Rectangular), as one sentence.
- * `wrcGoverning` (optional): the WRC 537 governing stress intensity it is compared with.
+ * `wrcGoverning` (optional): the WRC 537 governing stress intensity it is compared with (MPa).
+ * `u` (optional): display units from wrc-units.js; the result itself is in mm and MPa.
  */
-export function feEdgePeakText(result, wrcGoverning = null) {
+export function feEdgePeakText(result, wrcGoverning = null, u = SI_UNITS) {
   const p = result.edgePeak;
   const c1 = result.geometry.halfWidth;
   const c2 = result.geometry.halfLength;
   const corner = Math.abs(p.s) > 0.6 * c1 && Math.abs(p.x) > 0.6 * c2;
-  return `Highest element value next to the footprint: ${p.value.toFixed(2)} MPa on the ${p.surface === 'u' ? 'outside' : 'inside'} surface, at s = ${Math.round(p.s)} mm, x = ${Math.round(p.x)} mm${corner ? ', at a corner' : ''}. `
+  const value = u.id === 'SI' ? p.value.toFixed(2) : (p.value / u.mpaPer).toFixed(0);
+  return `Highest element value next to the footprint: ${value} ${u.stress} on the ${p.surface === 'u' ? 'outside' : 'inside'} surface, at s = ${coordText(p.s, u)} ${u.length}, x = ${coordText(p.x, u)} ${u.length}${corner ? ', at a corner' : ''}. `
     + 'The corner of a stiff rectangle is a stress singularity in this model, so this value rises as the mesh is refined (about 30% from 16 to 24 divisions on the lug example): read it as a warning sign, not a design value.'
     + (wrcGoverning > 0 ? ` It is ${(p.value / wrcGoverning).toFixed(2)}× the WRC 537 governing value.` : '');
 }
@@ -104,7 +111,7 @@ export function insideAttachment(field, s, x) {
   return shape.rectangle ? Math.abs(s) < shape.a1 && Math.abs(x) < shape.a2 : Math.hypot(s, x) < shape.a1;
 }
 
-function plotSvg(field, surface, scale, unitsLabel) {
+function plotSvg(field, surface, scale, { unitsLabel, lengthLabel, stressDigits }) {
   const hs = field.halfSizeS ?? field.halfSize; // patch half-size around the shell
   const hx = field.halfSizeX ?? field.halfSize; // and along it
   const shape = attachmentShape(field);
@@ -137,9 +144,11 @@ function plotSvg(field, surface, scale, unitsLabel) {
       + `<text x="${num(tx)}" y="${num(ty)}" font-size="${num(fs)}" font-weight="600" text-anchor="middle" fill="${TEXT}" ${font} paint-order="stroke" stroke="${SURFACE}" stroke-width="${num(3 * k)}">${p.label}</text>`;
   }).join('');
   const peak = contourPeak(field, surface.key);
+  // Whole mm; inches to 0.1.
+  const tick = (value) => (lengthLabel === 'mm' ? String(Math.round(value)) : value.toFixed(1));
   const ticks = [-1, 0, 1].map((t) => `
-    <text x="${num(t * hs)}" y="${num(hx + 13 * k)}" font-size="${num(fs)}" text-anchor="middle" fill="${TEXT_2}" ${font}>${Math.round(t * hs)}</text>
-    <text x="${num(-hs - 5 * k)}" y="${num(-t * hx + 3.5 * k)}" font-size="${num(fs)}" text-anchor="end" fill="${TEXT_2}" ${font}>${Math.round(t * hx)}</text>`).join('');
+    <text x="${num(t * hs)}" y="${num(hx + 13 * k)}" font-size="${num(fs)}" text-anchor="middle" fill="${TEXT_2}" ${font}>${tick(t * hs)}</text>
+    <text x="${num(-hs - 5 * k)}" y="${num(-t * hx + 3.5 * k)}" font-size="${num(fs)}" text-anchor="end" fill="${TEXT_2}" ${font}>${tick(t * hx)}</text>`).join('');
   const outline = shape.rectangle
     ? `<rect x="${num(-shape.a1)}" y="${num(-shape.a2)}" width="${num(2 * shape.a1)}" height="${num(2 * shape.a2)}" fill="${NEUTRAL}" stroke="${SURFACE}" stroke-width="${num(1.5 * k)}"/>`
     : `<circle cx="0" cy="0" r="${num(shape.a1)}" fill="${NEUTRAL}" stroke="${SURFACE}" stroke-width="${num(1.5 * k)}"/>`;
@@ -147,7 +156,7 @@ function plotSvg(field, surface, scale, unitsLabel) {
   const label = 2 * shape.a1 > 64 * k && 2 * shape.a2 > 16 * k
     ? `<text x="0" y="${num(3.5 * k)}" font-size="${num(fs)}" text-anchor="middle" fill="${TEXT_2}" ${font}>attachment</text>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" class="fe-contour__plot" data-surface="${surface.key}" viewBox="${vb.map(num).join(' ')}" width="${Math.round(vb[2] / k)}" height="${Math.round(vb[3] / k)}" role="img"
-    aria-label="${esc(`${surface.title}: FE stress intensity around the attachment. Peak element value ${peak.value.toFixed(2)} ${unitsLabel} at s = ${Math.round(peak.s)} mm, x = ${Math.round(peak.x)} mm.`)}">
+    aria-label="${esc(`${surface.title}: FE stress intensity around the attachment. Peak element value ${peak.value.toFixed(stressDigits)} ${unitsLabel} at s = ${tick(peak.s)} ${lengthLabel}, x = ${tick(peak.x)} ${lengthLabel}.`)}">
     <rect x="${num(-hs)}" y="${num(-hx)}" width="${num(2 * hs)}" height="${num(2 * hx)}" fill="${SURFACE}"/>
     <g>${bands}</g>
     ${outline}
@@ -155,8 +164,8 @@ function plotSvg(field, surface, scale, unitsLabel) {
     ${points}
     <rect x="${num(-hs)}" y="${num(-hx)}" width="${num(2 * hs)}" height="${num(2 * hx)}" fill="none" stroke="${TEXT_2}" stroke-width="${num(0.75 * k)}"/>
     ${ticks}
-    <text x="0" y="${num(hx + 26 * k)}" font-size="${num(fs)}" text-anchor="middle" fill="${TEXT_2}" ${font}>s, around the shell (mm) →</text>
-    <text transform="translate(${num(-hs - 36 * k)} 0) rotate(-90)" font-size="${num(fs)}" text-anchor="middle" fill="${TEXT_2}" ${font}>x, along the axis (mm) →</text>
+    <text x="0" y="${num(hx + 26 * k)}" font-size="${num(fs)}" text-anchor="middle" fill="${TEXT_2}" ${font}>s, around the shell (${lengthLabel}) →</text>
+    <text transform="translate(${num(-hs - 36 * k)} 0) rotate(-90)" font-size="${num(fs)}" text-anchor="middle" fill="${TEXT_2}" ${font}>x, along the axis (${lengthLabel}) →</text>
   </svg>`;
 }
 
@@ -175,9 +184,11 @@ export function triangleAt(field, s, x) {
 
 /**
  * The whole figure: titles, both plots and a shared legend, as an HTML fragment with inline styles
- * (so it works unchanged inside the report). `unitsLabel` is the stress unit text.
+ * (so it works unchanged inside the report). `field` must already be in the units the labels name:
+ * `unitsLabel` (stress, shown to `stressDigits` decimals) and `lengthLabel` (coordinates); see
+ * feFieldIn in wrc-units.js.
  */
-export function buildFeContourHtml(field, { unitsLabel = 'MPa', caption = '' } = {}) {
+export function buildFeContourHtml(field, { unitsLabel = 'MPa', lengthLabel = 'mm', stressDigits = 2, caption = '' } = {}) {
   if (!field?.triangles?.length) return '';
   const scale = contourScale(field);
   const legend = RAMP.map((colour, i) => `
@@ -188,8 +199,8 @@ export function buildFeContourHtml(field, { unitsLabel = 'MPa', caption = '' } =
     const peak = contourPeak(field, surface.key);
     return `<figure style="margin:0">
       <figcaption style="font-weight:600;color:${TEXT};margin:0 0 2px">${surface.title}</figcaption>
-      <div style="color:${TEXT_2};font-size:11px;margin:0 0 4px">Peak ${peak.value.toFixed(2)} ${esc(unitsLabel)}</div>
-      ${plotSvg(field, surface, scale, unitsLabel)}
+      <div style="color:${TEXT_2};font-size:11px;margin:0 0 4px">Peak ${peak.value.toFixed(stressDigits)} ${esc(unitsLabel)}</div>
+      ${plotSvg(field, surface, scale, { unitsLabel, lengthLabel, stressDigits })}
     </figure>`;
   }).join('');
   return `<div class="fe-contour" style="background:${SURFACE};color:${TEXT};border:1px solid #d9d8d2;border-radius:6px;padding:10px 12px;font:12px/1.4 system-ui,-apple-system,'Segoe UI',sans-serif;max-width:660px">

@@ -11,40 +11,68 @@ import { buildWrcReportHtml } from './wrc-report.js';
 import {
   FE_CONTOUR_CAPTION, FE_LUG_METHOD_NOTE, FE_METHOD_NOTE, buildFeContourHtml, feEdgePeakText, feOnlyReasonText, insideAttachment, triangleAt,
 } from './fe-contour.js';
+import {
+  UNIT_SYSTEMS, convertCaseUnits, feFieldIn, fromDisplay, lengthText, roundSig, stressText, toDisplay, unitSystem,
+} from './wrc-units.js';
 
 const STORAGE_KEY = 'lafea-emp-app/wrc-case';
+const HELP_KEY = 'lafea-emp-app/wrc-help';
 const CASE_SCHEMA = 'lafea-emp-app/wrc537-case/v1';
 const MAX_CASES = 20;
 
+/**
+ * The form. `kind` 'length' is stored in mm and 'stress' (stress or pressure) in MPa, and shown in the
+ * case's units (wrc-units.js). `help` is shown under the input and read with it by screen readers.
+ */
 const FIELDS = [
-  { group: 'Shell (cylinder)', key: 'shellOutsideDiameter', label: 'Outside diameter', unit: 'mm' },
-  { group: 'Shell (cylinder)', key: 'shellThickness', label: 'Nominal thickness', unit: 'mm' },
-  { group: 'Shell (cylinder)', key: 'corrosionAllowance', label: 'Corrosion allowance', unit: 'mm' },
-  { group: 'Attachment', key: 'attachmentType', label: 'Type', select: WRC_ATTACHMENT_TYPES },
-  { group: 'Attachment', key: 'trunnionConstruction', label: 'Trunnion construction', select: WRC_TRUNNION_CONSTRUCTION, only: 'TRUNNION' },
-  { group: 'Attachment', key: 'attachmentOutsideDiameter', label: 'Outside diameter at shell', unit: 'mm', only: 'ROUND TRUNNION' },
-  { group: 'Attachment', key: 'attachmentLength', label: 'Length along the shell (2·c2)', unit: 'mm', only: 'RECTANGULAR' },
-  { group: 'Attachment', key: 'attachmentWidth', label: 'Width around the shell (2·c1)', unit: 'mm', only: 'RECTANGULAR' },
-  { group: 'Reinforcing pad (optional)', key: 'padOutsideDiameter', label: 'Pad outside diameter', unit: 'mm', optional: true, only: 'ROUND TRUNNION' },
-  { group: 'Reinforcing pad (optional)', key: 'padLength', label: 'Pad length along the shell', unit: 'mm', optional: true, only: 'RECTANGULAR' },
-  { group: 'Reinforcing pad (optional)', key: 'padWidth', label: 'Pad width around the shell', unit: 'mm', optional: true, only: 'RECTANGULAR' },
-  { group: 'Reinforcing pad (optional)', key: 'padThickness', label: 'Pad thickness', unit: 'mm', optional: true },
-  { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'cylinderLength', label: 'Length between heads or stiffeners', unit: 'mm', optional: true },
-  { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'attachmentStation', label: 'Attachment position from one end', unit: 'mm', optional: true },
-  { group: 'Pressure and stress concentration', key: 'designPressure', label: 'Design pressure (internal +)', unit: 'MPa', signed: true },
-  { group: 'Pressure and stress concentration', key: 'Kn', label: 'Kn, membrane factor', unit: '' },
-  { group: 'Pressure and stress concentration', key: 'Kb', label: 'Kb, bending factor', unit: '' },
-  { group: 'Allowables (optional)', key: 'allowableS', label: 'Allowable stress S', unit: 'MPa', optional: true },
-  { group: 'Allowables (optional)', key: 'allowableSps', label: 'SPS (blank = 3S)', unit: 'MPa', optional: true },
+  { group: 'Shell (cylinder)', key: 'shellOutsideDiameter', label: 'Outside diameter', kind: 'length',
+    help: 'Outside diameter of the shell, as built.' },
+  { group: 'Shell (cylinder)', key: 'shellThickness', label: 'Nominal thickness', kind: 'length',
+    help: 'Wall thickness as built. The corrosion allowance is taken off it.' },
+  { group: 'Shell (cylinder)', key: 'corrosionAllowance', label: 'Corrosion allowance', kind: 'length',
+    help: 'Taken off the wall before γ and the stresses are worked out. 0 for none.' },
+  { group: 'Attachment', key: 'attachmentType', label: 'Type', select: WRC_ATTACHMENT_TYPES,
+    help: 'Nozzle: a pipe that opens the shell. Trunnion: a round support that does not. Rectangular: a lug or plate.' },
+  { group: 'Attachment', key: 'trunnionConstruction', label: 'Trunnion construction', select: WRC_TRUNNION_CONSTRUCTION, only: 'TRUNNION',
+    help: 'Shown in the report. WRC 537 gives a solid bar and a pipe of the same diameter the same shell stress.' },
+  { group: 'Attachment', key: 'attachmentOutsideDiameter', label: 'Outside diameter at shell', kind: 'length', only: 'ROUND TRUNNION',
+    help: 'Where it meets the shell. WRC 537 needs β = 0.875·r0/Rm from 0.05 to 0.5.' },
+  { group: 'Attachment', key: 'attachmentLength', label: 'Length along the shell (2·c2)', kind: 'length', only: 'RECTANGULAR',
+    help: 'Footprint length along the cylinder axis.' },
+  { group: 'Attachment', key: 'attachmentWidth', label: 'Width around the shell (2·c1)', kind: 'length', only: 'RECTANGULAR',
+    help: 'Footprint width around the shell. For a plate welded straight to the shell: plate thickness plus both weld legs.' },
+  { group: 'Reinforcing pad (optional)', key: 'padOutsideDiameter', label: 'Pad outside diameter', kind: 'length', optional: true, only: 'ROUND TRUNNION',
+    help: 'Blank for no pad. With a pad, the shell is also checked at the pad edge.' },
+  { group: 'Reinforcing pad (optional)', key: 'padLength', label: 'Pad length along the shell', kind: 'length', optional: true, only: 'RECTANGULAR',
+    help: 'Blank for no pad. With a pad, the shell is also checked at the pad edge.' },
+  { group: 'Reinforcing pad (optional)', key: 'padWidth', label: 'Pad width around the shell', kind: 'length', optional: true, only: 'RECTANGULAR',
+    help: 'Blank for no pad.' },
+  { group: 'Reinforcing pad (optional)', key: 'padThickness', label: 'Pad thickness', kind: 'length', optional: true,
+    help: 'Added to the shell wall at the attachment. Blank for no pad.' },
+  { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'cylinderLength', label: 'Length between heads or stiffeners', kind: 'length', optional: true,
+    help: 'Used to check the attachment is far enough from the ends. Blank skips that check.' },
+  { group: 'Cylinder length (WRC 537 §4.5.2)', key: 'attachmentStation', label: 'Attachment position from one end', kind: 'length', optional: true,
+    help: 'From one head or stiffener to the centre of the attachment.' },
+  { group: 'Pressure and stress concentration', key: 'designPressure', label: 'Design pressure (internal +)', kind: 'stress', signed: true,
+    help: 'Adds the thin-shell membrane stress p·Rm/T (hoop) and p·Rm/2T (along). Negative for external pressure.' },
+  { group: 'Pressure and stress concentration', key: 'Kn', label: 'Kn, membrane factor',
+    help: 'Multiplies the membrane stress from the loads. 1 for none.' },
+  { group: 'Pressure and stress concentration', key: 'Kb', label: 'Kb, bending factor',
+    help: 'Multiplies the bending stress from the loads. 1 for none.' },
+  { group: 'Allowables (optional)', key: 'allowableS', label: 'Allowable stress S', kind: 'stress', optional: true,
+    help: 'At design temperature. Blank shows the stresses only, with no code check.' },
+  { group: 'Allowables (optional)', key: 'allowableSps', label: 'SPS (blank = 3S)', kind: 'stress', optional: true,
+    help: 'Limit for PL + Pb + Q. Blank uses 3S.' },
 ];
+const KIND = Object.fromEntries(FIELDS.filter((f) => f.kind).map((f) => [f.key, f.kind]));
 
 const LOADS = [
-  { key: 'P', label: 'P', hint: 'radial force' },
-  { key: 'Vc', label: 'Vc', hint: 'circumferential shear' },
-  { key: 'Vl', label: 'Vl', hint: 'longitudinal shear' },
-  { key: 'Mc', label: 'Mc', hint: 'circumferential moment' },
-  { key: 'Ml', label: 'Ml', hint: 'longitudinal moment' },
-  { key: 'Mt', label: 'Mt', hint: 'torsion' },
+  { key: 'P', label: 'P', hint: 'radial force', help: '+ pushes the attachment into the shell, − pulls it out.' },
+  { key: 'Vc', label: 'Vc', hint: 'circumferential shear', help: 'Shear force at the shell, around the circumference.' },
+  { key: 'Vl', label: 'Vl', hint: 'longitudinal shear', help: 'Shear force at the shell, along the cylinder axis.' },
+  { key: 'Mc', label: 'Mc', hint: 'circumferential moment', help: 'Bends the attachment around the circumference: largest at C and D.' },
+  { key: 'Ml', label: 'Ml', hint: 'longitudinal moment', help: 'Bends the attachment along the cylinder axis: largest at A and B.' },
+  { key: 'Mt', label: 'Mt', hint: 'torsion', help: 'Twists the attachment about its own axis. WRC 537 has no torsion method for a lug; the FE model takes it.' },
 ];
 
 const SHORT_LOCATION = Object.freeze({ ATTACHMENT: '', JUNCTION: 'shell + pad', PAD_EDGE: 'pad edge' });
@@ -61,8 +89,12 @@ export function mountWrcCalculator(host) {
   host.innerHTML = `
     <h1 class="ui-sr-only">WRC 537 local stress calculator</h1>
     <div class="wrc__bar">
-      <label class="wrc__title">Case <input data-k="title" type="text" maxlength="120"></label>
-      <select data-act="example" aria-label="Load an example">
+      <label class="wrc__title">Case <input data-k="title" type="text" maxlength="120" aria-describedby="wrc-help-title"></label>
+      <span class="ui-sr-only" id="wrc-help-title">Shown on the report and used for the file names.</span>
+      <label class="wrc__sys">Units <select data-k="units" aria-describedby="wrc-help-units">${Object.values(UNIT_SYSTEMS).map((s) => `<option value="${s.id}">${s.label}</option>`).join('')}</select></label>
+      <span class="ui-sr-only" id="wrc-help-units">Lengths, pressure and stresses. The loads switch to the matching units, so the case itself does not change.</span>
+      <label class="wrc__helptoggle"><input type="checkbox" data-act="helpToggle"> Help text</label>
+      <select data-act="example" aria-label="Load an example" aria-describedby="wrc-help-example">
         <option value="">Examples…</option>
         <option value="DEFAULT">Blank nozzle-on-cylinder (starting point)</option>
         <option value="GAMMA5_ORACLE">Check case: γ = 5, hand calc</option>
@@ -71,6 +103,7 @@ export function mountWrcCalculator(host) {
         <option value="TRUNNION_10IN">Trunnion, 10-inch on a 24-inch pipe</option>
         <option value="LUG_200X100">Lug, 200 × 100 mm footprint</option>
       </select>
+      <span class="ui-sr-only" id="wrc-help-example">Replaces the inputs with a worked case. The units you chose are kept.</span>
       <span class="wrc__spacer"></span>
       <button type="button" data-act="open">Open case…</button>
       <button type="button" data-act="save">Save case</button>
@@ -88,28 +121,31 @@ export function mountWrcCalculator(host) {
         <fieldset class="wrc__group">
           <legend>Load cases at the attachment (WRC 537 axes)</legend>
           <div class="wrc__cases" data-slot="caseTabs"></div>
-          <label class="wrc__row wrc__row--name"><span>Case name</span><input data-casename type="text" maxlength="60"></label>
+          <label class="wrc__row wrc__row--name"><span>Case name</span><input data-casename type="text" maxlength="60" aria-describedby="wrc-help-casename"></label>
+          <p class="wrc__fieldhelp" id="wrc-help-casename">Shown in the envelope table and the report.</p>
           <div class="wrc__units">
-            <label>Force <select data-k="forceUnit">${Object.keys(FORCE_UNITS).map((u) => `<option>${u}</option>`).join('')}</select></label>
-            <label>Moment <select data-k="momentUnit">${Object.keys(MOMENT_UNITS).map((u) => `<option>${u}</option>`).join('')}</select></label>
+            <label>Force <select data-k="forceUnit" aria-describedby="wrc-help-loadunits"></select></label>
+            <label>Moment <select data-k="momentUnit" aria-describedby="wrc-help-loadunits"></select></label>
           </div>
+          <p class="wrc__fieldhelp" id="wrc-help-loadunits">The units of the numbers below, for every load case. Changing one does not convert the numbers.</p>
           <div class="wrc__loads">${LOADS.map((l) => `
             <label><span><b>${l.label}</b> <small>${l.hint}</small></span>
-              <input data-load="${l.key}" type="number" step="any" inputmode="decimal"><em data-unit="${l.key}"></em></label>`).join('')}
+              <input data-load="${l.key}" type="number" step="any" inputmode="decimal" aria-describedby="wrc-help-load-${l.key} wrc-help-signs"><em data-unit="${l.key}"></em></label>
+            <p class="wrc__fieldhelp" id="wrc-help-load-${l.key}">${l.help}</p>`).join('')}
           </div>
-          <p class="wrc__help">Signs follow WRC 537 Figure 2. This is the same convention CAESAR II uses for its WRC input, confirmed against a CAESAR II benchmark. Enter 0 for any load you don't have.</p>
+          <p class="wrc__help" id="wrc-help-signs">Signs follow WRC 537 Figure 2. This is the same convention CAESAR II uses for its WRC input, confirmed against a CAESAR II benchmark. Enter 0 for any load you don't have.</p>
         </fieldset>
         <fieldset class="wrc__group">
           <legend>Code check classification</legend>
           <label class="wrc__row"><span>Load bending stress</span>
-            <select data-k="bendingClass">${Object.entries(WRC_BENDING_CLASS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
-          <p class="wrc__help">Enter S to check Pm ≤ S, PL ≤ 1.5S and PL+Pb+Q ≤ SPS (ASME VIII-2 Part 5 categories). ASME VIII-2 Table 5.6 classes the shell bending from nozzle loads as Q; choose Pb to be conservative for sustained loads. Leave S blank for stresses only.</p>
+            <select data-k="bendingClass" aria-describedby="wrc-help-bendingClass">${Object.entries(WRC_BENDING_CLASS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+          <p class="wrc__help" id="wrc-help-bendingClass">Enter S to check Pm ≤ S, PL ≤ 1.5S and PL+Pb+Q ≤ SPS (ASME VIII-2 Part 5 categories). ASME VIII-2 Table 5.6 classes the shell bending from nozzle loads as Q; choose Pb to be conservative for sustained loads. Leave S blank for stresses only.</p>
         </fieldset>
         <fieldset class="wrc__group">
           <legend>Between tabulated γ rows</legend>
           <label class="wrc__row"><span>Interpolation</span>
-            <select data-k="coordinate">${Object.entries(WRC_COORDINATES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
-          <p class="wrc__help">WRC 537 tabulates γ = ${WRC_GAMMA_GRID.join(', ')}. Any other γ is interpolated between the two nearest rows.</p>
+            <select data-k="coordinate" aria-describedby="wrc-help-coordinate">${Object.entries(WRC_COORDINATES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+          <p class="wrc__help" id="wrc-help-coordinate">WRC 537 tabulates γ = ${WRC_GAMMA_GRID.join(', ')}. Any other γ is interpolated between the two nearest rows.</p>
         </fieldset>
       </form>
       <section class="wrc__results" aria-labelledby="wrc-results-heading">
@@ -137,24 +173,65 @@ export function mountWrcCalculator(host) {
     if (!groups.has(f.group)) groups.set(f.group, []);
     groups.get(f.group).push(f);
   }
+  // Each field: its row (label, input, unit) and its help line, hidden together when it does not apply.
+  const fieldHtml = (f) => {
+    const described = `aria-describedby="wrc-help-${f.key}"`;
+    const control = f.select
+      ? `<select data-k="${f.key}" ${described}>${Object.entries(f.select).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>`
+      : `<input data-k="${f.key}" type="number" step="any"${f.signed ? '' : ' min="0"'} inputmode="decimal" ${described}><em${f.kind ? ` data-unit-kind="${f.kind}"` : ''}></em>`;
+    return `<div class="wrc__field"${f.only ? ` data-only="${f.only}"` : ''}>
+      <label class="wrc__row"><span>${f.label}${f.optional ? ' <small>(optional)</small>' : ''}</span>${control}</label>
+      <p class="wrc__fieldhelp" id="wrc-help-${f.key}">${f.help}</p></div>`;
+  };
   host.querySelector('[data-slot="fields"]').innerHTML = [...groups].map(([group, fields]) => `
-    <fieldset class="wrc__group"><legend>${group}</legend>${fields.map((f) => (f.select ? `
-      <label class="wrc__row"${f.only ? ` data-only="${f.only}"` : ''}><span>${f.label}</span>
-        <select data-k="${f.key}">${Object.entries(f.select).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>` : `
-      <label class="wrc__row"${f.only ? ` data-only="${f.only}"` : ''}><span>${f.label}${f.optional ? ' <small>(optional)</small>' : ''}</span>
-        <input data-k="${f.key}" type="number" step="any"${f.signed ? '' : ' min="0"'} inputmode="decimal"><em>${f.unit}</em></label>`)).join('')}
-    </fieldset>`).join('');
+    <fieldset class="wrc__group"><legend>${group}</legend>${fields.map(fieldHtml).join('')}</fieldset>`).join('');
 
   const $ = (sel) => host.querySelector(sel);
   const form = $('.wrc__inputs');
+  // Results are in mm and MPa; these show them in the case's units.
+  const U = () => unitSystem(state);
+  const L = (mm, digits) => lengthText(mm, digits, U());
+  const S = (mpa, digits) => stressText(mpa, digits, U());
 
+  // Help text under every input: on unless turned off, remembered in this browser.
+  let showHelp = true;
+  try { showHelp = globalThis.localStorage?.getItem(HELP_KEY) !== 'off'; } catch { /* storage optional */ }
+  function applyHelp() {
+    host.classList.toggle('wrc--nohelp', !showHelp);
+    $('[data-act="helpToggle"]').checked = showHelp;
+  }
+  applyHelp();
+
+  /**
+   * Significant figures a box shows: 10 in SI (what was typed), 7 in US (a converted mm value such as
+   * 39.37008 in). An untouched box keeps its exact stored value either way (readForm).
+   */
+  const figures = (u) => (u.id === 'SI' ? 10 : 7);
+  /** A stored value (mm or MPa) as the form shows it in the case's units. */
+  function shown(key, u) {
+    const value = KIND[key] ? toDisplay(KIND[key], state[key], u) : state[key];
+    return value === '' || value === null || value === undefined ? '' : (KIND[key] ? roundSig(value, figures(u)) : value);
+  }
+  /** The force and moment unit lists for the case's system. */
+  function writeLoadUnitOptions(u) {
+    for (const [key, list] of [['forceUnit', u.force], ['momentUnit', u.moment]]) {
+      const select = $(`[data-k="${key}"]`);
+      if ([...select.options].map((o) => o.value).join('|') !== list.join('|')) {
+        select.innerHTML = list.map((unit) => `<option>${unit}</option>`).join('');
+      }
+    }
+  }
   function writeForm() {
-    for (const el of host.querySelectorAll('[data-k]')) el.value = state[el.dataset.k] ?? '';
+    const u = unitSystem(state);
+    writeLoadUnitOptions(u);
+    for (const el of host.querySelectorAll('[data-k]')) el.value = shown(el.dataset.k, u);
     writeCase();
   }
   function activeCase() { return state.loadCases[state.activeCase]; }
+  /** A stored load as its box shows it (a converted load has more figures than that). */
+  const loadShown = (value) => roundSig(Number(value ?? 0), figures(U()));
   function writeCase() {
-    for (const el of host.querySelectorAll('[data-load]')) el.value = activeCase().loads?.[el.dataset.load] ?? 0;
+    for (const el of host.querySelectorAll('[data-load]')) el.value = loadShown(activeCase().loads?.[el.dataset.load]);
     $('[data-casename]').value = activeCase().name;
     renderCaseTabs();
   }
@@ -184,13 +261,24 @@ export function mountWrcCalculator(host) {
     writeCase();
     render();
   }
+  /** The form as a case: lengths back to mm and stresses to MPa. The system itself changes only in switchUnits. */
   function readForm() {
+    const u = unitSystem(state);
     const next = { ...state, loadCases: state.loadCases.map((c) => ({ ...c, loads: { ...c.loads } })) };
     for (const el of host.querySelectorAll('[data-k]')) {
-      next[el.dataset.k] = el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value;
+      const key = el.dataset.k;
+      if (key === 'units') continue;
+      const value = el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value;
+      // An untouched box keeps its exact stored value, so showing it in inches does not move it.
+      next[key] = KIND[key] && value !== '' ? (String(value) === String(shown(key, u)) ? state[key] : fromDisplay(KIND[key], value, u)) : value;
     }
     const current = next.loadCases[next.activeCase];
-    for (const el of host.querySelectorAll('[data-load]')) current.loads[el.dataset.load] = el.value === '' ? 0 : Number(el.value);
+    const stored = state.loadCases[state.activeCase].loads ?? {};
+    for (const el of host.querySelectorAll('[data-load]')) {
+      const typed = el.value === '' ? 0 : Number(el.value);
+      // An untouched box keeps the exact stored load (a converted one has more figures than it shows).
+      current.loads[el.dataset.load] = String(typed) === String(loadShown(stored[el.dataset.load])) ? stored[el.dataset.load] : typed;
+    }
     current.name = $('[data-casename]').value || `Case ${next.activeCase + 1}`;
     return next;
   }
@@ -203,6 +291,7 @@ export function mountWrcCalculator(host) {
     if (isRectangular(state)) type = 'RECTANGULAR';
     else if (isTrunnion(state)) type = 'TRUNNION';
     for (const row of host.querySelectorAll('[data-only]')) row.hidden = !row.dataset.only.split(' ').includes(type);
+    for (const em of host.querySelectorAll('[data-unit-kind]')) em.textContent = em.dataset.unitKind === 'length' ? U().length : U().stress;
     for (const l of LOADS) {
       host.querySelector(`[data-unit="${l.key}"]`).textContent = ['P', 'Vc', 'Vl'].includes(l.key) ? state.forceUnit : state.momentUnit;
     }
@@ -215,8 +304,8 @@ export function mountWrcCalculator(host) {
       const betaOk = g.beta >= WRC_BETA_RANGE.minimum && g.beta <= WRC_BETA_RANGE.maximum;
       return `<div class="wrc__derived-set" data-location="${id}">
         ${label ? `<span class="wrc__derived-label">${escapeHtml(label)}</span>` : ''}
-        ${chip(id === 'JUNCTION' ? 'T, shell + pad' : 'T (corroded)', `${fmt(g.T, 2)} mm`)}
-        ${chip('Rm', `${fmt(g.Rm, 1)} mm`)}
+        ${chip(id === 'JUNCTION' ? 'T, shell + pad' : 'T (corroded)', `${L(g.T, 2)} ${U().length}`)}
+        ${chip('Rm', `${L(g.Rm, 1)} ${U().length}`)}
         ${chip('γ = Rm/T', fmt(g.gamma, 2), gammaTone, `Allowed ${WRC_GAMMA_GRID[0]}–${WRC_GAMMA_GRID.at(-1)}`)}
         ${g.rectangular ? `${chip('β1 = c1/Rm', fmt(g.beta1, 3))}${chip('β2 = c2/Rm', fmt(g.beta2, 3))}
         ${chip('β1/β2', fmt(g.ratio, 3), Number.isFinite(g.ratio) ? (g.ratio >= 0.25 - 1e-12 && g.ratio <= 4 + 1e-12 ? 'ok' : 'bad') : '', 'Allowed 0.25–4 (WRC 537 Tables 6–8)')}`
@@ -232,17 +321,17 @@ export function mountWrcCalculator(host) {
       $('[data-slot="status"]').innerHTML = `
         <div class="wrc__tier wrc__tier--${tierClass}">${WRC_TIER_TEXT[result.tier]}</div>
         <div class="wrc__gov"><span>Governing stress intensity</span>
-          <strong>${fmt(gov.stressIntensity, 2)} <small>MPa</small></strong>
+          <strong>${S(gov.stressIntensity, 2)} <small>${U().stress}</small></strong>
           <span>at point <b>${gov.location}</b>${result.padded ? `, ${escapeHtml(gov.label.toLowerCase())}` : ''}. This is the maximum over the 8 WRC points${result.padded ? ' at each location' : ''} only.</span></div>
-        ${result.locations.filter((l) => l.result.factorSpread).map((l) => spreadHtml(l, result.padded)).join('')}`;
+        ${result.locations.filter((l) => l.result.factorSpread).map((l) => spreadHtml(l, result.padded, U())).join('')}`;
       $('[data-slot="table"]').innerHTML = result.locations.map((l) => {
         const r = l.result;
         const isGovLocation = l.id === gov.locationId;
-        return `${result.padded ? `<h3 class="wrc__h" data-location="${l.id}">${escapeHtml(l.label)} <small>${fmt(r.governing.stressIntensity, 2)} MPa at ${r.governing.location}</small></h3>` : ''}
+        return `${result.padded ? `<h3 class="wrc__h" data-location="${l.id}">${escapeHtml(l.label)} <small>${S(r.governing.stressIntensity, 2)} ${U().stress} at ${r.governing.location}</small></h3>` : ''}
         <table class="wrc__table wrc__points" data-location="${l.id}"><thead><tr><th>Point</th><th>σφ circ.</th><th>σx long.</th><th>τ shear</th><th>Stress intensity</th></tr></thead>
         <tbody>${r.rows.map((row) => `<tr${isGovLocation && row.location === gov.location ? ' class="is-gov"' : ''}>
-          <td>${row.location}</td><td>${fmt(row.circumferential, 2)}</td><td>${fmt(row.longitudinal, 2)}</td><td>${fmt(row.shear, 2)}</td><td><b>${fmt(row.stressIntensity, 2)}</b></td></tr>`).join('')}
-        </tbody><caption>MPa (N/mm²). u = outside surface, l = inside surface. A, B on the longitudinal axis; C, D on the circumferential axis.${result.padded ? ` T = ${fmt(r.geometry.T, 2)} mm, attachment ${r.geometry.rectangular ? `${fmt(2 * r.geometry.c2, 1)} along × ${fmt(2 * r.geometry.c1, 1)} around` : `diameter ${fmt(2 * r.geometry.r0, 1)}`} mm.` : ''}</caption></table>${r.rectangular ? rectTermsTable(r, l.id) : ''}`;
+          <td>${row.location}</td><td>${S(row.circumferential, 2)}</td><td>${S(row.longitudinal, 2)}</td><td>${S(row.shear, 2)}</td><td><b>${S(row.stressIntensity, 2)}</b></td></tr>`).join('')}
+        </tbody><caption>${U().stressLong}. u = outside surface, l = inside surface. A, B on the longitudinal axis; C, D on the circumferential axis.${result.padded ? ` T = ${L(r.geometry.T, 2)} ${U().length}, attachment ${r.geometry.rectangular ? `${L(2 * r.geometry.c2, 1)} along × ${L(2 * r.geometry.c1, 1)} around` : `diameter ${L(2 * r.geometry.r0, 1)}`} ${U().length}.` : ''}</caption></table>${r.rectangular ? rectTermsTable(r, l.id) : ''}`;
       }).join('');
     } else {
       $('[data-slot="status"]').innerHTML = `
@@ -270,8 +359,8 @@ export function mountWrcCalculator(host) {
     if (result.ok) {
       const gov = result.governing;
       const where = result.padded ? `, ${gov.label.toLowerCase()}` : '';
-      line = `${multi}governing ${fmt(gov.stressIntensity, 2)} MPa at ${gov.location}${where} · ${TIER_SHORT[result.tier]}${cc ? ` · code check ${cc.pass ? 'PASS' : 'FAIL'}` : ''}`;
-      spoken = `${multi}governing stress intensity ${fmt(gov.stressIntensity, 2)} MPa at point ${gov.location}${where}.${cc ? ` Code check ${cc.pass ? 'passes' : 'fails'}.` : ''}`;
+      line = `${multi}governing ${S(gov.stressIntensity, 2)} ${U().stress} at ${gov.location}${where} · ${TIER_SHORT[result.tier]}${cc ? ` · code check ${cc.pass ? 'PASS' : 'FAIL'}` : ''}`;
+      spoken = `${multi}governing stress intensity ${S(gov.stressIntensity, 2)} ${U().stress} at point ${gov.location}${where}.${cc ? ` Code check ${cc.pass ? 'passes' : 'fails'}.` : ''}`;
     } else {
       line = `${multi}not calculated: ${result.reasons[0]?.text ?? 'check the inputs.'}`;
       spoken = `${multi}not calculated. ${result.reasons[0]?.text ?? ''}`;
@@ -304,11 +393,11 @@ export function mountWrcCalculator(host) {
         const gov = r.ok && batch.governing && batch.governing.name === c.name && r.governing.stressIntensity === batch.governing.stressIntensity;
         return `<tr data-case="${i}" class="${i === state.activeCase ? 'is-active' : ''}${gov ? ' is-gov' : ''}">
           <td><button type="button" class="wrc__linkbtn" data-case="${i}"${i === state.activeCase ? ' aria-current="true"' : ''}>${escapeHtml(c.name)}</button></td>
-          <td>${r.ok ? `<b>${fmt(r.governing.stressIntensity, 2)}</b>` : '<span class="wrc__bad">not calculated</span>'}</td>
-          <td>${r.ok ? `${r.governing.location}${r.padded ? ` <small>${SHORT_LOCATION[r.governing.locationId]}</small>` : ''}` : '—'}</td><td>${fmt(pl, 2)}</td>
+          <td>${r.ok ? `<b>${S(r.governing.stressIntensity, 2)}</b>` : '<span class="wrc__bad">not calculated</span>'}</td>
+          <td>${r.ok ? `${r.governing.location}${r.padded ? ` <small>${SHORT_LOCATION[r.governing.locationId]}</small>` : ''}` : '—'}</td><td>${S(pl, 2)}</td>
           ${hasCheck ? `<td>${r.codeCheck ? ratioCell(r.codeCheck.worst) : '—'}</td>` : ''}</tr>`;
       }).join('')}</tbody>
-      <caption>All load cases, MPa. Pick a case to see its detail. ${batch.governing ? `Envelope: ${escapeHtml(batch.governing.name)}, ${fmt(batch.governing.stressIntensity, 2)} MPa at ${batch.governing.location}${batch.governing.locationId === 'ATTACHMENT' ? '' : ` ${SHORT_LOCATION[batch.governing.locationId]}`}.` : ''}${batch.codeCheck ? ` Code check: <b class="${batch.codeCheck.pass ? 'wrc__ok' : 'wrc__bad'}">${batch.codeCheck.pass ? 'all cases pass' : 'fails'}</b> (worst: ${escapeHtml(batch.codeCheck.worstCase)}).` : ''}</caption></table>`;
+      <caption>All load cases, ${U().stress}. Pick a case to see its detail. ${batch.governing ? `Envelope: ${escapeHtml(batch.governing.name)}, ${S(batch.governing.stressIntensity, 2)} ${U().stress} at ${batch.governing.location}${batch.governing.locationId === 'ATTACHMENT' ? '' : ` ${SHORT_LOCATION[batch.governing.locationId]}`}.` : ''}${batch.codeCheck ? ` Code check: <b class="${batch.codeCheck.pass ? 'wrc__ok' : 'wrc__bad'}">${batch.codeCheck.pass ? 'all cases pass' : 'fails'}</b> (worst: ${escapeHtml(batch.codeCheck.worstCase)}).` : ''}</caption></table>`;
   }
 
   /**
@@ -319,12 +408,13 @@ export function mountWrcCalculator(host) {
   function feReference() {
     return wrcFeReference({ ...state, loads: { ...state.loadCases[state.activeCase].loads } });
   }
+  /** What the FE run depends on, with the loads in N and N·mm: switching units does not make a run stale. */
   function feKey() {
     const c = state.loadCases[state.activeCase];
+    const toBase = (l) => roundSig(Number(c.loads[l.key]) * (['P', 'Vc', 'Vl'].includes(l.key) ? FORCE_UNITS[state.forceUnit] : MOMENT_UNITS[state.momentUnit]), 6);
     return JSON.stringify([state.shellOutsideDiameter, state.shellThickness, state.corrosionAllowance, state.attachmentType, state.attachmentOutsideDiameter,
       state.attachmentLength, state.attachmentWidth, state.padOutsideDiameter, state.padLength, state.padWidth, state.padThickness,
-      state.cylinderLength, state.attachmentStation, state.forceUnit, state.momentUnit, state.coordinate,
-      ...LOADS.map((l) => c.loads[l.key])]);
+      state.cylinderLength, state.attachmentStation, state.coordinate, ...LOADS.map(toBase)]);
   }
   function runFe() {
     const reference = feReference();
@@ -354,7 +444,7 @@ export function mountWrcCalculator(host) {
         : { key, status: 'error', error: feErrorText(event.data.error) };
       renderFe();
       announce(fe.status === 'done'
-        ? `${what} finished: highest FE stress intensity ${fmt(fe.result.feGoverning.fe, 2)} MPa at point ${fe.result.feGoverning.location}.`
+        ? `${what} finished: highest FE stress intensity ${S(fe.result.feGoverning.fe, 2)} ${U().stress} at point ${fe.result.feGoverning.location}.`
         : `${what} failed. ${fe.error}`);
     };
     worker.onerror = (event) => {
@@ -392,36 +482,40 @@ export function mountWrcCalculator(host) {
     const r = fe.result;
     const ref = fe.reference;
     const caseName = escapeHtml(state.loadCases[state.activeCase].name);
-    const meshText = `Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF, solved in ${fmt(r.milliseconds / 1000, 0)} s.${r.lengthAssumed ? ` No cylinder length was given, so L = ${fmt(r.geometry.length, 0)} mm (8·Rm) was assumed.` : ''}`;
+    const u = U();
+    const meshText = `Mesh ${r.mesh.nodeCount} nodes, ${r.mesh.dofs} DOF, solved in ${fmt(r.milliseconds / 1000, 0)} s.${r.lengthAssumed ? ` No cylinder length was given, so L = ${L(r.geometry.length, 0)} ${u.length} (8·Rm) was assumed.` : ''}`;
     const padText = ref.feLocation?.id === 'PAD_EDGE' ? ' Compared at the pad edge (shell only).' : '';
     let table;
     if (ref.feMode === WRC_FE_MODE.FE_ONLY) {
       table = `<table class="wrc__table wrc__fetable wrc__fetable--only"><thead><tr><th>Point</th><th>σφ circ.</th><th>σx long.</th><th>τ shear</th><th>Shell FE SI</th></tr></thead>
-      <tbody>${r.rows.map((row) => `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${fmt(row.feCircumferential, 2)}</td><td>${fmt(row.feLongitudinal, 2)}</td><td>${fmt(row.feShear, 2)}</td><td><b>${fmt(row.fe, 2)}</b></td></tr>`).join('')}</tbody>
-      <caption>MPa, all six loads of case "${caseName}", without pressure or Kn/Kb. FE only: WRC 537 has no result for this ${attachmentNoun(state)}.${padText} Highest of the 8 points: FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location}. ${meshText}</caption></table>`;
+      <tbody>${r.rows.map((row) => `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${S(row.feCircumferential, 2)}</td><td>${S(row.feLongitudinal, 2)}</td><td>${S(row.feShear, 2)}</td><td><b>${S(row.fe, 2)}</b></td></tr>`).join('')}</tbody>
+      <caption>${u.stress}, all six loads of case "${caseName}", without pressure or Kn/Kb. FE only: WRC 537 has no result for this ${attachmentNoun(state)}.${padText} Highest of the 8 points: FE ${S(r.feGoverning.fe, 2)} at ${r.feGoverning.location}. ${meshText}</caption></table>`;
     } else {
       const wrcGov = ref.governing;
       const ratio = r.feGoverning.fe / wrcGov.stressIntensity;
       table = `<table class="wrc__table wrc__fetable"><thead><tr><th>Point</th><th>WRC 537 SI</th><th>Shell FE SI</th><th>FE / WRC</th></tr></thead>
       <tbody>${r.rows.map((row, i) => {
         const w = ref.rows[i].stressIntensity;
-        return `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${fmt(w, 2)}</td><td><b>${fmt(row.fe, 2)}</b></td><td>${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td></tr>`;
+        return `<tr${row.location === r.feGoverning.location ? ' class="is-gov"' : ''}><td>${row.location}</td><td>${S(w, 2)}</td><td><b>${S(row.fe, 2)}</b></td><td>${w > 0.05 * wrcGov.stressIntensity ? fmt(row.fe / w, 2) : '—'}</td></tr>`;
       }).join('')}</tbody>
-      <caption>MPa, all six loads of case "${caseName}", without pressure or Kn/Kb.${padText} Governing: WRC ${fmt(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${fmt(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
+      <caption>${u.stress}, all six loads of case "${caseName}", without pressure or Kn/Kb.${padText} Governing: WRC ${S(wrcGov.stressIntensity, 2)} at ${wrcGov.location}, FE ${S(r.feGoverning.fe, 2)} at ${r.feGoverning.location} (FE / WRC = ${fmt(ratio, 2)}).
       ${meshText}</caption></table>`;
     }
-    const peak = r.edgePeak ? `<p class="wrc__fepeak">${escapeHtml(feEdgePeakText(r, ref.feMode === WRC_FE_MODE.COMPARE ? ref.governing.stressIntensity : null))}</p>` : '';
+    const peak = r.edgePeak ? `<p class="wrc__fepeak">${escapeHtml(feEdgePeakText(r, ref.feMode === WRC_FE_MODE.COMPARE ? ref.governing.stressIntensity : null, u))}</p>` : '';
+    // The contour is drawn, and read by the pointer, in the case's units.
+    const field = feFieldIn(r.field, u);
     slot.innerHTML = `
       ${stale ? '<p class="wrc__notes">Inputs have changed since this run. Run it again to compare the current case.</p>' : ''}
       ${table}
       ${peak}
-      ${r.field ? buildFeContourHtml(r.field, { caption: FE_CONTOUR_CAPTION }) : ''}
+      ${field ? buildFeContourHtml(field, { caption: FE_CONTOUR_CAPTION, unitsLabel: u.stress, lengthLabel: u.length, stressDigits: u.id === 'SI' ? 2 : 0 }) : ''}
       <p class="wrc__help">${r.rectangular ? FE_LUG_METHOD_NOTE : FE_METHOD_NOTE}</p>`;
     const contour = slot.querySelector('.fe-contour');
-    if (contour && r.field) attachContourHover(contour, r.field);
+    if (contour && field) attachContourHover(contour, field, u);
   }
 
-  function attachContourHover(contour, field) {
+  /** `field` is in display units `u` (feFieldIn), so the pointer position reads straight off it. */
+  function attachContourHover(contour, field, u) {
     const readout = contour.querySelector('[data-role="fe-contour-readout"]');
     const idle = 'Point at a plot to read the stress intensity there.';
     readout.textContent = idle;
@@ -436,7 +530,8 @@ export function mountWrcCalculator(host) {
         const x = -point.y;
         const hit = triangleAt(field, s, x);
         if (hit) {
-          readout.textContent = `${surface === 'u' ? 'Outside' : 'Inside'} surface: ${hit[surface].toFixed(2)} MPa at s = ${Math.round(s)} mm, x = ${Math.round(x)} mm (element average).`;
+          const at = (v) => (u.id === 'SI' ? String(Math.round(v)) : v.toFixed(1));
+          readout.textContent = `${surface === 'u' ? 'Outside' : 'Inside'} surface: ${hit[surface].toFixed(u.id === 'SI' ? 2 : 0)} ${u.stress} at s = ${at(s)} ${u.length}, x = ${at(x)} ${u.length} (element average).`;
         } else {
           readout.textContent = insideAttachment(field, s, x) ? 'Inside the attachment: not part of the shell result.' : idle;
         }
@@ -452,12 +547,12 @@ export function mountWrcCalculator(host) {
     const cc = result.ok ? result.codeCheck : null;
     if (!cc) { slot.innerHTML = ''; return; }
     const first = result.locations[0].result.codeCheck;
-    const rows = result.locations.flatMap((l) => l.result.codeCheck.items.map((i) => `<tr${result.padded ? ` data-location="${l.id}"` : ''}><td>${escapeHtml(i.label)}</td>${result.padded ? `<td>${SHORT_LOCATION[l.id]}</td>` : ''}<td>${i.location}</td><td>${fmt(i.value, 2)}</td><td>${fmt(i.limit, 1)} <small>(${i.limitText})</small></td><td>${ratioCell(i)}</td></tr>`));
+    const rows = result.locations.flatMap((l) => l.result.codeCheck.items.map((i) => `<tr${result.padded ? ` data-location="${l.id}"` : ''}><td>${escapeHtml(i.label)}</td>${result.padded ? `<td>${SHORT_LOCATION[l.id]}</td>` : ''}<td>${i.location}</td><td>${S(i.value, 2)}</td><td>${S(i.limit, 1)} <small>(${i.limitText})</small></td><td>${ratioCell(i)}</td></tr>`));
     slot.innerHTML = `
       <h3 class="wrc__h">Code check: <span class="${cc.pass ? 'wrc__ok' : 'wrc__bad'}">${cc.pass ? 'PASS' : 'FAIL'}</span></h3>
       <table class="wrc__table wrc__check"><thead><tr><th>Category</th>${result.padded ? '<th>Location</th>' : ''}<th>Point</th><th>Stress</th><th>Limit</th><th>Ratio</th></tr></thead>
       <tbody>${rows.join('')}</tbody>
-      <caption>MPa. S = ${fmt(first.S, 1)}, SPS = ${fmt(first.Sps, 1)}. Stress intensity (Tresca). PL is the membrane part: pressure, WRC membrane and shear.${result.padded ? ' Pm uses the wall at each location.' : ''} A screening check with your allowables, not a full code assessment.</caption></table>`;
+      <caption>${U().stress}. S = ${S(first.S, 1)}, SPS = ${S(first.Sps, 1)}. Stress intensity (Tresca). PL is the membrane part: pressure, WRC membrane and shear.${result.padded ? ' Pm uses the wall at each location.' : ''} A screening check with your allowables, not a full code assessment.</caption></table>`;
   }
 
   function setCase(next) {
@@ -466,14 +561,28 @@ export function mountWrcCalculator(host) {
     render();
   }
 
-  form.addEventListener('input', (event) => {
+  /** Show the same case in another unit system: the form and loads are converted, the results do not change. */
+  function switchUnits(id) {
+    if (id === unitSystem(state).id) return;
+    state = convertCaseUnits(state, id);
+    writeForm();
+    render();
+  }
+
+  // The inputs are in the form and the bar (case title, units), so listen on the whole panel.
+  const isInput = (el) => el.matches('[data-k], [data-load], [data-casename]');
+  host.addEventListener('input', (event) => {
+    if (!isInput(event.target)) return;
+    if (event.target.dataset.k === 'units') { switchUnits(event.target.value); return; }
     state = readForm();
     if (event.target.matches('[data-casename]')) renderCaseTabs();
     render();
   });
   // 'input' has already drawn the result; a 'change' on leaving a box that changes nothing must not draw it
   // again, or the case button the keyboard focus is moving to is replaced under it.
-  form.addEventListener('change', () => {
+  host.addEventListener('change', (event) => {
+    if (!isInput(event.target)) return;
+    if (event.target.dataset.k === 'units') { switchUnits(event.target.value); return; }
     const next = readForm();
     if (JSON.stringify(next) === JSON.stringify(state)) return;
     state = next;
@@ -486,6 +595,12 @@ export function mountWrcCalculator(host) {
     if (caseEl) { selectCase(Number(caseEl.dataset.case)); return; }
     const act = event.target.closest('[data-act]')?.dataset.act;
     if (act === 'runFe') { runFe(); return; }
+    if (act === 'helpToggle') {
+      showHelp = event.target.checked;
+      try { globalThis.localStorage?.setItem(HELP_KEY, showHelp ? 'on' : 'off'); } catch { /* storage optional */ }
+      applyHelp();
+      return;
+    }
     if (act === 'toResults') {
       $('.wrc__results').scrollIntoView({ block: 'start' });
       $('#wrc-results-heading').focus({ preventScroll: true });
@@ -509,8 +624,9 @@ export function mountWrcCalculator(host) {
   $('[data-act="example"]').addEventListener('change', (event) => {
     const key = event.target.value;
     event.target.value = '';
-    if (key === 'DEFAULT') setCase(DEFAULT_CASE);
-    else if (EXAMPLE_CASES[key]) setCase(EXAMPLE_CASES[key]);
+    // An example is stored in SI; it opens in the units the user has chosen.
+    const example = key === 'DEFAULT' ? DEFAULT_CASE : EXAMPLE_CASES[key];
+    if (example) setCase(convertCaseUnits(normalizeCase(example), unitSystem(state).id));
   });
   $('[data-act="file"]').addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
@@ -583,7 +699,7 @@ function feErrorText(message) {
 }
 
 /** The Table 7/8 interpolation spread of one location (roadmap PL-01), as one line under the governing value. */
-function spreadHtml(location, padded) {
+function spreadHtml(location, padded, u) {
   const sp = location.result.factorSpread;
   const skipped = sp.corners.filter((c) => c.skipped).length;
   const where = padded ? ` ${escapeHtml(location.label.toLowerCase())}` : '';
@@ -591,8 +707,8 @@ function spreadHtml(location, padded) {
     return `<p class="wrc__spread wrc__spread--wide" data-location="${location.id}">Table 7/8 interpolation spread${where}: not available, every corner run was outside the method.</p>`;
   }
   return `<p class="wrc__spread${sp.wide ? ' wrc__spread--wide' : ''}" data-location="${location.id}" title="The lug run again with the printed Table 7/8 rows on each side of the interpolation instead (lower or upper β1/β2 row × lower or upper γ row). Not a proven bound.">
-    Table 7/8 interpolation spread${where}: <b>${fmt(sp.low, 2)}–${fmt(sp.high, 2)} MPa</b> with the nearest printed rows instead
-    (${fmt(100 * sp.width, 1)}% of ${fmt(location.result.governing.stressIntensity, 2)} MPa${sp.wide ? ', wide: check it by FE or a benchmark' : ''})${skipped ? `; ${skipped} of ${sp.corners.length} corner runs were outside the method` : ''}.</p>`;
+    Table 7/8 interpolation spread${where}: <b>${stressText(sp.low, 2, u)}–${stressText(sp.high, 2, u)} ${u.stress}</b> with the nearest printed rows instead
+    (${fmt(100 * sp.width, 1)}% of ${stressText(location.result.governing.stressIntensity, 2, u)} ${u.stress}${sp.wide ? ', wide: check it by FE or a benchmark' : ''})${skipped ? `; ${skipped} of ${sp.corners.length} corner runs were outside the method` : ''}.</p>`;
 }
 
 const TERM_LABEL = Object.freeze({
@@ -629,7 +745,9 @@ function normalizeCase(c) {
   }));
   merged.activeCase = Number.isInteger(src.activeCase) && src.activeCase >= 0 && src.activeCase < merged.loadCases.length ? src.activeCase : 0;
   delete merged.loads;
-  return merged;
+  // Cases saved before units existed are SI. Load units from the other system (an edited file) are converted.
+  merged.units = UNIT_SYSTEMS[merged.units] ? merged.units : 'SI';
+  return convertCaseUnits(merged, merged.units);
 }
 function slug(text) { return (String(text || 'wrc-case').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'wrc-case').slice(0, 60); }
 function escapeHtml(text) { return String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }

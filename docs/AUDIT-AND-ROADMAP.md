@@ -630,6 +630,40 @@ Still to do in PL-06:
 - **Part 3:** the LAFEA workbench and the advanced workflow. Move the custody and authority text into a
   "Technical details" drawer, use plain example defaults, and bring the same look and keyboard checks there.
 
+**2026-11-27: PL-06 part 2, US units and help text in the WRC calculator.**
+
+- **Units.** A case is shown in SI (mm, MPa) or US customary (in, psi). Calculations are unchanged: the case
+  still stores lengths in mm and pressure and allowables in MPa, and `units` only chooses the display
+  (`src/app/wrc/wrc-units.js`).
+  - **Loads** keep their own units, now N, kN, lbf or kip and N·m, kN·m, N·mm, in·lbf, ft·lbf, in·kip or ft·kip.
+    All factors are exact (1 in = 25.4 mm, 1 lbf = 4.4482216152605 N).
+  - **Switching the system** converts the form and every load case's loads to the matching units (N ↔ lbf,
+    N·m ↔ ft·lbf, N·mm ↔ in·lbf), so the physical case is the same. Back in SI, the boxes show the typed values
+    again. US boxes show 7 significant figures, and a box left alone keeps its exact stored value.
+  - **Follows the units:** the results, code check, envelope, live summary, the calculator's reasons and
+    warnings (for example "Attachment OD must lie between 2.22 and 22.21 in"), the report, and the FE table,
+    edge-peak text and contour. An inch shows one more decimal than a mm; a psi shows two fewer than a MPa.
+  - **Saving:** the choice is saved with the case. An example opens in the units the user has chosen. Old
+    cases open in SI.
+- **Help text** under every input, linked with `aria-describedby` so screen readers read it with the input. The
+  "Help text" box in the bar hides the lines and is remembered.
+  - Each line says what the input is and how it is used.
+  - Three facts in the load help are checked against the calculator: +P pushes the attachment into the shell
+    (compressive membrane at A–D); Mc is largest at C or D; Ml is largest at A or B.
+- **Also:** the panel now listens for changes on the bar too, so editing the case title is saved at once.
+
+Checks:
+- new `scripts/wrc-units-check.mjs`:
+  - exact factors;
+  - all six examples go SI → US → SI and give the same stresses;
+  - formatting;
+  - messages, report and contour in US, with SI text unchanged;
+  - the three load-help facts;
+- new `e2e/wrc-units-help.spec.js` (3 tests):
+  - switching and typing in inches;
+  - examples keep the units;
+  - every input has a description, and the help toggle.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

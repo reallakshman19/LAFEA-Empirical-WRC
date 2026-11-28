@@ -27,6 +27,15 @@ import {
   evaluateEmp1Wrc537CylindricalTable5,
 } from '../../core/emp1/emp1-wrc537-cylindrical-table5.js';
 import { WRC537_RECT_RATIO_RANGE, rectangularTerms } from './wrc537-rectangular.js';
+import { FORCE_UNITS, MOMENT_UNITS, lengthText, stressText, unitSystem } from './wrc-units.js';
+
+/**
+ * A length (mm) or stress (MPa) in the case's display units, for reasons and warnings. `lengthIn(v, 1, input)`
+ * is the number ("120.5" or "4.74"); `units(input).length` / `.stress` is its unit. In SI the text is as before.
+ */
+const lengthIn = (mm, digits, input) => lengthText(mm, digits, unitSystem(input));
+const stressIn = (mpa, digits, input) => stressText(mpa, digits, unitSystem(input));
+const units = (input) => unitSystem(input);
 
 export const WRC_LOCATIONS = EMP1_WRC537_CYL_LOCATIONS;
 export const WRC_BETA_RANGE = Object.freeze({ minimum: 0.05, maximum: 0.5 });
@@ -40,8 +49,8 @@ export const WRC_COORDINATES = Object.freeze({
   LOG_GAMMA: 'Log γ: best estimate, can be unconservative',
 });
 
-export const FORCE_UNITS = Object.freeze({ N: 1, kN: 1000 });
-export const MOMENT_UNITS = Object.freeze({ 'N·m': 1000, 'kN·m': 1e6, 'N·mm': 1 });
+// Load units (N, kN, lbf, kip; N·m … ft·kip) and the display units live in wrc-units.js.
+export { FORCE_UNITS, MOMENT_UNITS } from './wrc-units.js';
 
 /** Route tiers, most to least authoritative. */
 export const WRC_TIER = Object.freeze({
@@ -112,6 +121,8 @@ export const DEFAULT_CASE = Object.freeze({
   padThickness: '',
   cylinderLength: 3000,
   attachmentStation: 1500,
+  // Display units (wrc-units.js). Lengths stay in mm and stresses in MPa whatever this says.
+  units: 'SI',
   forceUnit: 'N',
   momentUnit: 'N·m',
   loads: Object.freeze({ P: -2000, Vc: 500, Vl: -800, Mc: 1500, Ml: -2500, Mt: 1000 }),
@@ -293,12 +304,12 @@ export function calculateWrc537(input) {
           : 'The shell is too thin for WRC 537. Use FE (LAFEA) instead.'));
     }
     if (g.rectangular) {
-      reasons.push(...rectangularRangeReasons(g, loads, input.coordinate === 'LOG_GAMMA' ? 'LOG_GAMMA' : 'LINEAR_GAMMA', gammaClass));
+      reasons.push(...rectangularRangeReasons(g, loads, input.coordinate === 'LOG_GAMMA' ? 'LOG_GAMMA' : 'LINEAR_GAMMA', gammaClass, input));
     } else if (!(g.beta >= WRC_BETA_RANGE.minimum && g.beta <= WRC_BETA_RANGE.maximum)) {
       const lowHigh = g.beta < WRC_BETA_RANGE.minimum ? 'small' : 'large';
       reasons.push(reason('BETA',
         `β = 0.875·r0/Rm = ${fmt(g.beta, 3)} is outside 0.05–0.5: the attachment is too ${lowHigh} for this shell.`,
-        `Attachment OD must lie between ${fmt(2 * WRC_BETA_RANGE.minimum * g.Rm / 0.875, 1)} and ${fmt(2 * WRC_BETA_RANGE.maximum * g.Rm / 0.875, 1)} mm for this shell.`));
+        `Attachment OD must lie between ${lengthIn(2 * WRC_BETA_RANGE.minimum * g.Rm / 0.875, 1, input)} and ${lengthIn(2 * WRC_BETA_RANGE.maximum * g.Rm / 0.875, 1, input)} ${units(input).length} for this shell.`));
     }
     // WRC 537 §4.5.2 cylinder-length rules (only checked when a length is given)
     const hasLength = Number.isFinite(g.L) && g.L > 0;
@@ -308,12 +319,12 @@ export function calculateWrc537(input) {
       } else {
         if (loads.P !== 0 && g.L < g.Rm) {
           reasons.push(reason('LENGTH',
-            `Cylinder length ${fmt(g.L, 0)} mm is less than Rm = ${fmt(g.Rm, 1)} mm, so WRC 537 §4.5.2 does not allow a radial load P.`,
+            `Cylinder length ${lengthIn(g.L, 0, input)} ${units(input).length} is less than Rm = ${lengthIn(g.Rm, 1, input)} ${units(input).length}, so WRC 537 §4.5.2 does not allow a radial load P.`,
             'Use a longer cylinder (the distance between stiffeners or heads), or set P = 0.'));
         }
         if ((loads.Mc !== 0 || loads.Ml !== 0) && g.endDistance < 0.5 * g.Rm) {
           reasons.push(reason('LENGTH',
-            `The attachment is ${fmt(g.endDistance, 0)} mm from the nearest cylinder end, which is under 0.5·Rm = ${fmt(0.5 * g.Rm, 1)} mm. WRC 537 §4.5.2 does not allow Mc or Ml there.`,
+            `The attachment is ${lengthIn(g.endDistance, 0, input)} ${units(input).length} from the nearest cylinder end, which is under 0.5·Rm = ${lengthIn(0.5 * g.Rm, 1, input)} ${units(input).length}. WRC 537 §4.5.2 does not allow Mc or Ml there.`,
             'Move the attachment further from the end, or use FE (LAFEA).'));
         }
       }
@@ -349,11 +360,12 @@ export function calculateWrc537(input) {
     factorSpread = rectangularFactorSpread({ g, loads, coordinate, Kn, Kb, pressureStress, pressure, governing });
     if (factorSpread?.wide) {
       warnings.push(`The Table 7/8 interpolation matters for this attachment: with the nearest printed rows instead, the governing stress ranges `
-        + `${fmt(factorSpread.low, 2)}–${fmt(factorSpread.high, 2)} MPa (${fmt(100 * factorSpread.width, 1)}% of ${fmt(governing.stressIntensity, 2)}). Check it by FE or a benchmark.`);
+        + `${stressIn(factorSpread.low, 2, input)}–${stressIn(factorSpread.high, 2, input)} ${units(input).stress} (${fmt(100 * factorSpread.width, 1)}% of ${stressIn(governing.stressIntensity, 2, input)}). Check it by FE or a benchmark.`);
     }
   }
   if (pressure !== 0) {
-    warnings.push(`Pressure ${fmt(pressure, 3)} MPa adds thin-shell membrane stress p·Rm/T = ${fmt(pressureStress.circumferential, 2)} MPa (hoop) and p·Rm/2T = ${fmt(pressureStress.longitudinal, 2)} MPa (longitudinal) at every point. `
+    const su = units(input).stress;
+    warnings.push(`Pressure ${stressIn(pressure, 3, input)} ${su} adds thin-shell membrane stress p·Rm/T = ${stressIn(pressureStress.circumferential, 2, input)} ${su} (hoop) and p·Rm/2T = ${stressIn(pressureStress.longitudinal, 2, input)} ${su} (longitudinal) at every point. `
       + (isTrunnion(input)
         ? 'This is common practice, not part of WRC 537. A trunnion does not open the shell, so there is no opening-edge pressure stress; the local stress from the trunnion restraining the shell\'s pressure growth is not included.'
         : isRectangular(input)
@@ -567,7 +579,7 @@ function termInfo(term) {
  * Blocking rules for a rectangular attachment that WRC 537 states (§4.2.2, §4.3.4, Tables 6–8).
  * Each is marked `feRoute`: the shell-FE model has no such limit, so it can answer these cases alone.
  */
-function rectangularRangeReasons(g, loads, coordinate, gammaClass) {
+function rectangularRangeReasons(g, loads, coordinate, gammaClass, input = {}) {
   const out = [];
   const push = (r) => out.push({ ...r, feRoute: true });
   const range = WRC537_RECT_RATIO_RANGE;
@@ -579,7 +591,7 @@ function rectangularRangeReasons(g, loads, coordinate, gammaClass) {
   if (!(g.ratio >= range.minimum - 1e-12 && g.ratio <= range.maximum + 1e-12)) {
     push(reason('RATIO',
       `The footprint shape β1/β2 = c1/c2 = ${fmt(g.ratio, 3)} is outside 0.25–4, where WRC 537 Tables 6–8 hold. A thin plate welded straight to the shell is usually outside it.`,
-      `Width around the shell must be between ${fmt(range.minimum * 2 * g.c2, 1)} and ${fmt(range.maximum * 2 * g.c2, 1)} mm for this length. Otherwise use FE (LAFEA). A pad does not help here: at the lug the footprint is still the plate.`));
+      `Width around the shell must be between ${lengthIn(range.minimum * 2 * g.c2, 1, input)} and ${lengthIn(range.maximum * 2 * g.c2, 1, input)} ${units(input).length} for this length. Otherwise use FE (LAFEA). A pad does not help here: at the lug the footprint is still the plate.`));
     return out;
   }
   if (gammaClass.tier === WRC_TIER.BLOCKED) return out;
@@ -699,7 +711,7 @@ function padReasons(input) {
     }
     for (const [pad, att, label] of [['padLength', 'attachmentLength', 'length'], ['padWidth', 'attachmentWidth', 'width']]) {
       if (num(input[pad]) > 0 && num(input[att]) > 0 && !(num(input[pad]) > num(input[att]))) {
-        out.push(reason('PAD', `The pad ${label} (${fmt(num(input[pad]), 1)} mm) must be larger than the attachment ${label} (${fmt(num(input[att]), 1)} mm).`, 'Check the pad size.'));
+        out.push(reason('PAD', `The pad ${label} (${lengthIn(num(input[pad]), 1, input)} ${units(input).length}) must be larger than the attachment ${label} (${lengthIn(num(input[att]), 1, input)} ${units(input).length}).`, 'Check the pad size.'));
       }
     }
     return out;
@@ -711,7 +723,7 @@ function padReasons(input) {
   if (!(dp > 0)) out.push(reason('PAD', 'Pad outside diameter must be a positive number.', 'Enter both pad fields, or leave both blank for no pad.'));
   if (!(tp > 0)) out.push(reason('PAD', 'Pad thickness must be a positive number.', 'Enter both pad fields, or leave both blank for no pad.'));
   if (dp > 0 && dA > 0 && !(dp > dA)) {
-    out.push(reason('PAD', `The pad (${fmt(dp, 1)} mm) must be larger than the attachment (${fmt(dA, 1)} mm).`, 'Check the pad outside diameter.'));
+    out.push(reason('PAD', `The pad (${lengthIn(dp, 1, input)} ${units(input).length}) must be larger than the attachment (${lengthIn(dA, 1, input)} ${units(input).length}).`, 'Check the pad outside diameter.'));
   }
   return out;
 }

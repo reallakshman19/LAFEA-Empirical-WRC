@@ -142,6 +142,25 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
 - **Redraws.** `render()` redraws the case buttons. `caseFocus()` / `restoreCaseFocus()` keep the keyboard focus
   on the same case.
 
+### 3.3b WRC units and help text (PL-06 part 2)
+
+- **Storage stays SI.** A case stores lengths in mm and pressure and allowables in MPa whatever `units` says
+  (`src/app/wrc/wrc-units.js`), so the calculator, the FE worker and old case files need nothing new. Loads
+  are stored as typed with `forceUnit` / `momentUnit`. `FORCE_UNITS` and `MOMENT_UNITS` live in
+  `wrc-units.js`, and `wrc-calc.js` re-exports them.
+- **The form converts:**
+  - `writeForm()` shows stored values in the case's units: 10 significant figures in SI, 7 in US.
+  - `readForm()` converts back, but keeps the exact stored value when a box's text is unchanged, so showing a
+    value in inches never moves it.
+  - Switching systems goes through `convertCaseUnits` (loads to the twin units, full precision).
+- **Output in the case's units.** In the panel use `L()` / `S()`, in the report `L()` / `S()`, and in
+  `wrc-calc.js` messages `lengthIn()` / `stressIn()`. For the FE contour, `feFieldIn(field, u)` converts the
+  field and `buildFeContourHtml` takes `lengthLabel` and `stressDigits`. Never print "mm" or "MPa" directly
+  in new output. `scripts/wrc-units-check.mjs` checks the US report has no other "MPa".
+- **Help text** comes from `help` in `FIELDS` and `LOADS`, shown as `.wrc__fieldhelp` and linked with
+  `aria-describedby`. The load help's physics (+P pushes in; Mc largest at C/D, Ml at A/B) is asserted in
+  the units check.
+
 ### 3.4 CI and Pages
 
 - **`ci.yml`:**

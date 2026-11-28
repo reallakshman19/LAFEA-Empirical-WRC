@@ -84,7 +84,14 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
 **round attachment** (nozzle, trunnion) or a **rectangular attachment** (lug, plate), at the 8 WRC points
 (A–D, outside/inside surface).
 
-- **Inputs:** plain inputs in mm, N or kN, and N·m, kN·m or N·mm:
+- **Units:** SI (mm, MPa; loads in N or kN, and N·m, kN·m or N·mm) or US customary (in, psi; loads in lbf or
+  kip, and in·lbf, ft·lbf, in·kip or ft·kip).
+  - Switching converts the form and the loads, and the results, report and FE contour follow.
+  - The calculation itself always runs in mm, N and MPa (`src/app/wrc/wrc-units.js`).
+  - The choice is saved with the case, and an example opens in the units you chose.
+- **Help text** under every input says what it is and how it is used, for example which way +P points. Screen
+  readers read it with the input. "Help text" in the bar hides it.
+- **Inputs:**
   - shell OD, thickness and corrosion allowance;
   - attachment type: nozzle or trunnion (OD; a trunnion is a solid bar or a pipe), or rectangular (length along
     and width around the shell);
@@ -236,19 +243,19 @@ dependencies**.
 
 ## Tests
 
-Results after Phase 5.4 (2026-11-26), on Windows with Node 22 and Chrome:
+Results after PL-06 part 2 (2026-11-27), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **309 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **310 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field), `node scripts/wrc-lug-fe-check.mjs` (lug model, all six loads), `node scripts/wrc-lug-fe-route-check.mjs` (FE-only route, square vs round) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
-| Browser e2e (22 specs, 59 tests) | `npx playwright test` (dev server) | **51 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, LAFEA example, plate form, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **19 pass** on the dev server. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
+| Browser e2e (24 specs, 62 tests) | `npx playwright test` (dev server) | **54 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
+| App e2e (WRC calculator, WRC units and help text, LAFEA example, plate form, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/wrc-units-help.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **22 pass** on the dev server. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |
-| First-load size | `npm run check:bundle-size` (after `build`) | pass: 171.6 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
+| First-load size | `npm run check:bundle-size` (after `build`) | pass: 181.0 kB of JS (limit 500 kB); the LAFEA workbench is lazy-loaded |
 
 `scripts/known-upstream-failures.json` lists the 13 KNOWN checks that `check:all`
 skips, each with a plain reason:
