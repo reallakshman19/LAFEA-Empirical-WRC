@@ -122,8 +122,9 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   - each attachment is checked on its own, exactly as a single case: WRC 537 does not cover two attachments
     close together. The position around the shell is used for the drawing only;
   - the report is for the selected attachment, says which one it is, and its sketch shows the whole shell.
-- **Layout: the shell unrolled** (canvas step A3, `src/app/wrc/vessel-unrolled.js`, `canvas-snap.js`): the outside
-  of the shell cut along the top and laid flat, position along left to right and angle around top to bottom:
+- **Layout: the shell unrolled** (canvas step A3, `src/app/wrc/vessel-unrolled.js`, `canvas-snap.js`), folded
+  under the sketch until opened: the outside of the shell cut along the top and laid flat, position along left
+  to right and angle around top to bottom:
   - every attachment and pad at its true size; one that crosses the 0°/360° cut shows at both edges. A long
     thin shell is stretched around to stay workable, and the caption says by how much;
   - drag an attachment to move it. It snaps to a grid (a round step along, 15° around) and lines up with the
