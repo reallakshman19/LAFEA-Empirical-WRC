@@ -748,6 +748,39 @@ Checks:
 - new `e2e/wrc-sketch.spec.js` (2 tests): the default nozzle's dimensions and screen-reader name, redrawing as
   you type, US units, a lug in both views, folding away; no sideways scrolling on a phone.
 
+**2026-11-28: canvas step A2, several attachments on one shell.** Owner decisions 7 and 8: the canvas lives
+in the Empirical tab above the calculator form, and the model file is empirical only.
+- `src/app/wrc/vessel-model.js`: a vessel is a shell and up to 20 attachments. An attachment joined with the
+  shell is exactly the calculator's single case (`caseFor`), so the WRC 537 core is used unchanged. The shell
+  holds what one shell shares (size, length, corrosion allowance, pressure, allowables, method settings);
+  an attachment holds its name, type, size, pad, position along and around, Kn/Kb and load cases.
+- The "Vessel" box above the form: a button per attachment, "+ Add attachment" (a copy a quarter turn round),
+  "Delete attachment", the sketch, and with two or more attachments a table of each one's governing stress
+  intensity, point, load case and code check, naming the highest. Picking an attachment loads it into the
+  form; the focus stays on what was picked.
+- Each attachment is checked on its own. WRC 537 does not cover two attachments close together, and the
+  table caption says so; the spacing warning is A4 (decision 9).
+- The position around the shell is new and used for the drawing only: the loads stay in each attachment's
+  own WRC 537 axes (vessel axes are A5, decision 10).
+- The sketch draws every attachment: in the side view (seen from the 90° side) as a stub up or down, or as a
+  foreshortened footprint on the face (dashed behind the shell); in the end section turned to its angle. The
+  selected one is highlighted and dimensioned, with its angle as an arc in the end section.
+- Files: `*.vessel.json` (`lafea-emp-app/vessel/v1`); a `*.wrc.json` case from before opens as one
+  attachment. The browser copy moves to the key `lafea-emp-app/wrc-vessel`; the old key is read once.
+- The report is for the selected attachment, names it ("Attachment N1, one of 3 on this shell") and its
+  sketch shows the whole shell.
+- New example "Vessel: two nozzles and a lug" (the lug example's shell with N1, N2 and L1).
+
+Checks:
+- new `scripts/wrc-vessel-check.mjs` (in `check:all`): the six examples give the same stresses as
+  one-attachment vessels (the γ = 5 hand calculation still 72.67 MPa); shell inputs shared and attachment
+  inputs kept; add, remove, unique names, angles; US = SI for every attachment, including one not visited
+  since the switch; vessel files round-trip, old case files open, others are refused; every attachment equals
+  its own single-case result and the highest is named; the sketch and the report show all of them;
+- new `e2e/wrc-vessel.spec.js` (2 tests): the canvas above the form; the worked vessel's table; picking from
+  the table with the focus kept; shared and own inputs; add, rename, delete; kept after a reload; save to a
+  file and open it again; an old case file opens as one attachment with the γ = 5 result.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

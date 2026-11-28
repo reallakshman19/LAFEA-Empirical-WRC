@@ -193,9 +193,26 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   `data-dim`, which the check and the e2e test read.
 - **Not to scale:** only the attachment's height (`stubHeight()`), which is not an input.
 - **FE and empirical stay apart** (owner, 2026-11-28). The canvas is the empirical track; see the canvas plan
-  and decisions 7–10 in NEXT-PHASE-PLAN.md before starting A2.
+  and decisions 7–10 in NEXT-PHASE-PLAN.md.
 - **Pdf-Hub ports** keep a header naming the source file and commit (`74fcb94`). Port the math only, as plain
   JS; do not bring in React, Zustand, Konva or three.js.
+
+### 3.3e Canvas step A2: several attachments (`src/app/wrc/vessel-model.js`)
+
+- **The panel's `state` is still one case**: the selected attachment joined with the shell (`caseFor`). Every
+  existing piece of the panel works on it unchanged. `sync()` writes it back into `vessel` (`withCase`); call
+  it before anything that reads the whole vessel (render, save, add, delete, switching attachment).
+- **Shell or attachment?** `SHELL_KEYS` lists what the shell shares; everything else belongs to the
+  attachment. A new input must be put on the right side of that list.
+- **Units:** `caseFor` converts an attachment's loads to the vessel's units when it is opened, so attachments
+  not visited since a units switch still hold their old load units in the stored vessel. That is fine: loads
+  are stored with their units.
+- **Each attachment is checked on its own** (`checkVessel`). Do not combine attachments' stresses: WRC 537
+  does not cover it. The angle around the shell is for the drawing only until A5.
+- **Storage:** `lafea-emp-app/wrc-vessel`; the old `lafea-emp-app/wrc-case` is read only when there is no vessel
+  yet. `normalizeCase` moved from the panel into `vessel-model.js`.
+- **Click targets:** attachment buttons use `data-attachment`, load cases `data-case`; the click handler
+  checks `data-case` first, so keep the two apart.
 
 ### 3.4 CI and Pages
 

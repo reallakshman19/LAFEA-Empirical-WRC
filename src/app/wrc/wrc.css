@@ -75,7 +75,17 @@
 .wrc__sys, .wrc__helptoggle { display: flex; gap: 6px; align-items: center; color: var(--wrc-muted); }
 .wrc__helptoggle input { accent-color: var(--wrc-accent); margin: 0; }
 
-/* Canvas step A1: the dimensioned sketch of the inputs (vessel-sketch.js). */
+/* Canvas A1–A2: the vessel above the form: attachments, the sketch and the table of all attachments. */
+.wrc__canvas { margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); }
+.wrc__canvas-h { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--wrc-muted); text-transform: uppercase; letter-spacing: .04em; }
+.wrc__atts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.wrc__atts button small { color: var(--wrc-muted); font-weight: 400; margin-left: 4px; }
+.wrc__atts button.is-active { background: var(--ui-control-active); border-color: var(--ui-accent); }
+.wrc__canvas > .wrc__fieldhelp { margin: 6px 0 8px; }
+.wrc__canvas { min-width: 0; }
+.wrc__vessel-wrap { overflow-x: auto; margin-top: 10px; }
+.wrc__vessel td:nth-child(2) { white-space: nowrap; }
+.wrc__vessel tr.is-active td { background: var(--ui-control); }
 .wrc__sketch { margin-bottom: 10px; }
 .wrc__sketch > summary { cursor: pointer; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 .vsketch { margin: 0; padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-panel); }

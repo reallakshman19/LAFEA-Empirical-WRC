@@ -100,7 +100,7 @@ ${rows.join('')}
 </table>`;
 }
 
-export function buildWrcReportHtml(run, { generatedAt = new Date(), appVersion = '', fe = null } = {}) {
+export function buildWrcReportHtml(run, { generatedAt = new Date(), appVersion = '', fe = null, vessel = null } = {}) {
   const batch = run.cases
     ? { ...run, cases: run.cases.map((c) => ({ ...c, result: asAttachment(c.result) })) }
     : { cases: [{ name: 'Case 1', result: asAttachment(run) }], governing: null, codeCheck: null };
@@ -177,6 +177,7 @@ ${l.result.ok ? `<tr><td>Pressure membrane stress, hoop p·R<sub>m</sub>/T / lon
 <h1>WRC 537 local stress: ${esc(i.title || 'Attachment on cylindrical shell')}</h1>
 <div class="muted">Generated ${esc(generatedAt.toISOString().replace('T', ' ').slice(0, 19))} UTC · LAFEA + Empirical/WRC ${esc(appVersion)}</div>
 ${u.id === 'SI' ? '' : `<div class="muted">Units: ${u.length} and ${u.stress}; loads in the units entered. Calculated in mm, N and MPa and converted for this report.</div>`}
+${vessel && vessel.count > 1 ? `<div class="muted">Attachment ${esc(vessel.name || '')}, one of ${vessel.count} on this shell. Each attachment is checked on its own; WRC 537 does not cover two attachments close together.</div>` : ''}
 <div class="tier"><b>Method:</b> WRC Bulletin 537 (2013), cylindrical shell, ${g0.rectangular ? 'rectangular attachment (§4.2.2, equations 28–30 and 50–51, Tables 6–8) on the Table 5 curves' : `round attachment${trunnion ? ' (trunnion)' : ''}, Table 5`}. ${esc(WRC_TIER_TEXT[ref.tier])}${padded ? `<br>${esc(WRC_PAD_METHOD_TEXT)}` : ''}</div>
 
 <h2>1. Geometry and design data</h2>
@@ -197,7 +198,7 @@ ${locationGeometry}
 ${allowable ? `<tr><td>Allowable stress / secondary limit</td><td>S / S<sub>PS</sub></td><td class="n">${S(Number(i.allowableS), 2)} / ${Number(i.allowableSps) > 0 ? S(Number(i.allowableSps), 2) : `${S(3 * Number(i.allowableS), 2)} (3S)`}</td><td>${u.stress}</td></tr>
 <tr><td colspan="4">Load bending stress classified as: ${esc(WRC_BENDING_CLASS[i.bendingClass] ?? WRC_BENDING_CLASS.Q)}</td></tr>` : ''}
 </table>
-<div class="sketch">${buildVesselSketchHtml(i, { theme: 'print' })}</div>
+<div class="sketch">${buildVesselSketchHtml(i, { theme: 'print', others: vessel?.others ?? [] })}</div>
 
 <h2>2. Load cases at the attachment (WRC 537 axes)</h2>
 <table>

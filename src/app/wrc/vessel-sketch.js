@@ -1,11 +1,16 @@
 /**
- * Canvas step A1: a dimensioned sketch of the WRC calculator's inputs (roadmap stage A).
+ * Canvas steps A1 and A2: a dimensioned sketch of the vessel (roadmap stage A, empirical track).
  *
  * Two SVG views, drawn from the inputs alone:
- * - side view: the shell along its axis, its length between ends, the attachment at its station, a pad;
- * - end section: the shell wall and corrosion allowance, the attachment on top, a pad.
- * Everything is drawn to scale except the attachment's height, which is not an input. The sketch reads
- * the case and never changes it, so the WRC 537 results are not touched.
+ * - side view: the shell along its axis, its length between ends, every attachment at its station, pads;
+ * - end section: the shell wall and corrosion allowance, every attachment at its angle around, pads.
+ * The selected attachment is drawn in the accent colour with its dimensions; the others are drawn muted
+ * with their names. Everything is to scale except the attachments' height, which is not an input. The
+ * sketch reads the cases and never changes them, so the WRC 537 results are not touched.
+ *
+ * Angles: degrees clockwise from the top, looking from the end the stations are measured from. The end
+ * section is drawn as seen from that end; the side view is seen from the 90° side, so an attachment at 90°
+ * faces you and one at 270° is behind the shell (dashed).
  *
  * Lengths are stored in mm and shown in the case's units (wrc-units.js).
  *
@@ -31,13 +36,18 @@ const PALETTES = Object.freeze({
 const FONT = 11; // px
 const LEVEL = 18; // px between stacked dimension lines
 const ARROW = 7; // px, arrowhead length
+const DEG = Math.PI / 180;
 
 const num = (v) => (v === '' || v === null || v === undefined ? NaN : Number(v));
 const pos = (v) => Number.isFinite(v) && v > 0;
 const r2 = (v) => Math.round(v * 100) / 100;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const angleOf = (v) => {
+  const a = num(v);
+  return Number.isFinite(a) ? ((a % 360) + 360) % 360 : 0;
+};
 
-/** The sketch's own reading of the inputs (mm). Values that are blank or invalid are NaN. */
+/** The sketch's own reading of a case (mm, degrees). Values that are blank or invalid are NaN. */
 export function sketchGeometry(input) {
   const rect = isRectangular(input);
   const OD = num(input.shellOutsideDiameter);
@@ -52,6 +62,8 @@ export function sketchGeometry(input) {
   const padAround = pad ? (rect ? num(input.padWidth) : padAlong) : NaN;
   const padT = pad ? num(input.padThickness) : NaN;
   return {
+    name: String(input.attachmentName ?? '').trim(),
+    angle: angleOf(input.attachmentAngle),
     kind: rect ? 'RECTANGULAR' : isTrunnion(input) ? 'TRUNNION' : 'ROUND',
     solid: isTrunnion(input) && input.trunnionConstruction !== 'HOLLOW',
     OD, tn, ca: pos(ca) ? ca : 0, L, x, along, around,
@@ -64,10 +76,11 @@ export function sketchGeometry(input) {
 }
 
 /**
- * Both views as HTML: a figure with two SVGs and a caption. `theme` 'screen' (the app) or 'print' (the
+ * Both views as HTML: a figure with two SVGs and a caption. `input` is the selected attachment's case;
+ * `others` the other attachments' cases on the same shell. `theme` 'screen' (the app) or 'print' (the
  * report). With no usable shell it returns a short message instead.
  */
-export function buildVesselSketchHtml(input, { theme = 'screen' } = {}) {
+export function buildVesselSketchHtml(input, { theme = 'screen', others = [] } = {}) {
   const g = sketchGeometry(input);
   const u = unitSystem(input);
   if (!g.shellOk) {
@@ -77,134 +90,227 @@ export function buildVesselSketchHtml(input, { theme = 'screen' } = {}) {
   // A drawing label, not a result: 6 significant figures in SI (what was typed), 4 in US (78.74 in).
   const fmt = (mm) => `${Number(roundSig(mm / u.mmPer, u.id === 'SI' ? 6 : 4))}`;
   const len = (mm) => `${fmt(mm)} ${u.length}`;
+  const rest = others.map(sketchGeometry).filter((o) => o.attachmentOk);
   const notes = [];
   if (!g.attachmentOk) notes.push(`Enter the ${g.kind === 'RECTANGULAR' ? "attachment's length and width" : "attachment's outside diameter"} to draw it.`);
   if (!g.lengthOk) notes.push('No cylinder length given: the shell ends are not drawn to scale.');
   else if (!g.stationOk) notes.push('No attachment position given: it is drawn at mid-length.');
-  const ctx = { g, p, len, fmt };
+  const ctx = { g, rest, count: 1 + others.length, p, len, fmt };
   return `<figure class="vsketch" data-role="vessel-sketch">
   <div class="vsketch__views">${sideView(ctx)}${endView(ctx)}</div>
-  <figcaption class="vsketch__caption">Sketch of the inputs, to scale except the attachment's height, which is not an input.${notes.length ? ` ${notes.map(esc).join(' ')}` : ''}</figcaption>
+  <figcaption class="vsketch__caption">Sketch of the inputs, to scale except the ${ctx.count > 1 ? 'attachments\' height, which is' : 'attachment\'s height, which is'} not an input.${ctx.count > 1 ? ` The selected attachment${g.name ? `, ${esc(g.name)},` : ''} is highlighted and dimensioned.` : ''}${notes.length ? ` ${notes.map(esc).join(' ')}` : ''}</figcaption>
 </figure>`;
 }
 
 /** One sentence that says what the sketch shows, for screen readers. */
 function describe(ctx, view) {
-  const { g, len } = ctx;
+  const { g, len, count } = ctx;
   const noun = { ROUND: 'nozzle', TRUNNION: 'trunnion', RECTANGULAR: 'rectangular attachment' }[g.kind];
   const size = !g.attachmentOk ? 'of no size yet'
     : g.kind === 'RECTANGULAR' ? `${len(g.along)} along by ${len(g.around)} around` : `of outside diameter ${len(g.along)}`;
   const where = g.stationOk ? `, ${len(g.x)} from one end of a ${len(g.L)} cylinder` : '';
+  const angle = g.angle ? `, ${Number(roundSig(g.angle, 6))}° around` : '';
   const pad = g.pad ? `, with a ${len(g.padT)} pad` : '';
-  return `${view}: shell of outside diameter ${len(g.OD)} and thickness ${len(g.tn)}${g.ca ? ` (corrosion allowance ${len(g.ca)})` : ''}; ${noun} ${size}${where}${pad}.`;
+  const many = count > 1 ? ` ${count} attachments on this shell; selected${g.name ? ` ${g.name}` : ''}:` : '';
+  return `${view}: shell of outside diameter ${len(g.OD)} and thickness ${len(g.tn)}${g.ca ? ` (corrosion allowance ${len(g.ca)})` : ''};${many} ${noun} ${size}${where}${angle}${pad}.`;
 }
 
-/** The attachment's drawn height (not an input): enough to read, small next to the shell. */
-function stubHeight(g) {
+/** An attachment's drawn height (not an input): enough to read, small next to the shell. */
+function stubHeight(g, OD) {
   if (!g.attachmentOk) return 0;
   const base = g.kind === 'RECTANGULAR' ? 0.5 * g.along : 0.6 * g.along;
-  return Math.min(Math.max(base, 0.12 * g.OD), 0.45 * g.OD);
+  return Math.min(Math.max(base, 0.12 * OD), 0.45 * OD);
+}
+/** Where an attachment shows in the side view: sticking up, down, or as a footprint on the face. */
+function sideFacing(angle) {
+  const c = Math.cos(angle * DEG);
+  if (c >= 0.7) return 'up';
+  if (c <= -0.7) return 'down';
+  return Math.sin(angle * DEG) > 0 ? 'front' : 'back';
 }
 
 function sideView(ctx) {
-  const { g, p, len } = ctx;
+  const { g, rest, p, len } = ctx;
   const W = 520;
-  const stub = stubHeight(g);
-  const padT = g.pad ? g.padT : 0;
-  const Ld = g.lengthOk ? g.L : Math.max(3 * g.OD, 2 * (g.pad ? g.padAlong : g.along || 0) + g.OD);
-  const xAt = g.stationOk ? g.x : Ld / 2;
-  const s = Math.min((W - 100) / Ld, 190 / (g.OD + stub + padT));
-  const levels = (g.attachmentOk ? 1 : 0) + (g.pad ? 1 : 0) + (g.stationOk ? 1 : 0);
+  const OD = g.OD;
+  const all = [g, ...rest].filter((a) => a.attachmentOk);
+  const height = (a) => stubHeight(a, OD) + (a.pad ? a.padT : 0);
+  const topExtra = Math.max(0, ...all.filter((a) => sideFacing(a.angle) === 'up').map(height));
+  const bottomExtra = Math.max(0, ...all.filter((a) => sideFacing(a.angle) === 'down').map(height));
+  const reach = Math.max(0, ...all.map((a) => (a.stationOk ? a.x : 0) + (a.pad ? a.padAlong : a.along) / 2));
+  const Ld = g.lengthOk ? g.L : Math.max(3 * OD, 2 * (g.pad ? g.padAlong : g.along || 0) + OD, reach);
+  const s = Math.min((W - 100) / Ld, 190 / (OD + topExtra + bottomExtra));
+  const levels = (g.attachmentOk ? 1 : 0) + (g.pad && g.attachmentOk ? 1 : 0) + (g.stationOk ? 1 : 0);
   const x0 = 24;
   const xEnd = x0 + Ld * s;
-  const yTopAtt = 14 + levels * LEVEL + 6;
-  const y0 = yTopAtt + (stub + padT) * s; // shell top
-  const y1 = y0 + g.OD * s; // shell bottom
-  const H = y1 + 42;
-  const cx = x0 + xAt * s;
+  const yDims = 14 + levels * LEVEL + 6; // below the stacked dimensions
+  const y0 = yDims + topExtra * s; // shell top
+  const y1 = y0 + OD * s; // shell bottom
+  const yL = y1 + bottomExtra * s + 24;
+  const H = yL + 18;
+  const yc = (y0 + y1) / 2;
+  const stationOf = (a) => (a.stationOk ? a.x : Ld / 2);
   const out = [];
 
   // Shell, the wall's inner lines hidden, and the ends (dashed when the length is not given).
-  out.push(`<rect x="${r2(x0)}" y="${r2(y0)}" width="${r2(Ld * s)}" height="${r2(g.OD * s)}" fill="${p.fill}" fill-opacity="0.25" stroke="none"/>`);
+  out.push(`<rect x="${r2(x0)}" y="${r2(y0)}" width="${r2(Ld * s)}" height="${r2(OD * s)}" fill="${p.fill}" fill-opacity="0.25" stroke="none"/>`);
   out.push(line(x0, y0, xEnd, y0, p.line, 1.4), line(x0, y1, xEnd, y1, p.line, 1.4));
   out.push(line(x0, y0 + g.tn * s, xEnd, y0 + g.tn * s, p.hidden, 1, '5 3'), line(x0, y1 - g.tn * s, xEnd, y1 - g.tn * s, p.hidden, 1, '5 3'));
   const endDash = g.lengthOk ? null : '3 3';
   out.push(line(x0, y0, x0, y1, p.line, g.lengthOk ? 2.2 : 1.2, endDash), line(xEnd, y0, xEnd, y1, p.line, g.lengthOk ? 2.2 : 1.2, endDash));
-  // Centre line of the shell.
-  out.push(line(x0 - 10, (y0 + y1) / 2, xEnd + 10, (y0 + y1) / 2, p.hidden, 0.8, '14 3 2 3'));
+  out.push(line(x0 - 10, yc, xEnd + 10, yc, p.hidden, 0.8, '14 3 2 3'));
 
-  let level = 0;
-  const levelY = () => yTopAtt - 6 - (++level) * LEVEL + LEVEL / 2;
-  if (g.attachmentOk) {
-    const half = (g.along / 2) * s;
-    const top = y0 - (padT + stub) * s;
-    if (g.pad) {
-      const hp = (g.padAlong / 2) * s;
-      out.push(`<rect x="${r2(cx - hp)}" y="${r2(y0 - padT * s)}" width="${r2(2 * hp)}" height="${r2(Math.max(padT * s, 1.5))}" fill="${p.pad}" fill-opacity="0.55" stroke="${p.pad}" stroke-width="1"/>`);
+  /** One attachment in the side view; returns the y its dimensions' extension lines start from. */
+  const drawAttachment = (a, selected) => {
+    const cx = x0 + stationOf(a) * s;
+    const half = (a.along / 2) * s;
+    const stub = stubHeight(a, OD);
+    const padT = a.pad ? a.padT : 0;
+    const colour = selected ? p.att : p.hidden;
+    const attr = `stroke="${colour}" stroke-width="${selected ? 1.4 : 1}"`;
+    const fillAttr = `fill="${colour}" fill-opacity="${a.solid ? 0.6 : (selected ? 0.25 : 0.15)}"`;
+    const facing = sideFacing(a.angle);
+    const label = (x, y, anchor) => (a.name ? `<text x="${r2(x)}" y="${r2(y)}" font-size="10" fill="${selected ? p.att : p.hidden}" text-anchor="${anchor}" data-name="${esc(a.name)}">${esc(a.name)}</text>` : '');
+    if (facing === 'up' || facing === 'down') {
+      const dir = facing === 'up' ? -1 : 1;
+      const base = facing === 'up' ? y0 : y1;
+      if (a.pad) {
+        const hp = (a.padAlong / 2) * s;
+        const yPad = facing === 'up' ? base - padT * s : base;
+        out.push(`<rect x="${r2(cx - hp)}" y="${r2(yPad)}" width="${r2(2 * hp)}" height="${r2(Math.max(padT * s, 1.5))}" fill="${p.pad}" fill-opacity="${selected ? 0.55 : 0.3}" stroke="${p.pad}" stroke-width="1"/>`);
+      }
+      const yNear = base + dir * padT * s;
+      const yFar = yNear + dir * stub * s;
+      out.push(`<rect x="${r2(cx - half)}" y="${r2(Math.min(yNear, yFar))}" width="${r2(2 * half)}" height="${r2(stub * s)}" ${fillAttr} ${attr}/>`);
+      if (selected) out.push(line(cx, Math.min(yFar, y0) - 4, cx, Math.max(yFar, y1) + 6, p.hidden, 0.8, '14 3 2 3'));
+      out.push(label(cx + half + 3, facing === 'up' ? yFar + 10 : yFar - 3, 'start'));
+      return facing === 'up' ? yFar : y0;
     }
-    out.push(`<rect x="${r2(cx - half)}" y="${r2(top)}" width="${r2(2 * half)}" height="${r2(stub * s)}" fill="${p.att}" fill-opacity="${g.solid ? 0.6 : 0.25}" stroke="${p.att}" stroke-width="1.4"/>`);
-    out.push(line(cx, top - 4, cx, y1 + 6, p.hidden, 0.8, '14 3 2 3'));
+    // On the face: the footprint, foreshortened around the shell; behind the shell it is dashed.
+    const sn = Math.abs(Math.sin(a.angle * DEG));
+    const yAt = yc - (OD / 2) * Math.cos(a.angle * DEG) * s;
+    const dash = facing === 'back' ? ' stroke-dasharray="4 3"' : '';
+    const shape = (along, around, fill) => {
+      const rx = (along / 2) * s;
+      const ry = Math.max((around / 2) * sn * s, 1.5);
+      return a.kind === 'RECTANGULAR'
+        ? `<rect x="${r2(cx - rx)}" y="${r2(yAt - ry)}" width="${r2(2 * rx)}" height="${r2(2 * ry)}" ${fill}${dash}/>`
+        : `<ellipse cx="${r2(cx)}" cy="${r2(yAt)}" rx="${r2(rx)}" ry="${r2(ry)}" ${fill}${dash}/>`;
+    };
+    if (a.pad) out.push(shape(a.padAlong, a.padAround, `fill="${p.pad}" fill-opacity="${facing === 'back' ? 0 : 0.3}" stroke="${p.pad}" stroke-width="1"`));
+    out.push(shape(a.along, a.around, `${facing === 'back' ? 'fill="none"' : fillAttr} ${attr}`));
+    out.push(label(cx, yAt + 4, 'middle'));
+    return y0;
+  };
+  for (const a of rest) drawAttachment(a, false);
+  let level = 0;
+  const levelY = () => yDims - 6 - (++level) * LEVEL + LEVEL / 2;
+  if (g.attachmentOk) {
+    const from = drawAttachment(g, true);
+    const cx = x0 + stationOf(g) * s;
+    const half = (g.along / 2) * s;
     const yA = levelY();
-    out.push(dimension(cx - half, yA, cx + half, yA, g.kind === 'RECTANGULAR' ? len(g.along) : `Ø${len(g.along)}`, p, { from: top }));
+    out.push(dimension(cx - half, yA, cx + half, yA, g.kind === 'RECTANGULAR' ? len(g.along) : `Ø${len(g.along)}`, p, { from }));
     if (g.pad) {
       const hp = (g.padAlong / 2) * s;
       const yP = levelY();
-      out.push(dimension(cx - hp, yP, cx + hp, yP, `pad ${g.kind === 'RECTANGULAR' ? '' : 'Ø'}${len(g.padAlong)}`, p, { from: y0 - padT * s }));
+      out.push(dimension(cx - hp, yP, cx + hp, yP, `pad ${g.kind === 'RECTANGULAR' ? '' : 'Ø'}${len(g.padAlong)}`, p, { from: sideFacing(g.angle) === 'up' ? y0 - g.padT * s : y0 }));
     }
-  }
-  if (g.stationOk) {
+    if (g.stationOk) {
+      const yS = levelY();
+      out.push(dimension(x0, yS, cx, yS, len(g.x), p, { from: y0, fromEnd: from }));
+    }
+  } else if (g.stationOk) {
     const yS = levelY();
-    out.push(dimension(x0, yS, cx, yS, len(g.x), p, { from: y0, fromEnd: g.attachmentOk ? y0 - (padT + stub) * s : y0 }));
+    out.push(dimension(x0, yS, x0 + g.x * s, yS, len(g.x), p, { from: y0 }));
   }
-  if (g.lengthOk) out.push(dimension(x0, y1 + 24, xEnd, y1 + 24, len(g.L), p, { from: y1 }));
-  out.push(dimension(xEnd + 30, y0, xEnd + 30, y1, `Ø${len(g.OD)}`, p, { fromX: xEnd }));
+  if (g.lengthOk) out.push(dimension(x0, yL, xEnd, yL, len(g.L), p, { from: y1 + bottomExtra * s }));
+  out.push(dimension(xEnd + 30, y0, xEnd + 30, y1, `Ø${len(OD)}`, p, { fromX: xEnd }));
   return svg('Side view', W, H, out, describe(ctx, 'Side view'), 'side');
 }
 
 function endView(ctx) {
-  const { g, p, len } = ctx;
+  const { g, rest, p, len } = ctx;
   const W = 320;
-  const stub = stubHeight(g);
-  const padT = g.pad ? g.padT : 0;
-  const s = Math.min((W - 120) / g.OD, 220 / (g.OD + stub + padT));
-  const levels = (g.attachmentOk ? 1 : 0) + (g.pad ? 1 : 0);
-  const R = (g.OD / 2) * s;
-  const Ri = (g.OD / 2 - g.tn) * s;
-  const cx = 20 + R; // room on the right for the thickness labels
+  const OD = g.OD;
+  const all = [g, ...rest].filter((a) => a.attachmentOk);
+  const ext = Math.max(0, ...all.map((a) => stubHeight(a, OD) + (a.pad ? a.padT : 0)));
+  const Rtot = OD / 2 + ext;
+  const s = Math.min((W - 120) / (2 * Rtot), 240 / (2 * Rtot));
+  const dimsOnTop = g.attachmentOk && g.angle === 0;
+  const levels = dimsOnTop ? 1 + (g.pad ? 1 : 0) : 0;
+  const R = (OD / 2) * s;
+  const Ri = (OD / 2 - g.tn) * s;
+  const cx = 20 + Rtot * s; // room on the right for the thickness labels
   const top = 14 + levels * LEVEL + 6;
-  const cy = top + (stub + padT) * s + R;
-  const H = cy + R + 44;
+  const cy = top + Rtot * s;
+  const yOD = cy + Rtot * s + 20;
+  const H = yOD + 24;
   const out = [];
 
   out.push(`<path d="${circlePath(cx, cy, R)} ${circlePath(cx, cy, Ri)}" fill="${p.fill}" fill-opacity="0.55" fill-rule="evenodd" stroke="${p.line}" stroke-width="1.4"/>`);
   if (g.ca > 0) {
-    out.push(`<circle cx="${r2(cx)}" cy="${r2(cy)}" r="${r2((g.OD / 2 - g.tn + g.ca) * s)}" fill="none" stroke="${p.hidden}" stroke-width="1" stroke-dasharray="4 3"/>`);
+    out.push(`<circle cx="${r2(cx)}" cy="${r2(cy)}" r="${r2((OD / 2 - g.tn + g.ca) * s)}" fill="none" stroke="${p.hidden}" stroke-width="1" stroke-dasharray="4 3"/>`);
   }
-  out.push(line(cx - R - 10, cy, cx + R + 10, cy, p.hidden, 0.8, '14 3 2 3'), line(cx, cy - R - (stub + padT) * s - 4, cx, cy + R + 10, p.hidden, 0.8, '14 3 2 3'));
+  out.push(line(cx - Rtot * s - 6, cy, cx + Rtot * s + 6, cy, p.hidden, 0.8, '14 3 2 3'), line(cx, cy - Rtot * s - 6, cx, cy + Rtot * s + 6, p.hidden, 0.8, '14 3 2 3'));
 
-  let level = 0;
-  const levelY = () => top - 6 - (++level) * LEVEL + LEVEL / 2;
-  if (g.attachmentOk) {
+  /** One attachment, drawn on top of the shell and turned to its angle. */
+  const drawAttachment = (a, selected) => {
+    const padT = a.pad ? a.padT : 0;
     const Rp = R + padT * s;
-    if (g.pad) out.push(`<path d="${padBand(cx, cy, R, Rp, (g.padAround / 2) / (g.OD / 2))}" fill="${p.pad}" fill-opacity="0.55" stroke="${p.pad}" stroke-width="1"/>`);
-    const hw = Math.min((g.around / 2) * s, Rp);
-    const yTop = cy - Rp - stub * s;
+    const colour = selected ? p.att : p.hidden;
+    const parts = [];
+    if (a.pad) parts.push(`<path d="${padBand(cx, cy, R, Rp, (a.padAround / 2) / (OD / 2))}" fill="${p.pad}" fill-opacity="${selected ? 0.55 : 0.3}" stroke="${p.pad}" stroke-width="1"/>`);
+    const hw = Math.min((a.around / 2) * s, Rp);
+    const yTop = cy - Rp - stubHeight(a, OD) * s;
     const yEdge = cy - Math.sqrt(Math.max(0, Rp * Rp - hw * hw));
-    out.push(`<path d="M ${r2(cx - hw)} ${r2(yTop)} L ${r2(cx - hw)} ${r2(yEdge)} A ${r2(Rp)} ${r2(Rp)} 0 0 1 ${r2(cx + hw)} ${r2(yEdge)} L ${r2(cx + hw)} ${r2(yTop)} Z" fill="${p.att}" fill-opacity="${g.solid ? 0.6 : 0.25}" stroke="${p.att}" stroke-width="1.4"/>`);
-    const yA = levelY();
-    out.push(dimension(cx - hw, yA, cx + hw, yA, g.kind === 'RECTANGULAR' ? len(g.around) : `Ø${len(g.around)}`, p, { from: yTop }));
-    if (g.pad) {
-      const half = (g.padAround / 2) / (g.OD / 2);
-      const hx = Rp * Math.sin(Math.min(half, Math.PI / 2));
-      const yP = levelY();
-      out.push(dimension(cx - hx, yP, cx + hx, yP, `pad ${len(g.padAround)} around`, p, { from: cy - Rp * Math.cos(Math.min(half, Math.PI / 2)) }));
+    parts.push(`<path d="M ${r2(cx - hw)} ${r2(yTop)} L ${r2(cx - hw)} ${r2(yEdge)} A ${r2(Rp)} ${r2(Rp)} 0 0 1 ${r2(cx + hw)} ${r2(yEdge)} L ${r2(cx + hw)} ${r2(yTop)} Z" fill="${colour}" fill-opacity="${a.solid ? 0.6 : (selected ? 0.25 : 0.15)}" stroke="${colour}" stroke-width="${selected ? 1.4 : 1}"/>`);
+    out.push(a.angle ? `<g transform="rotate(${r2(a.angle)} ${r2(cx)} ${r2(cy)})">${parts.join('')}</g>` : parts.join(''));
+    if (a.name) {
+      const rl = cy - yTop + 9;
+      out.push(`<text x="${r2(cx + rl * Math.sin(a.angle * DEG))}" y="${r2(cy - rl * Math.cos(a.angle * DEG) + 4)}" font-size="10" fill="${colour}" text-anchor="middle" data-name="${esc(a.name)}">${esc(a.name)}</text>`);
+    }
+    return yTop;
+  };
+  for (const a of rest) drawAttachment(a, false);
+  if (g.attachmentOk) {
+    const yTop = drawAttachment(g, true);
+    if (dimsOnTop) {
+      const Rp = R + (g.pad ? g.padT : 0) * s;
+      const hw = Math.min((g.around / 2) * s, Rp);
+      let level = 0;
+      const levelY = () => top - 6 - (++level) * LEVEL + LEVEL / 2;
+      const yA = levelY();
+      out.push(dimension(cx - hw, yA, cx + hw, yA, g.kind === 'RECTANGULAR' ? len(g.around) : `Ø${len(g.around)}`, p, { from: yTop }));
+      if (g.pad) {
+        const half = (g.padAround / 2) / (OD / 2);
+        const hx = Rp * Math.sin(Math.min(half, Math.PI / 2));
+        const yP = levelY();
+        out.push(dimension(cx - hx, yP, cx + hx, yP, `pad ${len(g.padAround)} around`, p, { from: cy - Rp * Math.cos(Math.min(half, Math.PI / 2)) }));
+      }
+    } else {
+      out.push(angleDimension(cx, cy, R * 0.55, g.angle, p));
     }
   }
-  out.push(dimension(cx - R, cy + R + 24, cx + R, cy + R + 24, `Ø${len(g.OD)}`, p, { from: cy }));
-  const tx = cx + R + 8;
-  out.push(text(tx, cy - 4, `t ${len(g.tn)}`, p, 'start'));
-  if (g.ca > 0) out.push(text(tx, cy + FONT + 2, `CA ${len(g.ca)}`, p, 'start'));
+  out.push(dimension(cx - R, yOD, cx + R, yOD, `Ø${len(OD)}`, p, { from: cy }));
+  const k = Math.SQRT1_2;
+  const tx = cx + R * k + 6;
+  const ty = cy + R * k + 10;
+  out.push(text(tx, ty, `t ${len(g.tn)}`, p, 'start'));
+  if (g.ca > 0) out.push(text(tx, ty + FONT + 2, `CA ${len(g.ca)}`, p, 'start'));
   return svg('End section', W, H, out, describe(ctx, 'End section'), 'end');
+}
+
+/** The angle from the top to the selected attachment, as an arc with its value. */
+function angleDimension(cx, cy, r, angle, p) {
+  const a = angle * DEG;
+  const large = angle > 180 ? 1 : 0;
+  const x = cx + r * Math.sin(a);
+  const y = cy - r * Math.cos(a);
+  const mid = a / 2;
+  const label = `${Number(roundSig(angle, 6))}°`;
+  return `<path d="M ${r2(cx)} ${r2(cy - r)} A ${r2(r)} ${r2(r)} 0 ${large} 1 ${r2(x)} ${r2(y)}" fill="none" stroke="${p.dim}" stroke-width="1"/>
+    <g data-dim="${esc(label)}"><text x="${r2(cx + (r - 12) * Math.sin(mid))}" y="${r2(cy - (r - 12) * Math.cos(mid) + 4)}" font-size="${FONT}" fill="${p.dim}" text-anchor="middle">${esc(label)}</text></g>`;
 }
 
 function svg(title, W, H, body, label, view) {

@@ -4,11 +4,15 @@
 import './wrc.css';
 import {
   DEFAULT_CASE, EXAMPLE_CASES, FORCE_UNITS, MOMENT_UNITS, WRC_BETA_RANGE, WRC_COORDINATES,
-  WRC_ATTACHMENT_TYPES, WRC_TRUNNION_CONSTRUCTION, WRC_BENDING_CLASS, WRC_FE_MODE, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT, calculateWrc537Cases,
+  WRC_ATTACHMENT_TYPES, WRC_TRUNNION_CONSTRUCTION, WRC_BENDING_CLASS, WRC_FE_MODE, WRC_GAMMA_GRID, WRC_TIER, WRC_TIER_TEXT,
   classifyGamma, deriveWrcGeometry, fmt, hasPad, isRectangular, isTrunnion, wrcFeReference,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
 import { buildVesselSketchHtml } from './vessel-sketch.js';
+import {
+  EXAMPLE_VESSELS, MAX_ATTACHMENTS, MAX_CASES, addAttachment, caseFor, checkVessel, cleanAngle, normalizeCase, normalizeVessel,
+  removeAttachment, vesselFile, vesselFromCase, vesselFromFile, withCase,
+} from './vessel-model.js';
 import {
   FE_CONTOUR_CAPTION, FE_LUG_METHOD_NOTE, FE_METHOD_NOTE, buildFeContourHtml, feEdgePeakText, feOnlyReasonText, insideAttachment, triangleAt,
 } from './fe-contour.js';
@@ -16,10 +20,9 @@ import {
   UNIT_SYSTEMS, convertCaseUnits, feFieldIn, fromDisplay, lengthText, roundSig, stressText, toDisplay, unitSystem,
 } from './wrc-units.js';
 
-const STORAGE_KEY = 'lafea-emp-app/wrc-case';
+const STORAGE_KEY = 'lafea-emp-app/wrc-case'; // before canvas A2: one case, read once and kept as a fallback
+const VESSEL_KEY = 'lafea-emp-app/wrc-vessel';
 const HELP_KEY = 'lafea-emp-app/wrc-help';
-const CASE_SCHEMA = 'lafea-emp-app/wrc537-case/v1';
-const MAX_CASES = 20;
 
 /**
  * The form. `kind` 'length' is stored in mm and 'stress' (stress or pressure) in MPa, and shown in the
@@ -32,6 +35,8 @@ const FIELDS = [
     help: 'Wall thickness as built. The corrosion allowance is taken off it.' },
   { group: 'Shell (cylinder)', key: 'corrosionAllowance', label: 'Corrosion allowance', kind: 'length',
     help: 'Taken off the wall before γ and the stresses are worked out. 0 for none.' },
+  { group: 'Attachment', key: 'attachmentName', label: 'Name', text: true,
+    help: 'Its tag on the drawing and in the table of all attachments, for example N1 or L2.' },
   { group: 'Attachment', key: 'attachmentType', label: 'Type', select: WRC_ATTACHMENT_TYPES,
     help: 'Nozzle: a pipe that opens the shell. Trunnion: a round support that does not. Rectangular: a lug or plate.' },
   { group: 'Attachment', key: 'trunnionConstruction', label: 'Trunnion construction', select: WRC_TRUNNION_CONSTRUCTION, only: 'TRUNNION',
@@ -42,6 +47,8 @@ const FIELDS = [
     help: 'Footprint length along the cylinder axis.' },
   { group: 'Attachment', key: 'attachmentWidth', label: 'Width around the shell (2·c1)', kind: 'length', only: 'RECTANGULAR',
     help: 'Footprint width around the shell. For a plate welded straight to the shell: plate thickness plus both weld legs.' },
+  { group: 'Attachment', key: 'attachmentAngle', label: 'Position around the shell', unit: '°',
+    help: 'Degrees clockwise from the top, looking from the end the position along is measured from. Used for the drawing only: the loads are in this attachment\'s own WRC 537 axes.' },
   { group: 'Reinforcing pad (optional)', key: 'padOutsideDiameter', label: 'Pad outside diameter', kind: 'length', optional: true, only: 'ROUND TRUNNION',
     help: 'Blank for no pad. With a pad, the shell is also checked at the pad edge.' },
   { group: 'Reinforcing pad (optional)', key: 'padLength', label: 'Pad length along the shell', kind: 'length', optional: true, only: 'RECTANGULAR',
@@ -81,7 +88,11 @@ const TIER_SHORT = Object.freeze({ SOURCE_QUALIFIED: 'γ = 5 row', TABULATED_ROW
 
 export function mountWrcCalculator(host) {
   const doc = host.ownerDocument;
-  let state = loadSaved() ?? normalizeCase(DEFAULT_CASE);
+  // The vessel (canvas A2) holds every attachment; `state` is the active one as the calculator's case, which
+  // the form edits. sync() writes it back into the vessel.
+  let vessel = loadSavedVessel() ?? vesselFromCase(loadSaved() ?? DEFAULT_CASE);
+  let state = caseFor(vessel);
+  let check = null;
   let batch = null;
   let result = null;
   let fe = null; // { key, status: 'running' | 'done' | 'error', reference, result, error }
@@ -90,8 +101,8 @@ export function mountWrcCalculator(host) {
   host.innerHTML = `
     <h1 class="ui-sr-only">WRC 537 local stress calculator</h1>
     <div class="wrc__bar">
-      <label class="wrc__title">Case <input data-k="title" type="text" maxlength="120" aria-describedby="wrc-help-title"></label>
-      <span class="ui-sr-only" id="wrc-help-title">Shown on the report and used for the file names.</span>
+      <label class="wrc__title">Title <input data-k="title" type="text" maxlength="120" aria-describedby="wrc-help-title"></label>
+      <span class="ui-sr-only" id="wrc-help-title">The vessel's title. Shown on the report and used for the file names.</span>
       <label class="wrc__sys">Units <select data-k="units" aria-describedby="wrc-help-units">${Object.values(UNIT_SYSTEMS).map((s) => `<option value="${s.id}">${s.label}</option>`).join('')}</select></label>
       <span class="ui-sr-only" id="wrc-help-units">Lengths, pressure and stresses. The loads switch to the matching units, so the case itself does not change.</span>
       <label class="wrc__helptoggle"><input type="checkbox" data-act="helpToggle"> Help text</label>
@@ -103,15 +114,23 @@ export function mountWrcCalculator(host) {
         <option value="PAD_36IN">36-inch nozzle with reinforcing pad</option>
         <option value="TRUNNION_10IN">Trunnion, 10-inch on a 24-inch pipe</option>
         <option value="LUG_200X100">Lug, 200 × 100 mm footprint</option>
+        <option value="VESSEL:TWO_NOZZLES_LUG">Vessel: two nozzles and a lug</option>
       </select>
-      <span class="ui-sr-only" id="wrc-help-example">Replaces the inputs with a worked case. The units you chose are kept.</span>
+      <span class="ui-sr-only" id="wrc-help-example">Replaces the whole vessel with a worked case. The units you chose are kept.</span>
       <span class="wrc__spacer"></span>
-      <button type="button" data-act="open">Open case…</button>
-      <button type="button" data-act="save">Save case</button>
+      <button type="button" data-act="open">Open file…</button>
+      <button type="button" data-act="save">Save file</button>
       <button type="button" data-act="print">Print report</button>
       <button type="button" data-act="download">Download report</button>
       <input type="file" accept=".json,application/json" data-act="file" hidden>
     </div>
+    <section class="wrc__canvas" aria-labelledby="wrc-canvas-heading">
+      <h2 class="wrc__canvas-h" id="wrc-canvas-heading">Vessel</h2>
+      <div class="wrc__atts" role="group" aria-label="Attachments on this shell" aria-describedby="wrc-help-attachments" data-slot="attachments"></div>
+      <p class="wrc__fieldhelp" id="wrc-help-attachments">Pick an attachment to edit it in the form below. The shell, pressure, allowables and method settings are shared by all of them; type, size, pad, position, Kn/Kb and load cases belong to each one.</p>
+      <details class="wrc__sketch" open><summary>Sketch</summary><div data-slot="sketch"></div></details>
+      <div data-slot="vesselTable"></div>
+    </section>
     <div class="wrc__body">
       <div class="wrc__summary" data-role="wrc-summary">
         <span data-slot="summary"></span>
@@ -151,7 +170,6 @@ export function mountWrcCalculator(host) {
       </form>
       <section class="wrc__results" aria-labelledby="wrc-results-heading">
         <h2 class="ui-sr-only wrc__results-h" id="wrc-results-heading" tabindex="-1">Results</h2>
-        <details class="wrc__sketch" open><summary>Sketch</summary><div data-slot="sketch"></div></details>
         <div class="wrc__derived" data-slot="derived"></div>
         <div data-slot="envelope"></div>
         <div data-slot="status"></div>
@@ -178,9 +196,10 @@ export function mountWrcCalculator(host) {
   // Each field: its row (label, input, unit) and its help line, hidden together when it does not apply.
   const fieldHtml = (f) => {
     const described = `aria-describedby="wrc-help-${f.key}"`;
-    const control = f.select
-      ? `<select data-k="${f.key}" ${described}>${Object.entries(f.select).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>`
-      : `<input data-k="${f.key}" type="number" step="any"${f.signed ? '' : ' min="0"'} inputmode="decimal" ${described}><em${f.kind ? ` data-unit-kind="${f.kind}"` : ''}></em>`;
+    let control;
+    if (f.select) control = `<select data-k="${f.key}" ${described}>${Object.entries(f.select).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>`;
+    else if (f.text) control = `<input data-k="${f.key}" type="text" maxlength="40" ${described}>`;
+    else control = `<input data-k="${f.key}" type="number" step="any"${f.signed ? '' : ' min="0"'} inputmode="decimal" ${described}><em${f.kind ? ` data-unit-kind="${f.kind}"` : ''}>${f.unit ?? ''}</em>`;
     return `<div class="wrc__field"${f.only ? ` data-only="${f.only}"` : ''}>
       <label class="wrc__row"><span>${f.label}${f.optional ? ' <small>(optional)</small>' : ''}</span>${control}</label>
       <p class="wrc__fieldhelp" id="wrc-help-${f.key}">${f.help}</p></div>`;
@@ -285,15 +304,21 @@ export function mountWrcCalculator(host) {
     return next;
   }
 
+  function sync() {
+    vessel = withCase(vessel, vessel.active, state);
+    return vessel;
+  }
+
   function render() {
     const savedFocus = caseFocus();
-    batch = calculateWrc537Cases(state);
+    check = checkVessel(sync()); // every attachment, each on its own
+    batch = check.rows[vessel.active].batch;
     result = batch.cases[state.activeCase].result; // calculateWrcAttachment: one location, or two with a pad
     let type = 'ROUND';
     if (isRectangular(state)) type = 'RECTANGULAR';
     else if (isTrunnion(state)) type = 'TRUNNION';
     for (const row of host.querySelectorAll('[data-only]')) row.hidden = !row.dataset.only.split(' ').includes(type);
-    $('[data-slot="sketch"]').innerHTML = buildVesselSketchHtml(state);
+    renderCanvas();
     for (const em of host.querySelectorAll('[data-unit-kind]')) em.textContent = em.dataset.unitKind === 'length' ? U().length : U().stress;
     for (const l of LOADS) {
       host.querySelector(`[data-unit="${l.key}"]`).textContent = ['P', 'Vc', 'Vl'].includes(l.key) ? state.forceUnit : state.momentUnit;
@@ -347,7 +372,65 @@ export function mountWrcCalculator(host) {
       <p class="wrc__help">Only stress in the shell at the attachment${hasPad(state) ? ' and at the pad edge' : ''} is calculated, not in the ${attachmentNoun(state)}${hasPad(state) ? ', pad or its welds' : ' or its weld'}. Pressure adds the thin-shell membrane stress only.</p>`;
     renderSummary(result.ok ? tierClass : 'bad');
     restoreCaseFocus(savedFocus);
-    save(state);
+    saveVessel(vessel);
+  }
+
+  /** The other attachments as cases, for the sketch and the report. */
+  const otherCases = () => vessel.attachments.map((_, i) => i).filter((i) => i !== vessel.active).map((i) => caseFor(vessel, i));
+
+  /** Canvas A2: the attachment buttons, the sketch of the whole shell and the table of all attachments. */
+  function renderCanvas() {
+    const focusedAtt = doc.activeElement?.closest?.('[data-attachment]');
+    const focusSel = focusedAtt && host.contains(focusedAtt)
+      ? `${focusedAtt.closest('.wrc__vessel') ? '.wrc__vessel' : '.wrc__atts'} [data-attachment="${focusedAtt.dataset.attachment}"]` : null;
+    const n = vessel.attachments.length;
+    $('[data-slot="attachments"]').innerHTML = `${vessel.attachments.map((a, i) => `
+      <button type="button" data-attachment="${i}" class="${i === vessel.active ? 'is-active' : ''}" aria-pressed="${i === vessel.active}">${escapeHtml(a.attachmentName)} <small>${escapeHtml(attachmentSize(caseFor(vessel, i)))}</small></button>`).join('')}
+      <button type="button" data-act="addAttachment" title="Copy the selected attachment as a new one, a quarter turn further round"${n >= MAX_ATTACHMENTS ? ' disabled' : ''}>+ Add attachment</button>
+      ${n > 1 ? '<button type="button" data-act="deleteAttachment" title="Delete the selected attachment">Delete attachment</button>' : ''}`;
+    $('[data-slot="sketch"]').innerHTML = buildVesselSketchHtml(state, { others: otherCases(), count: n });
+    $('[data-slot="vesselTable"]').innerHTML = n > 1 ? vesselTableHtml() : '';
+    if (focusSel && !focusedAtt.isConnected) $(focusSel)?.focus();
+  }
+  function attachmentSize(c) {
+    const u = unitSystem(c);
+    // As typed: 6 significant figures in SI, 4 in US (the sketch's labels read the same).
+    const len = (mm) => (mm === '' || !Number.isFinite(Number(mm)) ? '?' : `${Number(roundSig(Number(mm) / u.mmPer, u.id === 'SI' ? 6 : 4))}`);
+    if (isRectangular(c)) return `${attachmentNoun(c)} ${len(c.attachmentLength)} × ${len(c.attachmentWidth)} ${u.length}`;
+    return `${attachmentNoun(c)} Ø${len(c.attachmentOutsideDiameter)} ${u.length}`;
+  }
+  function vesselTableHtml() {
+    const rows = check.rows.map((row) => {
+      const c = row.input;
+      const gov = row.governing;
+      const cc = row.batch.codeCheck;
+      const station = c.attachmentStation === '' || c.attachmentStation === null || c.attachmentStation === undefined ? '—' : L(Number(c.attachmentStation), 0);
+      const govRow = row.index === check.governingIndex;
+      return `<tr data-attachment-row="${row.index}" class="${row.index === vessel.active ? 'is-active' : ''}${govRow ? ' is-gov' : ''}">
+        <td><button type="button" class="wrc__linkbtn" data-attachment="${row.index}"${row.index === vessel.active ? ' aria-current="true"' : ''}>${escapeHtml(row.name)}</button></td>
+        <td>${escapeHtml(attachmentSize(c))}</td><td>${station}</td><td>${fmt(cleanAngle(c.attachmentAngle), 0)}°</td>
+        <td>${gov ? `<b>${S(gov.stressIntensity, 2)}</b>` : '<span class="wrc__bad">not calculated</span>'}</td>
+        <td>${gov ? `${gov.location}${gov.locationId && gov.locationId !== 'ATTACHMENT' ? ` <small>${SHORT_LOCATION[gov.locationId]}</small>` : ''}` : '—'}</td>
+        <td>${gov ? escapeHtml(gov.name) : '—'}</td>
+        <td>${cc ? `<span class="${cc.pass ? 'wrc__ok' : 'wrc__bad'}">${cc.pass ? 'pass' : 'FAIL'}</span>` : '—'}</td></tr>`;
+    }).join('');
+    const g = check.governingIndex === null ? null : check.rows[check.governingIndex];
+    return `<div class="wrc__vessel-wrap"><table class="wrc__table wrc__vessel"><thead><tr><th>Attachment</th><th>Type and size</th><th>Along (${U().length})</th><th>Around</th><th>Governing SI (${U().stress})</th><th>Point</th><th>Load case</th><th>Code check</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <caption>All attachments on this shell, the worst load case of each. Pick one to edit it.${g ? ` Highest: ${escapeHtml(g.name)}, ${S(g.governing.stressIntensity, 2)} ${U().stress}.` : ''} Each attachment is checked on its own: WRC 537 does not cover two attachments close together.</caption></table></div>`;
+  }
+  function selectAttachment(index) {
+    sync();
+    vessel = { ...vessel, active: Math.max(0, Math.min(vessel.attachments.length - 1, index)) };
+    state = caseFor(vessel);
+    writeForm();
+    render();
+  }
+  function setVessel(next) {
+    vessel = normalizeVessel(next);
+    state = caseFor(vessel);
+    writeForm();
+    render();
   }
 
   /**
@@ -558,8 +641,10 @@ export function mountWrcCalculator(host) {
       <caption>${U().stress}. S = ${S(first.S, 1)}, SPS = ${S(first.Sps, 1)}. Stress intensity (Tresca). PL is the membrane part: pressure, WRC membrane and shear.${result.padded ? ' Pm uses the wall at each location.' : ''} A screening check with your allowables, not a full code assessment.</caption></table>`;
   }
 
+  /** One case replaces the whole vessel, as its only attachment (an example, or a case saved before A2). */
   function setCase(next) {
-    state = normalizeCase(next);
+    vessel = vesselFromCase(next);
+    state = caseFor(vessel);
     writeForm();
     render();
   }
@@ -596,7 +681,26 @@ export function mountWrcCalculator(host) {
   host.addEventListener('click', (event) => {
     const caseEl = event.target.closest('[data-case]');
     if (caseEl) { selectCase(Number(caseEl.dataset.case)); return; }
+    const attEl = event.target.closest('[data-attachment]');
+    if (attEl) { selectAttachment(Number(attEl.dataset.attachment)); return; }
     const act = event.target.closest('[data-act]')?.dataset.act;
+    if (act === 'addAttachment') {
+      vessel = addAttachment(sync());
+      state = caseFor(vessel);
+      writeForm();
+      render();
+      $('[data-k="attachmentName"]').focus();
+      $('[data-k="attachmentName"]').select();
+      return;
+    }
+    if (act === 'deleteAttachment') {
+      vessel = removeAttachment(sync());
+      state = caseFor(vessel);
+      writeForm();
+      render();
+      $(`.wrc__atts [data-attachment="${vessel.active}"]`)?.focus();
+      return;
+    }
     if (act === 'runFe') { runFe(); return; }
     if (act === 'helpToggle') {
       showHelp = event.target.checked;
@@ -619,7 +723,7 @@ export function mountWrcCalculator(host) {
       selectCase(Math.min(state.activeCase, state.loadCases.length - 1));
       $(`.wrc__cases button[data-case="${state.activeCase}"]`)?.focus();
     }
-    if (act === 'save') downloadFile(`${slug(state.title)}.wrc.json`, JSON.stringify({ schema: CASE_SCHEMA, case: state }, null, 2), 'application/json');
+    if (act === 'save') downloadFile(`${slug(state.title)}.vessel.json`, JSON.stringify(vesselFile(sync()), null, 2), 'application/json');
     if (act === 'open') $('[data-act="file"]').click();
     if (act === 'print') printReport(batch);
     if (act === 'download') downloadFile(`${slug(state.title)}-wrc537-report.html`, reportHtml(batch), 'text/html');
@@ -628,20 +732,24 @@ export function mountWrcCalculator(host) {
     const key = event.target.value;
     event.target.value = '';
     // An example is stored in SI; it opens in the units the user has chosen.
+    const units = unitSystem(state).id;
+    if (key.startsWith('VESSEL:')) {
+      const example = EXAMPLE_VESSELS[key.slice(7)];
+      if (example) setVessel({ ...example, shell: { ...example.shell, units } });
+      return;
+    }
     const example = key === 'DEFAULT' ? DEFAULT_CASE : EXAMPLE_CASES[key];
-    if (example) setCase(convertCaseUnits(normalizeCase(example), unitSystem(state).id));
+    if (example) setCase(convertCaseUnits(normalizeCase(example), units));
   });
   $('[data-act="file"]').addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     try {
-      const parsed = JSON.parse(await file.text());
-      const loaded = parsed?.schema === CASE_SCHEMA ? parsed.case : null;
-      if (!loaded || typeof loaded !== 'object') throw new Error('Not a WRC case file.');
-      setCase(loaded);
+      // A vessel file, or a case saved before canvas A2 (it opens as a vessel with one attachment).
+      setVessel(vesselFromFile(JSON.parse(await file.text())));
     } catch (error) {
-      globalThis.alert?.(`Could not open the case: ${error.message}`);
+      globalThis.alert?.(`Could not open the file: ${error.message}`);
     }
   });
 
@@ -653,7 +761,11 @@ export function mountWrcCalculator(host) {
     const currentFe = fe?.status === 'done' && fe.key === feKey()
       ? { caseName: activeCase().name, reference: fe.reference, result: fe.result }
       : null;
-    return buildWrcReportHtml(r, { appVersion: typeof __BUILD_TIME__ === 'string' ? `build ${__BUILD_TIME__}` : '', fe: currentFe });
+    return buildWrcReportHtml(r, {
+      appVersion: typeof __BUILD_TIME__ === 'string' ? `build ${__BUILD_TIME__}` : '',
+      fe: currentFe,
+      vessel: { name: state.attachmentName, count: vessel.attachments.length, others: otherCases() },
+    });
   }
   function printReport(r) {
     const win = doc.defaultView.open('', '_blank');
@@ -677,10 +789,12 @@ export function mountWrcCalculator(host) {
 
   return {
     getState: () => cloneCase(state),
+    getVessel: () => cloneCase(sync()),
     getResult: () => result,
     getBatch: () => batch,
     getFe: () => fe,
     setCase,
+    setVessel,
     destroy() { clearTimeout(announceTimer); host.replaceChildren(); host.classList.remove('wrc'); },
   };
 }
@@ -736,22 +850,6 @@ function cloneCase(c) { return JSON.parse(JSON.stringify(c)); }
 function ratioCell(item) {
   return `<span class="${item.pass ? 'wrc__ok' : 'wrc__bad'}">${fmt(item.ratio, 2)} ${item.pass ? 'pass' : 'FAIL'}</span>`;
 }
-/** Fill defaults and turn an old single-load case (`loads`) into the load-case list. */
-function normalizeCase(c) {
-  const src = cloneCase(c ?? {});
-  const merged = { ...cloneCase(DEFAULT_CASE), ...src };
-  let cases = Array.isArray(src.loadCases) ? src.loadCases.filter((x) => x && typeof x === 'object') : [];
-  if (!cases.length) cases = [{ name: 'Case 1', loads: { ...DEFAULT_CASE.loads, ...(src.loads ?? {}) } }];
-  merged.loadCases = cases.slice(0, MAX_CASES).map((x, i) => ({
-    name: String(x.name || `Case ${i + 1}`).slice(0, 60),
-    loads: Object.fromEntries(Object.keys(DEFAULT_CASE.loads).map((k) => [k, Number(x.loads?.[k] ?? 0) || 0])),
-  }));
-  merged.activeCase = Number.isInteger(src.activeCase) && src.activeCase >= 0 && src.activeCase < merged.loadCases.length ? src.activeCase : 0;
-  delete merged.loads;
-  // Cases saved before units existed are SI. Load units from the other system (an edited file) are converted.
-  merged.units = UNIT_SYSTEMS[merged.units] ? merged.units : 'SI';
-  return convertCaseUnits(merged, merged.units);
-}
 function slug(text) { return (String(text || 'wrc-case').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'wrc-case').slice(0, 60); }
 function escapeHtml(text) { return String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function loadSaved() {
@@ -762,4 +860,10 @@ function loadSaved() {
     return parsed && typeof parsed === 'object' ? normalizeCase(parsed) : null;
   } catch { return null; }
 }
-function save(c) { try { globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(c)); } catch { /* storage optional */ } }
+function loadSavedVessel() {
+  try {
+    const raw = globalThis.localStorage?.getItem(VESSEL_KEY);
+    return raw ? normalizeVessel(JSON.parse(raw)) : null;
+  } catch { return null; }
+}
+function saveVessel(v) { try { globalThis.localStorage?.setItem(VESSEL_KEY, JSON.stringify(v)); } catch { /* storage optional */ } }

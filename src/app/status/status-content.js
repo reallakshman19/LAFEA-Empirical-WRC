@@ -39,11 +39,11 @@ export const STATUS_VISION = Object.freeze({
 
 /** What can be used today, one line per area. */
 export const STATUS_TODAY = Object.freeze([
-  Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments, nozzles or trunnions (γ 5–300, β 0.05–0.5), and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, saved cases. SI or US units (in, lbf, psi), help text on every input. Works on a laptop, a tablet or a phone, and from the keyboard.' }),
+  Object.freeze({ area: 'WRC 537 calculator', state: 'USABLE', text: 'Cylinders with round attachments, nozzles or trunnions (γ 5–300, β 0.05–0.5), and rectangular attachments such as lugs (β1/β2 0.25–4, no torsion), six loads, optional reinforcing pad (checked at the attachment and at the pad edge), up to 20 load cases, pressure membrane, Kn/Kb, screening code check, printable report, several attachments on one shell (each checked on its own), saved vessel files. SI or US units (in, lbf, psi), help text on every input. Works on a laptop, a tablet or a phone, and from the keyboard.' }),
   Object.freeze({ area: 'Shell-FE cross-check', state: 'USABLE', text: 'Solves the same nozzle, trunnion or lug with LAFEA shell elements in about 30 s, compares the 8 points and draws a stress-intensity contour. Reports a ratio, not a pass/fail. For a lug WRC 537 refuses (a thin plate, torsion), it gives the only answer.' }),
   Object.freeze({ area: 'LAFEA plate form', state: 'USABLE', text: 'Plane-stress rectangular plate, with or without a central round hole: edge supports and loads, automatic mesh, convergence study, Kt. SI or US units (in, psi), help text on every input.' }),
   Object.freeze({ area: 'LAFEA workbench', state: 'PARTIAL', text: 'Worked cantilever example and the plate form go end to end. Other geometry needs stage JSON. Shell and trunnion stages are not wired to a form. Same look as the rest of the app; internal codes and custody text stay hidden until you tick "Technical details".' }),
-  Object.freeze({ area: 'Universal canvas', state: 'PARTIAL', text: 'Step A1 done: the WRC calculator draws a dimensioned side view and end section of its inputs (shell, length, attachment, station, pad, corrosion allowance), live as you type, in SI or US, and in the printed report. The model is not yet edited on the drawing, and a shell holds one attachment. Next: several attachments on one shell (A2), then moving them on the drawing (A3).' }),
+  Object.freeze({ area: 'Universal canvas', state: 'PARTIAL', text: 'Steps A1 and A2 done, above the WRC calculator form: one shell with up to 20 attachments (nozzles, trunnions, lugs), each with its own position along and around the shell, size, pad and load cases. A dimensioned side view and end section show all of them, live, in SI or US, and in the report. A table gives the governing result of every attachment, each checked on its own. Saved as a vessel file; older case files still open. The model is not yet edited on the drawing: next is moving attachments on an unrolled view (A3).' }),
 ]);
 
 export const STATUS_STATES = Object.freeze({
@@ -251,8 +251,6 @@ export const OPEN_DECISIONS = Object.freeze([
   'Benchmarks: can you supply WRC 537 output (inputs and the 8-point table) from CAESAR II or PV Elite for more nozzles?',
   'Lug benchmark (PL-02): can you run the 3 cases in docs/LUG-BENCHMARK-REQUEST.md in PV Elite (or similar) with WRC 537?',
   'Thin plate lugs (PL-05): do you have EN 13445-3 or PD 5500, and which should the app follow?',
-  'Canvas (stage A): should the canvas stay inside the Empirical tab, above the calculator form (proposed), or have a tab of its own?',
-  'Canvas model file (before A2): keep it empirical only, with FE importing its geometry one way later (proposed), or one file read by both WRC and LAFEA?',
   'Canvas spacing check (A4): WRC 537 has no rule for two attachments close together. What criterion should the warning use, for example a centre spacing in multiples of √(Rm·T), or your company rule?',
   'Canvas loads in vessel axes (A5): which axis convention (for example CAESAR II, Y up), and do you have a converted case to check against?',
 ]);
@@ -269,6 +267,8 @@ export const DECISIONS_MADE = Object.freeze([
   '2026-11-28: the advanced EMP.1 workflow keeps its γ = 5 qualification example (19 checks and the hand calculation are built on it); the WRC calculator\'s six examples are the plain starting points.',
   '2026-11-28: keep FE and empirical (WRC 537) work apart. A one-time FE run to build data or fit an approximation for the empirical side is fine; the empirical solver does not depend on FE when it runs.',
   '2026-11-28: canvas step A1 (the sketch) started; A2–A6 stay proposed until you approve each one. Grid, snapping, dimension and 3-D code is ported from Pdf-Hub (MIT) as plain JS, with no React, Konva or three.js.',
+  '2026-11-28: the canvas lives in the Empirical tab, above the calculator form.',
+  '2026-11-28: the canvas model file (.vessel.json) is empirical only. LAFEA does not read or write it; FE may later import its geometry one way.',
 ]);
 
 function issue(id, area, severity, title, what, workaround, status) {
