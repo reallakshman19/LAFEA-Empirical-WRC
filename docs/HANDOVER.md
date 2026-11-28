@@ -214,6 +214,24 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
 - **Click targets:** attachment buttons use `data-attachment`, load cases `data-case`; the click handler
   checks `data-case` first, so keep the two apart.
 
+### 3.3f Canvas step A3: moving attachments (`src/app/wrc/vessel-unrolled.js`, `canvas-snap.js`)
+
+- **The view only draws**; the panel moves things. Moving calls `moveTo(x, y)`, which sets the selected
+  case's `attachmentStation` (mm) and `attachmentAngle` (degrees), writes those two form boxes and renders.
+  Nothing else in the case changes.
+- **Listeners are on the slot** (`[data-slot="unrolled"]`), which stays while `render()` redraws the SVG inside it
+  on every move; the pointer is captured on the slot too. The scale (`span`) is held in `drag` during a drag so
+  the drawing does not rescale under the pointer; it is recomputed on the drop.
+- **Pointer to shell:** `getScreenCTM()` of the current SVG, then `toModel(layout, …)`. y is not wrapped there;
+  `snapMove` wraps it. Station is held between the shell's ends (`range`).
+- **Elements:** each attachment is `g[data-move=i]`, focusable, in index order so Tab goes N1, N2, … The
+  selected one is drawn in that order too; where two overlap, `pointerdown` grabs the selected one through
+  `elementsFromPoint`. Keep `data-move` apart from `data-attachment` (buttons) and `data-case`.
+- **Pdf-Hub ports** keep the header naming the source files and commit `74fcb94`. `snapMove` takes the order
+  of `resolveLineEndpoint`: lock, then another attachment, then the grid.
+- The e2e test must scroll the drawing into view before `page.mouse` drags, and `screenOf` reads the scale
+  from the drawn surface, so it does not hard-code pixels.
+
 ### 3.4 CI and Pages
 
 - **`ci.yml`:**
