@@ -231,8 +231,11 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   of `resolveLineEndpoint`: lock, then another attachment, then the grid.
 - The e2e test must scroll the drawing into view before `page.mouse` drags, and `screenOf` reads the scale
   from the drawn surface, so it does not hard-code pixels.
-- The Vessel box is now about 1300 px tall on a tablet: e2e tests that scroll into the form must scroll by the
-  form's position (`.wrc__body`), not a fixed distance (see `e2e/app-ui.spec.js`).
+- The Vessel box is tall on a tablet: e2e tests that scroll into the form must scroll by the form's position
+  (`.wrc__body`), not a fixed distance (see `e2e/app-ui.spec.js`).
+- **The layout starts folded** (no `open` on `details.wrc__unrolled`); that took about 500 px off the Vessel box
+  on a tablet (1582 → 1081 px for the worked vessel). Its SVG is still rendered while folded, so opening it
+  needs no handler. Tests that use it open it first (`beforeEach` in `e2e/wrc-unrolled.spec.js`).
 
 ### 3.3g Canvas step A6: 3-D preview (`src/app/wrc/vessel-3d.js`, `software-3d.js`)
 

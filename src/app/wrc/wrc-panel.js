@@ -134,7 +134,7 @@ export function mountWrcCalculator(host) {
       <div class="wrc__atts" role="group" aria-label="Attachments on this shell" aria-describedby="wrc-help-attachments" data-slot="attachments"></div>
       <p class="wrc__fieldhelp" id="wrc-help-attachments">Pick an attachment to edit it in the form below. The shell, pressure, allowables and method settings are shared by all of them; type, size, pad, position, Kn/Kb and load cases belong to each one.</p>
       <details class="wrc__sketch" open><summary>Sketch</summary><div data-slot="sketch"></div></details>
-      <details class="wrc__unrolled" open><summary>Layout: the shell unrolled</summary>
+      <details class="wrc__unrolled"><summary>Layout: the shell unrolled (drag attachments to move them)</summary>
         <p class="wrc__fieldhelp" id="wrc-help-unrolled">Drag an attachment to move it, or focus it and use the arrow keys. It snaps to the grid and lines up with the other attachments; hold Shift to move only along or only around, Alt to move freely. Esc while dragging puts it back. This changes its position along and around, as in the form.</p>
         <label class="wrc__helptoggle wrc__snap"><input type="checkbox" data-act="snapToggle" checked> Snap to the grid and the other attachments</label>
         <div class="vunroll" data-slot="unrolled" aria-describedby="wrc-help-unrolled"></div>

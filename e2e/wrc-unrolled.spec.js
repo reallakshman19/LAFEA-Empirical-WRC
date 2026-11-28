@@ -7,6 +7,12 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.locator('[data-empirical-subview="WRC"] [data-act="example"]').selectOption('VESSEL:TWO_NOZZLES_LUG');
+  // It starts folded, to keep the Vessel box short; opening it shows the drawing at once.
+  const layout = page.locator('[data-empirical-subview="WRC"] .wrc__unrolled');
+  await expect(layout).not.toHaveAttribute('open', /.*/u);
+  await expect(layout.locator('[data-view="unrolled"]')).toBeHidden();
+  await layout.locator('summary').click();
+  await expect(layout.locator('[data-view="unrolled"]')).toBeVisible();
 });
 
 /** Where a point on the shell (mm along, degrees around) is on the screen, from the drawing's own scale. */
