@@ -57,6 +57,37 @@ The app's **Status & roadmap** tab (`src/app/status/status-content.js`)
 holds the known issues, the planned improvements and the staged roadmap (A: canvas, B: empirical solver on
 the canvas, C: empirical and FE together, D: wider coverage). Keep that file and this plan in step.
 
+### FE and empirical (owner, 2026-11-28)
+
+Keep FE and empirical (WRC 537) work apart: plan them as separate tracks, and never justify one by the other.
+A one-time FE run to build data or fit an approximation for the empirical side is fine (PL-07 is an example).
+The empirical solver must not depend on FE when it runs.
+
+### Canvas plan, roadmap stage A (2026-11-28)
+
+The empirical track. You draw the vessel once, a shell with its attachments and their load cases, and each
+attachment is checked by the existing WRC 537 core, which does not change. Rules for every step:
+- the six examples give exactly the same numbers through the canvas as through the form;
+- drawing is 2-D SVG with no new libraries, so the first load stays well under 500 kB;
+- the calculator form stays, as the editor for the selected attachment;
+- each step is usable on its own and has its own PR, and each starts only on your go-ahead.
+
+Grid snapping, polar and object snaps, dimension lines and a library-free 3-D renderer are ported from Pdf-Hub
+(your repository, MIT licence) as plain JS: `core/cad-grid/gridMath.ts`, `core/cad-modeling/draftingMath.ts`,
+`core/annotations/cadSnapping.ts`, `components/annotations/DimensionNode.tsx`, `core/cad-3d/software3dRenderer.ts`.
+
+| Step | What you can do when it is done | Size | Needs |
+|---|---|---|---|
+| A1 | **Sketch:** a dimensioned side view and end section of the calculator's inputs, live, in SI or US, and in the report. **Done 2026-11-28.** | S–M | nothing |
+| A2 | **Several attachments** on one shell, each with its type, size, pad, station, angle around and load cases. "Check all" gives the governing result per attachment. A `.vessel.json` model file; an old `.wrc.json` opens as one attachment | M | decisions 7 and 8 |
+| A3 | **Edit on the drawing:** an unrolled view (along × around, wrapping at 360°); select and drag with grid and 15° snaps; arrow keys do the same | M (S–M with the Pdf-Hub port) | A2 |
+| A4 | **Range checks on the model:** γ and β out of range, too close to an end (§4.5.2), too close to another attachment, coloured on the drawing | S–M | decision 9 |
+| A5 | **Loads in vessel axes** (optional): converted to each attachment's WRC axes from its angle | M | decision 10 |
+| A6 | **3-D preview** (optional), view only, loaded only when opened | S–M | nothing |
+
+Out of scope, and blocked with a label on the drawing: hillside or angled nozzles, heads and spheres (stage D),
+and stress where two attachments' zones overlap (WRC 537 does not cover it).
+
 ## Proposed order
 
 Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
@@ -122,8 +153,19 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
    loads the γ = 5 qualification sample (four pressure definitions, ten reference points, a 35.43 mm attachment),
    which 19 checks and the γ = 5 hand calculation are built on. The calculator's six examples are the plain
    starting points.
+7. **Where the canvas lives (stage A):** inside the Empirical tab, above the calculator form (proposed), or in a
+   tab of its own? Needed before A2.
+8. **Canvas model file (before A2):** keep it empirical only, with FE importing its geometry one way later
+   (proposed, in line with keeping FE and empirical apart), or one file read by both WRC and LAFEA as the
+   roadmap first said?
+9. **Spacing between attachments (A4):** WRC 537 has no rule for two attachments close together. Which
+   criterion should the warning use, for example a centre spacing in multiples of √(Rm·T), or your company rule?
+   Until then it can only be a labelled warning.
+10. **Vessel axes for loads (A5):** which axis convention (for example CAESAR II, Y up), and a case converted by a
+    piping program to check against.
 
 ## Suggested start
 
 5.1, then 5.2, then 5.3 (all done 2026-11-26), then PL-01, PL-03 and PL-04 (done 2026-11-27). PL-06 (the UI) is
-done: parts 1 and 2 on 2026-11-27 and part 3 on 2026-11-28 (decision 6: keep the advanced workflow's example). PL-02 and PL-05 start as soon as your runs or your standard arrive.
+done: parts 1 and 2 on 2026-11-27 and part 3 on 2026-11-28 (decision 6: keep the advanced workflow's example).
+Canvas step A1 (the sketch) was done on 2026-11-28; A2 waits on decisions 7 and 8. PL-02 and PL-05 start as soon as your runs or your standard arrive.

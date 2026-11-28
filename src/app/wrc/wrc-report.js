@@ -11,6 +11,7 @@ import {
   FE_CONTOUR_CAPTION, FE_LUG_METHOD_NOTE, FE_METHOD_NOTE, buildFeContourHtml, feEdgePeakText, feOnlyReasonText,
 } from './fe-contour.js';
 import { feFieldIn, lengthText, stressText, unitSystem } from './wrc-units.js';
+import { buildVesselSketchHtml } from './vessel-sketch.js';
 
 // The report is written in the case's display units (SI or US customary; wrc-units.js). Results are in
 // mm and MPa; L() and S() convert and format them. `u` is set at the start of buildWrcReportHtml.
@@ -169,6 +170,8 @@ ${l.result.ok ? `<tr><td>Pressure membrane stress, hoop p·R<sub>m</sub>/T / lon
   .pass{color:#13703f;font-weight:600} .fail{color:#b3261e;font-weight:700}
   .sign{display:flex;gap:40px;margin-top:28px} .sign div{flex:1;border-top:1px solid #333;padding-top:4px}
   .contour{margin:8px 0;break-inside:avoid} .contour svg{max-width:100%;height:auto}
+  .sketch{margin:8px 0;break-inside:avoid} .sketch figure{margin:0} .vsketch__views{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;color:#333}
+  .vsketch__view{max-width:100%;height:auto} .vsketch__caption{color:#555;margin-top:4px}
   @media print{body{margin:10mm} h3,h4{break-after:avoid} table{break-inside:avoid}}
 </style></head><body>
 <h1>WRC 537 local stress: ${esc(i.title || 'Attachment on cylindrical shell')}</h1>
@@ -194,6 +197,7 @@ ${locationGeometry}
 ${allowable ? `<tr><td>Allowable stress / secondary limit</td><td>S / S<sub>PS</sub></td><td class="n">${S(Number(i.allowableS), 2)} / ${Number(i.allowableSps) > 0 ? S(Number(i.allowableSps), 2) : `${S(3 * Number(i.allowableS), 2)} (3S)`}</td><td>${u.stress}</td></tr>
 <tr><td colspan="4">Load bending stress classified as: ${esc(WRC_BENDING_CLASS[i.bendingClass] ?? WRC_BENDING_CLASS.Q)}</td></tr>` : ''}
 </table>
+<div class="sketch">${buildVesselSketchHtml(i, { theme: 'print' })}</div>
 
 <h2>2. Load cases at the attachment (WRC 537 axes)</h2>
 <table>

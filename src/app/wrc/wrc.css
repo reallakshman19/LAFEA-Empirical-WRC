@@ -75,6 +75,14 @@
 .wrc__sys, .wrc__helptoggle { display: flex; gap: 6px; align-items: center; color: var(--wrc-muted); }
 .wrc__helptoggle input { accent-color: var(--wrc-accent); margin: 0; }
 
+/* Canvas step A1: the dimensioned sketch of the inputs (vessel-sketch.js). */
+.wrc__sketch { margin-bottom: 10px; }
+.wrc__sketch > summary { cursor: pointer; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.vsketch { margin: 0; padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); background: var(--ui-panel); }
+.vsketch__views { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; color: var(--ui-muted); }
+.vsketch__view { max-width: 100%; height: auto; font-family: var(--ui-font); }
+.vsketch__caption { margin-top: 4px; color: var(--wrc-muted); font-size: 12px; }
+.vsketch__empty { margin: 0 0 10px; color: var(--wrc-muted); font-size: 13px; }
 .wrc__derived { display: grid; gap: 8px; margin-bottom: 10px; }
 .wrc__derived-set { display: flex; flex-wrap: wrap; gap: 8px; }
 .wrc__derived-label { width: 100%; color: var(--wrc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }

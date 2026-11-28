@@ -3,7 +3,8 @@
  *  - every entry has its required fields, a unique id and a known severity, size or state;
  *  - facts the page states match their sources: the tabulated γ rows, the KNOWN-check count in
  *    scripts/known-upstream-failures.json, and the PV Elite WRC 297 ratios recorded in docs;
- *  - nothing on the page claims the universal canvas exists yet.
+ *  - the universal canvas is "partial" (step A1, the sketch of the WRC inputs) and the page does not claim
+ *    it can be edited by drawing yet.
  * The file name contains "wrc" so check:all picks it up.
  */
 import assert from 'node:assert/strict';
@@ -25,7 +26,10 @@ for (const row of STATUS_TODAY) {
   assert.ok(text(row.area) && text(row.text), JSON.stringify(row));
   assert.ok(row.state in STATUS_STATES, `${row.area}: unknown state ${row.state}`);
 }
-assert.equal(STATUS_TODAY.find((r) => r.area === 'Universal canvas')?.state, 'NOT_STARTED');
+const canvas = STATUS_TODAY.find((r) => r.area === 'Universal canvas');
+assert.equal(canvas?.state, 'PARTIAL');
+assert.match(canvas.text, /A1/u);
+assert.match(canvas.text, /not yet edited on the drawing/u, 'the canvas row says drawing-based editing is still to come');
 
 unique(KNOWN_ISSUES.map((i) => i.id), 'known issues');
 for (const item of KNOWN_ISSUES) {

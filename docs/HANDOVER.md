@@ -182,6 +182,21 @@ Most of `src/` (490 modules) is extracted upstream code. **New code written here
   it. The owner decided on 2026-11-28 to keep it (decision 6 in NEXT-PHASE-PLAN.md), so don't simplify it.
   The WRC calculator's six examples are the plain starting points.
 
+### 3.3d Canvas step A1: the sketch (`src/app/wrc/vessel-sketch.js`)
+
+- **Read only.** `buildVesselSketchHtml(input, { theme })` returns a figure with two SVGs from the case's
+  inputs; it never changes the case. `wrc-sketch-check.mjs` asserts the input and the WRC 537 results are
+  unchanged for all six examples. Keep it that way: the canvas reads the model, and the WRC core stays as it is.
+- **Where it shows.** `render()` in `wrc-panel.js` fills `[data-slot="sketch"]` inside a `<details open>` at
+  the top of the results; the report puts it after the geometry table (`theme: 'print'`, plain colours).
+- **Units.** Labels use the case's units: 6 significant figures in SI, 4 in US. Dimension labels carry
+  `data-dim`, which the check and the e2e test read.
+- **Not to scale:** only the attachment's height (`stubHeight()`), which is not an input.
+- **FE and empirical stay apart** (owner, 2026-11-28). The canvas is the empirical track; see the canvas plan
+  and decisions 7–10 in NEXT-PHASE-PLAN.md before starting A2.
+- **Pdf-Hub ports** keep a header naming the source file and commit (`74fcb94`). Port the math only, as plain
+  JS; do not bring in React, Zustand, Konva or three.js.
+
 ### 3.4 CI and Pages
 
 - **`ci.yml`:**
