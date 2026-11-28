@@ -68,6 +68,12 @@
 .wrc__units { display: flex; gap: 12px; margin: 2px 0 6px; color: var(--wrc-muted); }
 .wrc__loads label { display: grid; grid-template-columns: 1fr 130px 44px; gap: 8px; align-items: center; margin: 4px 0; }
 .wrc__help { color: var(--wrc-muted); font-size: 12px; margin: 6px 0 0; }
+/* Help under each input (PL-06 part 2). "Help text" in the bar hides it; screen readers still get it. */
+.wrc__fieldhelp { color: var(--wrc-muted); font-size: 12px; line-height: 1.35; margin: -2px 0 7px; }
+.wrc--nohelp .wrc__fieldhelp { display: none; }
+.wrc__loads .wrc__fieldhelp { margin-top: -3px; }
+.wrc__sys, .wrc__helptoggle { display: flex; gap: 6px; align-items: center; color: var(--wrc-muted); }
+.wrc__helptoggle input { accent-color: var(--wrc-accent); margin: 0; }
 
 .wrc__derived { display: grid; gap: 8px; margin-bottom: 10px; }
 .wrc__derived-set { display: flex; flex-wrap: wrap; gap: 8px; }
