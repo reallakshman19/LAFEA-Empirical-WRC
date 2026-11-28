@@ -111,6 +111,17 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
 
   The sketch only reads the case, so the results are the same with or without it. Its dimension lines are
   adapted from Pdf-Hub (MIT).
+- **Several attachments on one shell** (canvas step A2, `src/app/wrc/vessel-model.js`), in the "Vessel" box
+  above the form:
+  - up to 20 attachments, each with its name, type, size, pad, position along and around the shell, Kn/Kb
+    and load cases. The shell, pressure, allowables and method settings are shared by all of them;
+  - pick one to edit it in the form; "+ Add attachment" copies it a quarter turn round; "Delete attachment";
+  - the sketch shows all of them, the selected one highlighted and dimensioned (its angle in the end section);
+  - with two or more, a table gives each one's governing stress intensity, point, load case and code check,
+    and names the highest;
+  - each attachment is checked on its own, exactly as a single case: WRC 537 does not cover two attachments
+    close together. The position around the shell is used for the drawing only;
+  - the report is for the selected attachment, says which one it is, and its sketch shows the whole shell.
 - **Inputs:**
   - shell OD, thickness and corrosion allowance;
   - attachment type: nozzle or trunnion (OD; a trunnion is a solid bar or a pipe), or rectangular (length along
@@ -176,8 +187,9 @@ This calculates WRC Bulletin 537 (2013) local stress in a **cylindrical shell** 
   - the WRC curve values used;
   - the 8-point table and limitations;
   - prepared/checked sign-off lines.
-- **Saving:** cases are saved automatically in the browser. "Save case" and "Open case"
-  use `*.wrc.json` files.
+- **Saving:** the vessel is saved automatically in the browser. "Save file" writes a `*.vessel.json` file
+  (`lafea-emp-app/vessel/v1`, empirical only), and "Open file…" reads it. A `*.wrc.json` case saved before
+  canvas A2 still opens, as a vessel with one attachment.
 - **Shell FE cross-check:** "Run shell FE cross-check" solves the same geometry with LAFEA's shell
   solver in the background, taking about 30 s. The model is a rigid round attachment on a clamped cylinder,
   with all six loads (P, Vc, Vl, Mc, Ml, Mt), but not pressure or Kn/Kb. The table shows WRC and FE stress intensity at the 8
@@ -263,15 +275,15 @@ dependencies**.
 
 ## Tests
 
-Results after PL-06 part 3 (2026-11-28), on Windows with Node 22 and Chrome:
+Results after canvas step A2 (2026-11-28), on Windows with Node 22 and Chrome:
 
 | Suite | Command | Result |
 |---|---|---|
-| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **310 pass**, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). The 2 B01 route checks need `python3`; without it they show as SKIPPED. |
+| Node checks (LAFEA / EMP1 / WRC) | `npm run check:all` | **312 pass** in CI, 0 fail, 13 skipped as KNOWN (10 real gaps, 2 slow, 1 helper). Locally 310 pass: the 2 B01 route checks need `python3`, and without it they show as SKIPPED. |
 | Shell-FE cross-checks (in `check:all`) | `node scripts/wrc-nozzle-fe-check.mjs` (P, Mc, Ml), `node scripts/wrc-nozzle-fe-shear-check.mjs` (Vc, Vl, Mt, contour field), `node scripts/wrc-lug-fe-check.mjs` (lug model, all six loads), `node scripts/wrc-lug-fe-route-check.mjs` (FE-only route, square vs round) | pass, about 1 min each |
 | Plate form and mesher (in `check:all`) | `node scripts/lafea-plate-form-check.mjs` (validation, Kt = 3.047 against 3.025, plain plate against σL/E), `node scripts/lafea-mesher-speed-check.mjs` (same flips as the original, h = 10 mesh in seconds, SHA-256 against `node:crypto`) | pass, about 45 s and 4 s |
-| Browser e2e (25 specs, 65 tests) | `npx playwright test` (dev server) | **57 pass**, 8 fail. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
-| App e2e (WRC calculator, WRC units and help text, WRC sketch, LAFEA example, plate form, workbench look/technical details/keyboard, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/wrc-units-help.spec.js e2e/wrc-sketch.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/lafea-workbench-ui.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **27 pass** on the dev server (canvas A1, 2026-11-28). The full suite is now 26 specs and 67 tests; the upstream specs were not rerun for A1, which does not touch them. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
+| Browser e2e (27 specs, 69 tests) | `npx playwright test` (dev server) | The app specs below all pass; the 18 upstream specs were last run for PL-06 part 3 (32 pass, 8 fail) and are not touched by the canvas. The 8 also fail upstream. They run on the original `lafea.html` entry or the `e2e/fixtures/lafea-guided-workbench.html` fixture, not the app. |
+| App e2e (WRC calculator, WRC units and help text, WRC sketch, vessel with several attachments, LAFEA example, plate form, workbench look/technical details/keyboard, status page, tabs/layouts/keyboard) | `npx playwright test e2e/wrc-calculator.spec.js e2e/wrc-units-help.spec.js e2e/wrc-sketch.spec.js e2e/wrc-vessel.spec.js e2e/lafea-example.spec.js e2e/lafea-plate.spec.js e2e/lafea-workbench-ui.spec.js e2e/app-status.spec.js e2e/app-ui.spec.js` | **29 pass** on the dev server. The plate test takes about 1 min; on a busy machine it can pass its 7-minute limit, so run it alone. |
 | Isolation | `npm run check:boundary` | pass for both `src/lafea-app/main.js` and `src/app/main.js` |
 | WRC calculator | `npm run check:wrc` | pass (γ = 5 hand calc exact; CAESAR II γ = 48 within 2.0%; PV Elite WRC 297 reference: stress intensities, signs and shear agree) |
 | Build | `npm run build`, `npm run build:lafea` | pass |

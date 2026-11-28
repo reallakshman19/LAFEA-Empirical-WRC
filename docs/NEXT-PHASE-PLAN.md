@@ -79,7 +79,7 @@ Grid snapping, polar and object snaps, dimension lines and a library-free 3-D re
 | Step | What you can do when it is done | Size | Needs |
 |---|---|---|---|
 | A1 | **Sketch:** a dimensioned side view and end section of the calculator's inputs, live, in SI or US, and in the report. **Done 2026-11-28.** | S–M | nothing |
-| A2 | **Several attachments** on one shell, each with its type, size, pad, station, angle around and load cases. "Check all" gives the governing result per attachment. A `.vessel.json` model file; an old `.wrc.json` opens as one attachment | M | decisions 7 and 8 |
+| A2 | **Several attachments** on one shell, each with its type, size, pad, station, angle around and load cases. A table gives the governing result per attachment. A `.vessel.json` model file; an old `.wrc.json` opens as one attachment. **Done 2026-11-28**, in the Empirical tab above the form (decision 7), file empirical only (decision 8) | M | nothing |
 | A3 | **Edit on the drawing:** an unrolled view (along × around, wrapping at 360°); select and drag with grid and 15° snaps; arrow keys do the same | M (S–M with the Pdf-Hub port) | A2 |
 | A4 | **Range checks on the model:** γ and β out of range, too close to an end (§4.5.2), too close to another attachment, coloured on the drawing | S–M | decision 9 |
 | A5 | **Loads in vessel axes** (optional): converted to each attachment's WRC axes from its angle | M | decision 10 |
@@ -153,11 +153,9 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
    loads the γ = 5 qualification sample (four pressure definitions, ten reference points, a 35.43 mm attachment),
    which 19 checks and the γ = 5 hand calculation are built on. The calculator's six examples are the plain
    starting points.
-7. **Where the canvas lives (stage A):** inside the Empirical tab, above the calculator form (proposed), or in a
-   tab of its own? Needed before A2.
-8. **Canvas model file (before A2):** keep it empirical only, with FE importing its geometry one way later
-   (proposed, in line with keeping FE and empirical apart), or one file read by both WRC and LAFEA as the
-   roadmap first said?
+7. **Where the canvas lives (stage A):** *decided 2026-11-28: in the Empirical tab, above the calculator form.*
+8. **Canvas model file:** *decided 2026-11-28: empirical only.* LAFEA does not read or write `.vessel.json`; FE
+   may later import its geometry one way.
 9. **Spacing between attachments (A4):** WRC 537 has no rule for two attachments close together. Which
    criterion should the warning use, for example a centre spacing in multiples of √(Rm·T), or your company rule?
    Until then it can only be a labelled warning.
@@ -168,4 +166,5 @@ Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.
 
 5.1, then 5.2, then 5.3 (all done 2026-11-26), then PL-01, PL-03 and PL-04 (done 2026-11-27). PL-06 (the UI) is
 done: parts 1 and 2 on 2026-11-27 and part 3 on 2026-11-28 (decision 6: keep the advanced workflow's example).
-Canvas step A1 (the sketch) was done on 2026-11-28; A2 waits on decisions 7 and 8. PL-02 and PL-05 start as soon as your runs or your standard arrive.
+Canvas steps A1 (the sketch) and A2 (several attachments) were done on 2026-11-28; A3 (editing on the drawing)
+needs nothing from you, A4 needs decision 9 and A5 decision 10. PL-02 and PL-05 start as soon as your runs or your standard arrive.
