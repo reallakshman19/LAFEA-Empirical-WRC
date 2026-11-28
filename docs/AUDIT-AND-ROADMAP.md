@@ -720,6 +720,34 @@ Checks:
   do not change the model;
 - the upstream source checks on the three changed files still pass.
 
+**2026-11-28: canvas step A1, the sketch of the WRC inputs (roadmap stage A).** The first step of the canvas
+plan in NEXT-PHASE-PLAN, on the empirical track. The owner also set a rule: keep FE and empirical work apart
+(a one-time FE run to build data or fit an approximation is fine).
+- `src/app/wrc/vessel-sketch.js` draws two SVG views of the calculator's inputs:
+  - **side view:** the shell along its axis with its wall (dashed), the ends (dashed when no length is given),
+    the attachment at its station, a pad, and dimensions for OD, length, station, attachment and pad;
+  - **end section:** the wall and the corrosion allowance (dashed), the attachment on top and a pad band, with
+    the OD, the attachment width around and the pad width around.
+- It is to scale except the attachment's height, which is not an input, and the caption says so. Missing
+  inputs give a note instead of a guess: no length, no station, no attachment size, no shell.
+- It is redrawn on every input, in the case's units (6 significant figures in SI, 4 in US), and printed in
+  the report after the geometry table in black on white. Each view has a name for screen readers that
+  states the inputs, and "Sketch" folds it away.
+- The sketch only reads the case: the check confirms that the input and the WRC 537 results of all six
+  examples are unchanged.
+- The dimension lines (extension lines, arrowheads, a label that reads upright) are adapted from Pdf-Hub's
+  `DimensionNode.tsx` (MIT). Nothing from React or Konva is used, and nothing is added to the first load
+  apart from the sketch code itself.
+- The status page's canvas row moves from "not started" to "partial", and the four canvas decisions
+  (7–10 in NEXT-PHASE-PLAN) are on the page.
+
+Checks:
+- new `scripts/wrc-sketch-check.mjs` (in `check:all`): two named views for the six examples in SI and US with
+  finite numbers only; the dimensions read the inputs (lug, γ = 5 case, pad); notes for missing inputs; input
+  and results unchanged; the report holds the sketch in plain colours;
+- new `e2e/wrc-sketch.spec.js` (2 tests): the default nozzle's dimensions and screen-reader name, redrawing as
+  you type, US units, a lug in both views, folding away; no sideways scrolling on a phone.
+
 ## Roadmap
 
 Ordered by value to an engineer using the Empirical calc. Sizes: S = under ½ day, M = 1–2 days, L = 3+ days.

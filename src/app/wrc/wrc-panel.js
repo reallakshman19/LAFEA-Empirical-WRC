@@ -8,6 +8,7 @@ import {
   classifyGamma, deriveWrcGeometry, fmt, hasPad, isRectangular, isTrunnion, wrcFeReference,
 } from './wrc-calc.js';
 import { buildWrcReportHtml } from './wrc-report.js';
+import { buildVesselSketchHtml } from './vessel-sketch.js';
 import {
   FE_CONTOUR_CAPTION, FE_LUG_METHOD_NOTE, FE_METHOD_NOTE, buildFeContourHtml, feEdgePeakText, feOnlyReasonText, insideAttachment, triangleAt,
 } from './fe-contour.js';
@@ -150,6 +151,7 @@ export function mountWrcCalculator(host) {
       </form>
       <section class="wrc__results" aria-labelledby="wrc-results-heading">
         <h2 class="ui-sr-only wrc__results-h" id="wrc-results-heading" tabindex="-1">Results</h2>
+        <details class="wrc__sketch" open><summary>Sketch</summary><div data-slot="sketch"></div></details>
         <div class="wrc__derived" data-slot="derived"></div>
         <div data-slot="envelope"></div>
         <div data-slot="status"></div>
@@ -291,6 +293,7 @@ export function mountWrcCalculator(host) {
     if (isRectangular(state)) type = 'RECTANGULAR';
     else if (isTrunnion(state)) type = 'TRUNNION';
     for (const row of host.querySelectorAll('[data-only]')) row.hidden = !row.dataset.only.split(' ').includes(type);
+    $('[data-slot="sketch"]').innerHTML = buildVesselSketchHtml(state);
     for (const em of host.querySelectorAll('[data-unit-kind]')) em.textContent = em.dataset.unitKind === 'length' ? U().length : U().stress;
     for (const l of LOADS) {
       host.querySelector(`[data-unit="${l.key}"]`).textContent = ['P', 'Vc', 'Vl'].includes(l.key) ? state.forceUnit : state.momentUnit;
